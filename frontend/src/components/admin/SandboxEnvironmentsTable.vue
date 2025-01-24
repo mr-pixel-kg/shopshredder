@@ -2,8 +2,10 @@
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from "primevue/button";
-import Tag from "primevue/tag"
-import SandboxService from "../../services/sandboxService.js"
+import Tag from "primevue/tag";
+import Select from 'primevue/select';
+import Dialog from 'primevue/dialog';
+import SandboxService from "../../services/sandboxService.js";
 
 export default {
 
@@ -11,6 +13,8 @@ export default {
     DataTable,
     Column,
     Button,
+    Select,
+    Dialog,
     Tag
   },
 
@@ -27,7 +31,16 @@ export default {
         created_at: "2024-12-20T13:08:50+01:00",
         state: "running",
         status: "Up 1 second"
-      }]
+      }],
+      createSandboxDialogVisible: false,
+      sandboxImage: "",
+      availableSandboxImages: ["dockware/dev:6.6.8.2"],
+      sandboxLifetime: -1,
+      availableSandboxLifetimes: [
+        { display: 'Endless', value: -1 },
+        { display: '1 hour', value: 60 },
+        { display: '1 day', value: 1440 }
+      ]
     }
   },
 
@@ -51,6 +64,10 @@ export default {
     async deleteSandbox(data) {
       await SandboxService.deleteSandbox(data.id);
       await this.loadData();
+    },
+    async createSandboxEnvironment() {
+      await SandboxService.createSandbox(this.sandboxImage, this.sandboxLifetime)
+      this.createSandboxDialogVisible = false;
     }
   },
 
@@ -70,7 +87,10 @@ export default {
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-xl font-bold">Sandbox Environments</span>
-          <Button icon="pi pi-refresh" rounded raised @click="loadData"/>
+          <div class="flex gap-2">
+            <Button icon="pi pi-plus" rounded raised @click="createSandboxDialogVisible = true"/>
+            <Button icon="pi pi-refresh" rounded raised @click="loadData"/>
+          </div>
         </div>
       </template>
       <Column field="id" header="ID"></Column>
@@ -97,6 +117,21 @@ export default {
       </template>
     </DataTable>
   </div>
+
+  <Dialog v-model:visible="createSandboxDialogVisible" modal header="Create Sandbox" :style="{ width: '25rem' }">
+    <div class="flex items-center gap-4 mb-4">
+      <label for="sandbox-image" class="font-semibold w-24">Image</label>
+      <Select id="sandbox-image" v-model="sandboxImage" :options="availableSandboxImages" class="flex-auto" autocomplete="off" />
+    </div>
+    <div class="flex items-center gap-4 mb-8">
+      <label for="sandbox-lifetime" class="font-semibold w-24">Lifetime</label>
+      <Select id="sandbox-lifetime" v-model="sandboxLifetime" :options="availableSandboxLifetimes" optionLabel="display" class="flex-auto" autocomplete="off" />
+    </div>
+    <div class="flex justify-end gap-2">
+      <Button type="button" label="Cancel" severity="secondary" @click="createSandboxDialogVisible = false"></Button>
+      <Button type="button" label="Save" @click="createSandboxEnvironment"></Button>
+    </div>
+  </Dialog>
 </template>
 
 <style scoped>

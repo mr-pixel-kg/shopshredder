@@ -23,10 +23,10 @@ class SandboxService {
         return response.data;
     }
 
-    async createSandbox() {
+    async createSandbox(image_name, lifetime) {
         var data = {
-            "image_name": "dockware/dev:6.6.8.2",
-            "lifetime": 1440
+            "image_name": image_name,
+            "lifetime": lifetime
         };
         const response = await this.apiClient.post("/api/sandboxes", data);
         return response.data;
