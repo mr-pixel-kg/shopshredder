@@ -1,4 +1,28 @@
-# Environment for Testing Plugins
+# mpXsandbox
+
+This application allows you to create demo shops in a docker environment.
+
+## Backend
+
+Requires a environment variable for docker and it has to be started as root:
+```
+DOCKER_HOST=unix:///Users/manuel.kienlein/.docker/run/docker.sock
+```
+
+### Swagger Docs
+Command to compile swagger documentation page under http://localhost:8080/swagger/index.html
+```
+swag init
+```
+
+
+## Frontend
+Start development server
+```
+yarn dev
+```
+
+# Old Documentation from Fork
 
 This environment is in use internally for testing store plugins.
 
