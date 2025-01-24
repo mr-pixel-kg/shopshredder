@@ -1,5 +1,5 @@
 <script setup>
-import Sidebar from "../components/admin/Sidebar.vue";
+import Sidebar from "@/components/admin/Sidebar.vue";
 import Panel from 'primevue/panel';
 </script>
 

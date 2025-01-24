@@ -6,8 +6,8 @@ import Tag from "primevue/tag";
 import Select from "primevue/select";
 import Dialog from "primevue/dialog";
 import ProgressSpinner from "primevue/progressspinner";
-import SandboxService from "../../services/sandboxService.js";
-import ImagesService from "../../services/imagesService.js";
+import SandboxService from "@/services/sandboxService.js";
+import ImagesService from "@/services/imagesService.js";
 
 export default {
   components: {

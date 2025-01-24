@@ -12,8 +12,8 @@ const routes = [
     {
         path: '/admin',
         component: AdminView,
+        redirect: '/admin/sandbox-environments',
         children: [
-            { path: '', redirect: 'admin/sandbox-environments' }, // Standardseite im Adminbereich
             { path: 'sandbox-environments', component: AdminSandboxEnvironments },
             { path: 'sandbox-images', component: AdminSandboxImages },
         ],

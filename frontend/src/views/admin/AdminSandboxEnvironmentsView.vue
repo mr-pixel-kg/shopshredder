@@ -1,5 +1,5 @@
 <script setup>
-import SandboxEnvironmentsTable from "../../components/admin/SandboxEnvironmentsTable.vue";
+import SandboxEnvironmentsTable from "@/components/admin/SandboxEnvironmentsTable.vue";
 </script>
 
 <template>

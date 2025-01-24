@@ -1,5 +1,5 @@
 <script setup>
-import SandboxImagesTable from "../../components/admin/SandboxImagesTable.vue";
+import SandboxImagesTable from "@/components/admin/SandboxImagesTable.vue";
 </script>
 
 <template>

@@ -6,7 +6,7 @@ import Tag from "primevue/tag";
 import Dialog from "primevue/dialog";
 import InputText from "primevue/inputtext";
 import ProgressSpinner from "primevue/progressspinner";
-import ImagesService from "../../services/imagesService.js";
+import ImagesService from "@/services/imagesService.js";
 
 export default {
   components: {
