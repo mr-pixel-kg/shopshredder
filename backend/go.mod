@@ -1,4 +1,4 @@
-module github.com/shopwareLabs/testenv-platform
+module github.com/mr-pixel-kg/shopware-sandbox-plattform
 
 go 1.23
 

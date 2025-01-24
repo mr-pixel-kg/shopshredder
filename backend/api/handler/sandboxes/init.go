@@ -1,7 +1,7 @@
 package sandboxes
 
 import (
-	"github.com/shopwareLabs/testenv-platform/services/sandbox"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/sandbox"
 )
 
 type SandboxHandler struct {

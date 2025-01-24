@@ -1,8 +1,8 @@
 package images
 
 import (
-	"github.com/shopwareLabs/testenv-platform/services"
-	"github.com/shopwareLabs/testenv-platform/services/images"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/images"
 )
 
 type ImageHandler struct {

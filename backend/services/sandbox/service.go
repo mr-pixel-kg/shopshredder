@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
-	"github.com/shopwareLabs/testenv-platform/services/images"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/images"
 	"io"
 	"log"
 	"os"

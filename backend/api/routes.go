@@ -2,13 +2,13 @@ package api
 
 import (
 	"github.com/labstack/echo/v4"
-	"github.com/shopwareLabs/testenv-platform/api/handler"
-	"github.com/shopwareLabs/testenv-platform/api/handler/images"
-	"github.com/shopwareLabs/testenv-platform/api/handler/sandboxes"
-	_ "github.com/shopwareLabs/testenv-platform/docs"
-	"github.com/shopwareLabs/testenv-platform/services"
-	images2 "github.com/shopwareLabs/testenv-platform/services/images"
-	"github.com/shopwareLabs/testenv-platform/services/sandbox"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/handler"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/handler/images"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/handler/sandboxes"
+	_ "github.com/mr-pixel-kg/shopware-sandbox-plattform/docs"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services"
+	images2 "github.com/mr-pixel-kg/shopware-sandbox-plattform/services/images"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/sandbox"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
