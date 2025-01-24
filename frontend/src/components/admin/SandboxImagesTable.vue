@@ -1,16 +1,14 @@
 <script>
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
 import Button from "primevue/button";
-import Tag from "primevue/tag"
-import Dialog from 'primevue/dialog';
-import InputText from 'primevue/inputtext';
-import ProgressSpinner from 'primevue/progressspinner';
-import SandboxService from "../../services/sandboxService.js";
+import Tag from "primevue/tag";
+import Dialog from "primevue/dialog";
+import InputText from "primevue/inputtext";
+import ProgressSpinner from "primevue/progressspinner";
 import ImagesService from "../../services/imagesService.js";
 
 export default {
-
   components: {
     DataTable,
     Column,
@@ -18,33 +16,30 @@ export default {
     Tag,
     Dialog,
     InputText,
-    ProgressSpinner
+    ProgressSpinner,
   },
 
-  // Properties returned from data() become reactive state
-  // and will be exposed on `this`.
   data() {
     return {
-      images: [{
-        "id": "a407dee395ed97ead1e40c7537395d6271c07cc89c317f8eda1c19f6fc783695",
-        "image_name": "dockware/dev",
-        "image_tag": "6.6.8.2",
-        "created_at": "2024-11-12T17:10:49+01:00",
-        "size": 4860039980
-      }],
+      images: [],
       addImageDialogVisible: false,
       pullingImageLoading: false,
-      imageName: "",
-      imageTag: ""
-    }
+      imageForm: {
+        name: "",
+        tag: "",
+      },
+    };
   },
 
-  // Methods are functions that mutate state and trigger updates.
-  // They can be bound as event handlers in templates.
   methods: {
     async loadData() {
-      this.images = await ImagesService.getAllImages();
+      try {
+        this.images = await ImagesService.getAllImages();
+      } catch (error) {
+        console.error("Failed to load images:", error.message);
+      }
     },
+
     formatSize(bytes) {
       const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
       if (bytes === 0) return "0 Bytes";
@@ -52,41 +47,65 @@ export default {
       const size = bytes / Math.pow(1024, i);
       return `${size.toFixed(2)} ${sizes[i]}`;
     },
+
     async deleteImage(data) {
-      await ImagesService.deleteImage(data.id);
-      await this.loadData();
+      try {
+        await ImagesService.deleteImage(data.id);
+        await this.loadData();
+      } catch (error) {
+        console.error("Failed to delete image:", error.message);
+      }
     },
+
     async addSandboxImage() {
       this.pullingImageLoading = true;
-      await ImagesService.registerImage(this.imageName, this.imageTag);
-      await this.loadData();
-      this.pullingImageLoading = false;
-      this.addImageDialogVisible = false;
-    }
+
+      try {
+        await ImagesService.registerImage(this.imageForm.name, this.imageForm.tag);
+        await this.loadData();
+        this.resetImageForm();
+        this.addImageDialogVisible = false;
+      } catch (error) {
+        console.error("Failed to add sandbox image:", error.message);
+      } finally {
+        this.pullingImageLoading = false;
+      }
+    },
+
+    resetImageForm() {
+      this.imageForm = {
+        name: "",
+        tag: "",
+      };
+    },
   },
 
-  // Lifecycle hooks are called at different stages
-  // of a component's lifecycle.
-  // This function will be called when the component is mounted.
   mounted() {
-    console.log(`Loading images table`)
     this.loadData();
-  }
-}
+  },
+};
 </script>
 
 <template>
   <div class="card">
-    <DataTable :value="this.images" tableStyle="min-width: 50rem">
+    <!-- Data Table -->
+    <DataTable :value="images" tableStyle="min-width: 50rem">
       <template #header>
-        <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center justify-between gap-2">
           <span class="text-xl font-bold">Sandbox Images</span>
           <div class="flex gap-2">
-            <Button icon="pi pi-plus" rounded raised @click="addImageDialogVisible = true"/>
-            <Button icon="pi pi-refresh" rounded raised @click="loadData"/>
+            <Button
+                icon="pi pi-plus"
+                rounded
+                raised
+                @click="addImageDialogVisible = true"
+            />
+            <Button icon="pi pi-refresh" rounded raised @click="loadData" />
           </div>
         </div>
       </template>
+
+      <!-- Columns -->
       <Column field="id" header="ID">
         <template #body="{ data }">
           {{ data.id.slice(0, 10) }}...
@@ -102,11 +121,18 @@ export default {
       </Column>
       <Column class="w-24 !text-end">
         <template #body="{ data }">
-          <div class="flex /*flex-wrap*/ gap-1 justify-center">
-            <Button icon="pi pi-trash" @click="deleteImage(data)" severity="secondary" rounded></Button>
+          <div class="flex gap-1 justify-center">
+            <Button
+                icon="pi pi-trash"
+                severity="secondary"
+                rounded
+                @click="deleteImage(data)"
+            />
           </div>
         </template>
       </Column>
+
+      <!-- Empty State -->
       <template #empty>
         <div class="text-center text-gray-500">
           <i class="pi pi-info-circle text-xl"></i>
@@ -116,24 +142,57 @@ export default {
     </DataTable>
   </div>
 
-  <Dialog v-model:visible="addImageDialogVisible" modal header="Add Sandbox Image" :style="{ width: '25rem' }">
-    <span class="text-surface-500 dark:text-surface-400 block mb-8">Enter docker image:</span>
+  <!-- Dialog -->
+  <Dialog
+      v-model:visible="addImageDialogVisible"
+      modal
+      header="Add Sandbox Image"
+      :style="{ width: '25rem' }"
+  >
+    <span class="text-surface-500 dark:text-surface-400 block mb-8">
+      Enter docker image:
+    </span>
     <div class="flex items-center gap-4 mb-4">
       <label for="image-name" class="font-semibold w-24">Image Name</label>
-      <InputText id="image-name" v-model="imageName" class="flex-auto" autocomplete="off" />
+      <InputText
+          id="image-name"
+          v-model="imageForm.name"
+          class="flex-auto"
+          autocomplete="off"
+      />
     </div>
     <div class="flex items-center gap-4 mb-8">
       <label for="image-tag" class="font-semibold w-24">Image Tag</label>
-      <InputText id="image-tag" v-model="imageTag" class="flex-auto" autocomplete="off" />
+      <InputText
+          id="image-tag"
+          v-model="imageForm.tag"
+          class="flex-auto"
+          autocomplete="off"
+      />
     </div>
     <div :class="['flex gap-2', pullingImageLoading ? 'justify-between' : 'justify-end']">
       <span v-if="pullingImageLoading" class="flex items-center gap-2 text-primary">
         Pulling image...
-        <ProgressSpinner style="width: 50px; height: 30px" strokeWidth="8" fill="transparent" animationDuration=".5s" />
+        <ProgressSpinner
+            style="width: 50px; height: 30px"
+            strokeWidth="8"
+            fill="transparent"
+            animationDuration=".5s"
+        />
       </span>
       <div class="flex gap-2">
-        <Button type="button" label="Cancel" severity="secondary" @click="addImageDialogVisible = false"></Button>
-        <Button type="button" label="Save" :disabled="pullingImageLoading" @click="addSandboxImage"></Button>
+        <Button
+            type="button"
+            label="Cancel"
+            severity="secondary"
+            @click="addImageDialogVisible = false"
+        />
+        <Button
+            type="button"
+            label="Save"
+            :disabled="pullingImageLoading"
+            @click="addSandboxImage"
+        />
       </div>
     </div>
   </Dialog>

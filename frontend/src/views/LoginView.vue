@@ -5,7 +5,6 @@ import InputText from 'primevue/inputtext';
 </script>
 
 <template>
-
   <div class="login-form">
     <Card>
       <template #title>Login</template>
@@ -22,8 +21,6 @@ import InputText from 'primevue/inputtext';
       </template>
     </Card>
   </div>
-
-
 </template>
 
 <style scoped>

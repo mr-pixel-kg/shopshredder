@@ -1,11 +1,8 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
 import logo from './assets/logo.png'
 </script>
 
 <template>
-  <!--<HelloWorld msg="Vite + Vue" />-->
-
   <header class="header">
     <div class="logo-wrapper">
       <img :src="logo" alt="mr. pixel Logo" class="logo" />
@@ -16,7 +13,7 @@ import logo from './assets/logo.png'
       <RouterLink to="/admin">Go to Admin</RouterLink>
     </nav>
   </header>
-  <strong>Current route path:</strong> {{ $route.fullPath }}
+
   <main>
     <RouterView />
   </main>
