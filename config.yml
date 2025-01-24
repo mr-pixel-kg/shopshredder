@@ -1,0 +1,13 @@
+server:
+  port: 8080
+  allowed_origins:
+    - "http://localhost:5173"
+    - "https://www.shopshredder.de"
+  app_url: "http://localhost"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "password"
+  name: "appdb"

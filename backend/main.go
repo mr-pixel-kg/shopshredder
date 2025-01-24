@@ -5,18 +5,26 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/config"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func main() {
 	e := echo.New()
 
+	// Config
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	// Middleware
 	e.Use(middleware.Logger())  // Loggt Anfragen
 	e.Use(middleware.Recover()) // Fängt Panics ab und gibt 500 zurück
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"https://www.shopshredder.de", "http://localhost:5173"},
+		AllowOrigins: cfg.Server.AllowedOrigins,
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, "Access-Control-Allow-Origin"},
 	}))
 
@@ -24,9 +32,9 @@ func main() {
 	api.RegisterRoutes(e)
 
 	// Start server
-	port := ":8080"
-	log.Printf("Starting server on http://localhost%s", port)
-	if err := e.Start(port); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	port := cfg.Server.Port
+	log.Printf("Starting server on http://localhost:%s", port)
+	if err := e.Start(":" + strconv.Itoa(port)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("Could not start server: %v", err)
 	}
 }
