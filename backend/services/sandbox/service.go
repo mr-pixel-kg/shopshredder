@@ -61,6 +61,12 @@ func (s *SandboxService) ListSandboxes(ctx context.Context) ([]SandboxInfo, erro
 			// todo error handling
 		}
 
+		var destroyAt *string
+		if sandbox.DestroyAt != nil {
+			formattedDestroyAt := sandbox.DestroyAt.Format(time.RFC3339)
+			destroyAt = &formattedDestroyAt
+		}
+
 		containerInfo := SandboxInfo{
 			ID:            cont.Labels["sandbox_id"],
 			ContainerName: cont.Names[0],
@@ -68,7 +74,7 @@ func (s *SandboxService) ListSandboxes(ctx context.Context) ([]SandboxInfo, erro
 			Url:           cont.Labels["sandbox_host"],
 			Image:         cont.Image,
 			CreatedAt:     sandbox.CreatedAt.Format(time.RFC3339),
-			DestroyAt:     sandbox.DestroyAt.Format(time.RFC3339),
+			DestroyAt:     destroyAt,
 			State:         cont.State,
 			Status:        cont.Status,
 		}
@@ -92,6 +98,12 @@ func (s *SandboxService) GetSandbox(ctx context.Context, sandboxId string) (Sand
 		return SandboxInfo{}, err
 	}
 
+	var destroyAt *string
+	if sandbox.DestroyAt != nil {
+		formattedDestroyAt := sandbox.DestroyAt.Format(time.RFC3339)
+		destroyAt = &formattedDestroyAt
+	}
+
 	sandboxInfo := SandboxInfo{
 		ID:            cont.Config.Labels["sandbox_id"],
 		ContainerName: cont.Name,
@@ -99,7 +111,7 @@ func (s *SandboxService) GetSandbox(ctx context.Context, sandboxId string) (Sand
 		Url:           cont.Config.Labels["sandbox_host"],
 		Image:         cont.Image,
 		CreatedAt:     sandbox.CreatedAt.Format(time.RFC3339),
-		DestroyAt:     sandbox.DestroyAt.Format(time.RFC3339),
+		DestroyAt:     destroyAt,
 		State:         cont.State.Status,
 		Status:        "up",
 	}
@@ -217,15 +229,15 @@ func (s *SandboxService) ShutdownSandboxes() {
 }
 
 type SandboxInfo struct {
-	ID            string `json:"id"`
-	ContainerId   string `json:"container_id"`
-	ContainerName string `json:"container_name"`
-	Url           string `json:"url"`
-	Image         string `json:"image"`
-	CreatedAt     string `json:"created_at"`
-	DestroyAt     string `json:"destroy_at"`
-	State         string `json:"state"`
-	Status        string `json:"status"`
+	ID            string  `json:"id"`
+	ContainerId   string  `json:"container_id"`
+	ContainerName string  `json:"container_name"`
+	Url           string  `json:"url"`
+	Image         string  `json:"image"`
+	CreatedAt     string  `json:"created_at"`
+	DestroyAt     *string `json:"destroy_at"`
+	State         string  `json:"state"`
+	Status        string  `json:"status"`
 }
 
 const gcInterval = 10 * time.Minute

@@ -50,7 +50,7 @@ func (h *SandboxHandler) SandboxCreateHandler(c echo.Context) error {
 		})
 	}
 
-	if input.Lifetime < 5 {
+	if input.Lifetime < 5 && input.Lifetime != -1 {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Lifetime should be greater than 5",
 		})
