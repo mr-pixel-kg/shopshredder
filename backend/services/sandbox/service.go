@@ -51,10 +51,14 @@ func (s *SandboxService) ListSandboxes(ctx context.Context) ([]SandboxInfo, erro
 
 	sandboxInfos := make([]SandboxInfo, 0)
 	for _, cont := range containers {
-		created := time.Unix(cont.Created, 0).Format(time.RFC3339)
-
 		if cont.Labels["sandbox_container"] != "true" {
 			continue
+		}
+
+		sandbox, err := s.sandboxRepository.GetByContainerID(cont.ID)
+		if err != nil {
+			log.Printf("Failed to fetch info for sandbox %s, because sandbox not found: %v", cont.ID, err)
+			// todo error handling
 		}
 
 		containerInfo := SandboxInfo{
@@ -63,7 +67,8 @@ func (s *SandboxService) ListSandboxes(ctx context.Context) ([]SandboxInfo, erro
 			ContainerId:   cont.ID,
 			Url:           cont.Labels["sandbox_host"],
 			Image:         cont.Image,
-			CreatedAt:     created,
+			CreatedAt:     sandbox.CreatedAt.Format(time.RFC3339),
+			DestroyAt:     sandbox.DestroyAt.Format(time.RFC3339),
 			State:         cont.State,
 			Status:        cont.Status,
 		}
@@ -87,15 +92,14 @@ func (s *SandboxService) GetSandbox(ctx context.Context, sandboxId string) (Sand
 		return SandboxInfo{}, err
 	}
 
-	created := cont.Created
-
 	sandboxInfo := SandboxInfo{
 		ID:            cont.Config.Labels["sandbox_id"],
 		ContainerName: cont.Name,
 		ContainerId:   cont.ID,
 		Url:           cont.Config.Labels["sandbox_host"],
 		Image:         cont.Image,
-		CreatedAt:     created,
+		CreatedAt:     sandbox.CreatedAt.Format(time.RFC3339),
+		DestroyAt:     sandbox.DestroyAt.Format(time.RFC3339),
 		State:         cont.State.Status,
 		Status:        "up",
 	}
@@ -219,6 +223,7 @@ type SandboxInfo struct {
 	Url           string `json:"url"`
 	Image         string `json:"image"`
 	CreatedAt     string `json:"created_at"`
+	DestroyAt     string `json:"destroy_at"`
 	State         string `json:"state"`
 	Status        string `json:"status"`
 }
@@ -241,4 +246,6 @@ func (s *SandboxService) startGarbageCollectorScheduler() {
 func (s *SandboxService) garbageCollect() {
 	log.Println("Check for expired sandbox containers...")
 	s.ShutdownSandboxes()
+
+	// TODO check for dangling database records which have no corresponding container
 }

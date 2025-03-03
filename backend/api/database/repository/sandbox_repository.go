@@ -46,6 +46,20 @@ func (r *SandboxRepository) GetByID(id string) (*models.Sandbox, error) {
 	return &sandbox, nil
 }
 
+func (r *SandboxRepository) GetByContainerID(id string) (*models.Sandbox, error) {
+	var sandbox models.Sandbox
+	query := `SELECT * FROM sandboxes WHERE container_id = $1`
+	err := r.db.Get(&sandbox, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		log.Printf("Error getting sandbox by ContainerID: %v", err)
+		return nil, err
+	}
+	return &sandbox, nil
+}
+
 func (r *SandboxRepository) GetAll() ([]models.Sandbox, error) {
 	var sandboxes []models.Sandbox
 	query := `SELECT * FROM sandboxes`
