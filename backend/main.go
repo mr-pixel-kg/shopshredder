@@ -5,6 +5,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/database"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/config"
 	"log"
 	"net/http"
@@ -30,6 +31,9 @@ func main() {
 
 	// Register routes
 	api.RegisterRoutes(e)
+
+	// Database
+	database.ConnectDB(cfg.Database)
 
 	// Start server
 	port := cfg.Server.Port
