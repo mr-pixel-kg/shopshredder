@@ -5,33 +5,27 @@ import (
 	"errors"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/database/repository"
 	"io"
-	"log"
 	"os"
 	"strings"
 	"time"
 )
 
-var imageWhitelistFile = "image_whitelist.txt"
-
 type ImageService struct {
-	Whitelist *DockerImageWhitelist
-	client    *client.Client
+	ImageRepository *repository.ImageRepository
+	client          *client.Client
 }
 
-func NewImageService() (*ImageService, error) {
+func NewImageService(imageRepository *repository.ImageRepository) (*ImageService, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 
-	// Load whitelist from file
-	whitelist := NewDockerImageWhitelist()
-	whitelist.LoadFromFile(imageWhitelistFile)
-
 	return &ImageService{
-		Whitelist: whitelist,
-		client:    cli,
+		ImageRepository: imageRepository,
+		client:          cli,
 	}, nil
 }
 
@@ -56,7 +50,7 @@ func (s *ImageService) ListImages(ctx context.Context) ([]Image, error) {
 		imageTag := strings.Split(image.RepoTags[0], ":")[1]
 
 		// Check if image is on whitelist
-		if !s.Whitelist.IsAllowed(imageName + ":" + imageTag) {
+		if !s.ImageRepository.IsAllowed(imageName, imageTag) {
 			continue
 		}
 
@@ -90,7 +84,7 @@ func (s *ImageService) GetImage(ctx context.Context, imageId string) (Image, err
 	imageTag := getTagFromImageName(image.RepoTags[0])
 
 	// Check if image is on whitelist
-	if !s.Whitelist.IsAllowed(imageName + ":" + imageTag) {
+	if !s.ImageRepository.IsAllowed(imageName, imageTag) {
 		return Image{}, errors.New("Requested docker image is not on whitelist")
 	}
 
@@ -129,11 +123,11 @@ func (s *ImageService) PullImage(ctx context.Context, imageName string) (Image, 
 	imageTag := getTagFromImageName(image.RepoTags[0])
 
 	// Add image to whitelist
-	s.Whitelist.Add(imageName + ":" + imageTag)
-	err = s.Whitelist.SaveToFile(imageWhitelistFile)
+	_, err = s.ImageRepository.Create(imageName, imageTag)
 	if err != nil {
-		log.Printf("Failed to add new image to whitelist %s: %v", imageWhitelistFile, err)
+		return Image{}, err
 	}
+	// todo: return image-id in response
 
 	return Image{
 		ID:        imageHash,
@@ -158,7 +152,7 @@ func (s *ImageService) DeleteImage(ctx context.Context, imageId string) error {
 	imageTag := getTagFromImageName(img.RepoTags[0])
 
 	// Check if img is on whitelist
-	if !s.Whitelist.IsAllowed(imageName + ":" + imageTag) {
+	if !s.ImageRepository.IsAllowed(imageName, imageTag) {
 		return errors.New("Requested docker img is not on whitelist")
 	}
 
@@ -169,14 +163,7 @@ func (s *ImageService) DeleteImage(ctx context.Context, imageId string) error {
 	}
 
 	// Remove image from whitelist
-	err = s.Whitelist.Remove(imageName + ":" + imageTag)
-	if err != nil {
-		return err
-	}
-	err = s.Whitelist.SaveToFile(imageWhitelistFile)
-	if err != nil {
-		return err
-	}
+	err = s.ImageRepository.DeleteByTagAndName(imageName, imageTag)
 	return nil
 }
 

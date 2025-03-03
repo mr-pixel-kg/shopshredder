@@ -21,6 +21,9 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Database
+	database.ConnectDB(cfg.Database)
+
 	// Middleware
 	e.Use(middleware.Logger())  // Loggt Anfragen
 	e.Use(middleware.Recover()) // Fängt Panics ab und gibt 500 zurück
@@ -31,9 +34,6 @@ func main() {
 
 	// Register routes
 	api.RegisterRoutes(e)
-
-	// Database
-	database.ConnectDB(cfg.Database)
 
 	// Start server
 	port := cfg.Server.Port

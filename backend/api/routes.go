@@ -2,6 +2,8 @@ package api
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/database"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/database/repository"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/handler"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/handler/images"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api/handler/sandboxes"
@@ -21,13 +23,16 @@ import (
 // @schemes http https
 func RegisterRoutes(e *echo.Echo) {
 
+	// Init repositories
+	imageRepository := repository.NewImageRepository(database.DB)
+
 	// Init services
 	dockerService, err := services.NewDockerService()
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Docker service: %v", err)
 	}
 
-	imageService, err := images2.NewImageService()
+	imageService, err := images2.NewImageService(imageRepository)
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Image service: %v", err)
 	}
