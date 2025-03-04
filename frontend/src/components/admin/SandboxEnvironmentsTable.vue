@@ -33,9 +33,9 @@ export default {
       },
       availableSandboxImages: [],
       availableSandboxLifetimes: [
-        { display: "Endless", value: -1 },
         { display: "1 hour", value: 60 },
         { display: "1 day", value: 1440 },
+        { display: "Endless", value: -1 },
       ],
     };
   },
@@ -94,6 +94,30 @@ export default {
       return sandbox.state === "running" ? "success" : "danger";
     },
 
+    getFormattedDateTime(datetime) {
+      if (!datetime) return "N/A";
+      const date = new Date(datetime);
+      return date.toLocaleString();
+    },
+
+    getRemainingTime(destroyAt) {
+      if (!destroyAt) return "never";
+      const now = new Date();
+      const destroyDate = new Date(destroyAt);
+      const diffMs = destroyDate - now;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (diffDays > 0) {
+        return `${diffDays} days`;
+      } else if (diffHrs > 0) {
+        return `${diffHrs}:${diffMins}`;
+      } else {
+        return `00:${diffMins}`;
+      }
+    },
+
     resetCreateSandboxForm() {
       this.createSandboxDialog.form = {
         image: "",
@@ -130,7 +154,16 @@ export default {
       <!-- Columns -->
       <Column field="id" header="ID"></Column>
       <Column field="image" header="Image"></Column>
-      <Column field="created_at" header="Created"></Column>
+      <Column field="created_at" header="Created">
+        <template #body="{ data }">
+          {{ getFormattedDateTime(data.created_at) }}
+        </template>
+      </Column>
+      <Column field="destroy_at" header="Destroy">
+        <template #body="{ data }">
+          <Tag :value="getRemainingTime(data.destroy_at)" severity="secondary" />
+        </template>
+      </Column>
       <Column field="state" header="Status">
         <template #body="{ data }">
           <Tag :value="data.state" :severity="getStatus(data)" />
