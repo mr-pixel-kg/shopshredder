@@ -9,6 +9,11 @@ services:
       - "8080:8080"
     environment:
       - GOPROXY=proxy.golang.org
+      - DOCKER_HOST=unix:///Users/manuel.kienlein/.docker/run/docker.sock #unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/Users/manuel.kienlein/.docker/run/docker.sock #/var/run/docker.sock
+      - ./config.yml:/root/config.yml
+      - ./database.db:/root/database.db
     networks:
       - sandbox-network
     depends_on:
@@ -19,7 +24,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "8000:80"
     environment:
       - VITE_BACKEND_URL=http://backend:8080
     networks:
