@@ -206,6 +206,13 @@ func (s *SandboxService) DeleteSandbox(ctx context.Context, sandboxId string) {
 		log.Printf("Failed to stop sandbox container %s: %v", sandbox.ContainerName, err)
 	}
 
+	// Delete sandbox container
+	err = s.client.ContainerRemove(ctx, sandbox.ContainerID, container.RemoveOptions{Force: true, RemoveVolumes: true})
+	if err != nil {
+		log.Printf("Failed to remove sandbox container %s: %v", sandbox.ContainerName, err)
+		return
+	}
+
 	// Remove sandbox from database
 	err = s.sandboxRepository.Delete(sandboxId)
 	if err != nil {
