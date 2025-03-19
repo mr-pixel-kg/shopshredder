@@ -48,7 +48,7 @@ func (s *SandboxService) ListSandboxes(ctx context.Context) ([]SandboxInfo, erro
 	}
 
 	//fmt.Printf("Docker Containers %+v\n", containers)
-	log.Printf("Found docker container %s (id: %s)\n", containers[0].Names[0], containers[0].ID)
+	//log.Printf("Found docker container %s (id: %s)\n", containers[0].Names[0], containers[0].ID) // error when empty array
 
 	sandboxInfos := make([]SandboxInfo, 0)
 	for _, cont := range containers {

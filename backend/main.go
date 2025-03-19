@@ -14,7 +14,7 @@ import (
 
 // @title mpXsandbox API
 // @version 1.0.0
-// @description Management API for Docker Sandbox Enviroment
+// @description Management API for Docker Sandbox Environment
 // @license.name MIT
 // @host localhost:8080
 // @BasePath /
