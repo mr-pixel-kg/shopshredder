@@ -11,9 +11,6 @@ import (
 	_ "github.com/mr-pixel-kg/shopware-sandbox-plattform/docs"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/middleware"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services"
-	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/audit"
-	images2 "github.com/mr-pixel-kg/shopware-sandbox-plattform/services/images"
-	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/sandbox"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
@@ -30,17 +27,17 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 		e.Logger.Fatalf("Failed to create Docker service: %v", err)
 	}
 
-	imageService, err := images2.NewImageService(imageRepository)
+	imageService, err := services.NewImageService(imageRepository)
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Image service: %v", err)
 	}
 
-	sandboxService, err := sandbox.NewSandboxService(imageService, sandboxRepository)
+	sandboxService, err := services.NewSandboxService(imageService, sandboxRepository)
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Sandbox service: %v", err)
 	}
 
-	auditLogService := audit.NewAuditLogService(auditLogRepository)
+	auditLogService := services.NewAuditLogService(auditLogRepository)
 
 	// Init handlers
 	imageHandler := images.NewImageHandler(dockerService, imageService, auditLogService)

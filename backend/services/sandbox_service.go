@@ -1,4 +1,4 @@
-package sandbox
+package services
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/models"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
-	"github.com/mr-pixel-kg/shopware-sandbox-plattform/services/images"
 	"io"
 	"log"
 	"os"
@@ -20,11 +19,11 @@ import (
 
 type SandboxService struct {
 	client            *client.Client
-	imageService      *images.ImageService
+	imageService      *ImageService
 	sandboxRepository *repository.SandboxRepository
 }
 
-func NewSandboxService(imageService *images.ImageService, sandboxRepository *repository.SandboxRepository) (*SandboxService, error) {
+func NewSandboxService(imageService *ImageService, sandboxRepository *repository.SandboxRepository) (*SandboxService, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
