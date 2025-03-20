@@ -5,7 +5,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "Management API for Docker Sandbox Enviroment",
+        "description": "Management API for Docker Sandbox Environment",
         "title": "mpXsandbox API",
         "contact": {},
         "license": {
@@ -59,7 +59,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/images.Image"
+                                "$ref": "#/definitions/services.Image"
                             }
                         }
                     },
@@ -148,7 +148,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/images.Image"
+                            "$ref": "#/definitions/services.Image"
                         }
                     },
                     "400": {
@@ -224,7 +224,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sandbox.SandboxInfo"
+                            "$ref": "#/definitions/services.SandboxInfo"
                         }
                     },
                     "400": {
@@ -239,6 +239,11 @@
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "Creates a new sandbox docker container",
                 "consumes": [
                     "application/json"
@@ -307,7 +312,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sandbox.SandboxInfo"
+                            "$ref": "#/definitions/services.SandboxInfo"
                         }
                     },
                     "400": {
@@ -368,31 +373,6 @@
         }
     },
     "definitions": {
-        "images.Image": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string",
-                    "example": "2013-08-20T18:52:09.000Z"
-                },
-                "id": {
-                    "type": "string",
-                    "example": "a407dee395ed97ead1e40c7537395d6271c07cc89c317f8eda1c19f6fc783695"
-                },
-                "image_name": {
-                    "type": "string",
-                    "example": "dockware/dev"
-                },
-                "image_tag": {
-                    "type": "string",
-                    "example": "6.6.8.2"
-                },
-                "size": {
-                    "type": "integer",
-                    "example": 1048576
-                }
-            }
-        },
         "images.ImageDeleteResponse": {
             "type": "object",
             "properties": {
@@ -429,38 +409,6 @@
                 "status": {
                     "type": "string",
                     "example": "success"
-                }
-            }
-        },
-        "sandbox.SandboxInfo": {
-            "type": "object",
-            "properties": {
-                "container_id": {
-                    "type": "string"
-                },
-                "container_name": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "destroy_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "image": {
-                    "type": "string"
-                },
-                "state": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },
@@ -520,6 +468,63 @@
                 "status": {
                     "type": "string",
                     "example": "success"
+                }
+            }
+        },
+        "services.Image": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2013-08-20T18:52:09.000Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "a407dee395ed97ead1e40c7537395d6271c07cc89c317f8eda1c19f6fc783695"
+                },
+                "image_name": {
+                    "type": "string",
+                    "example": "dockware/dev"
+                },
+                "image_tag": {
+                    "type": "string",
+                    "example": "6.6.8.2"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 1048576
+                }
+            }
+        },
+        "services.SandboxInfo": {
+            "type": "object",
+            "properties": {
+                "container_id": {
+                    "type": "string"
+                },
+                "container_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "destroy_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         }

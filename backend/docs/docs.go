@@ -61,7 +61,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/images.Image"
+                                "$ref": "#/definitions/services.Image"
                             }
                         }
                     },
@@ -150,7 +150,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/images.Image"
+                            "$ref": "#/definitions/services.Image"
                         }
                     },
                     "400": {
@@ -226,7 +226,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sandbox.SandboxInfo"
+                            "$ref": "#/definitions/services.SandboxInfo"
                         }
                     },
                     "400": {
@@ -241,6 +241,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "Creates a new sandbox docker container",
                 "consumes": [
                     "application/json"
@@ -309,7 +314,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sandbox.SandboxInfo"
+                            "$ref": "#/definitions/services.SandboxInfo"
                         }
                     },
                     "400": {
@@ -370,31 +375,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "images.Image": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string",
-                    "example": "2013-08-20T18:52:09.000Z"
-                },
-                "id": {
-                    "type": "string",
-                    "example": "a407dee395ed97ead1e40c7537395d6271c07cc89c317f8eda1c19f6fc783695"
-                },
-                "image_name": {
-                    "type": "string",
-                    "example": "dockware/dev"
-                },
-                "image_tag": {
-                    "type": "string",
-                    "example": "6.6.8.2"
-                },
-                "size": {
-                    "type": "integer",
-                    "example": 1048576
-                }
-            }
-        },
         "images.ImageDeleteResponse": {
             "type": "object",
             "properties": {
@@ -431,38 +411,6 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "example": "success"
-                }
-            }
-        },
-        "sandbox.SandboxInfo": {
-            "type": "object",
-            "properties": {
-                "container_id": {
-                    "type": "string"
-                },
-                "container_name": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "destroy_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "image": {
-                    "type": "string"
-                },
-                "state": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },
@@ -524,6 +472,63 @@ const docTemplate = `{
                     "example": "success"
                 }
             }
+        },
+        "services.Image": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2013-08-20T18:52:09.000Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "a407dee395ed97ead1e40c7537395d6271c07cc89c317f8eda1c19f6fc783695"
+                },
+                "image_name": {
+                    "type": "string",
+                    "example": "dockware/dev"
+                },
+                "image_tag": {
+                    "type": "string",
+                    "example": "6.6.8.2"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 1048576
+                }
+            }
+        },
+        "services.SandboxInfo": {
+            "type": "object",
+            "properties": {
+                "container_id": {
+                    "type": "string"
+                },
+                "container_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "destroy_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -540,7 +545,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{"http", "https"},
 	Title:            "mpXsandbox API",
-	Description:      "Management API for Docker Sandbox Enviroment",
+	Description:      "Management API for Docker Sandbox Environment",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

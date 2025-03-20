@@ -11,7 +11,7 @@ import (
 // @Tags Docker Image Management
 // @Accept json
 // @Produce json
-// @Success 200 {array} Image
+// @Success 200 {array} services.Image
 // @Failure 400 {object} map[string]string
 // @Router /api/images [get]
 func (h *ImageHandler) ImageListHandler(c echo.Context) error {

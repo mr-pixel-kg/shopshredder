@@ -32,6 +32,7 @@ type SandboxCreateResponse struct {
 // @Param image body SandboxCreateRequest true "Image Input"
 // @Success 200 {object} SandboxCreateResponse
 // @Failure 400 {object} map[string]string
+// @Security BasicAuth
 // @Router /api/sandboxes [post]
 func (h *SandboxHandler) SandboxCreateHandler(c echo.Context) error {
 

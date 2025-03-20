@@ -12,7 +12,7 @@ import (
 // @Accept json
 // @Produce json
 // @Param id path string true "Sandbox ID" example(67777b4e-946f-4462-b689-3c608d2d7938)
-// @Success 200 {object} sandbox.SandboxInfo
+// @Success 200 {object} services.SandboxInfo
 // @Failure 400 {object} map[string]string
 // @Router /api/sandboxes/{id} [get]
 func (h *SandboxHandler) SandboxDetailsHandler(c echo.Context) error {

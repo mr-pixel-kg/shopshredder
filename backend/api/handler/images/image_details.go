@@ -12,7 +12,7 @@ import (
 // @Accept json
 // @Produce json
 // @Param id path string true "Image ID" example(a407dee395ed97ead1e40c7537395d6271c07cc89c317f8eda1c19f6fc783695)
-// @Success 200 {object} Image
+// @Success 200 {object} services.Image
 // @Failure 400 {object} map[string]string
 // @Router /api/images/{id} [get]
 func (h *ImageHandler) ImageDetailsHandler(c echo.Context) error {

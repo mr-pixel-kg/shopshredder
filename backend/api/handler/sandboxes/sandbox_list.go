@@ -11,7 +11,7 @@ import (
 // @Tags Sandbox Management
 // @Accept json
 // @Produce json
-// @Success 200 {object} sandbox.SandboxInfo
+// @Success 200 {object} services.SandboxInfo
 // @Failure 400 {object} map[string]string
 // @Router /api/sandboxes [get]
 func (h *SandboxHandler) SandboxListHandler(c echo.Context) error {
