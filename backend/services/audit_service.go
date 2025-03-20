@@ -5,7 +5,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/models"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/middleware"
 	"log"
+	"log/slog"
 )
 
 type AuditLogService struct {
@@ -48,13 +50,13 @@ func (s *AuditLogService) LogRequest(ctx echo.Context, action models.AuditAction
 	ip := ctx.RealIP()
 	userAgent := ctx.Request().UserAgent()
 
-	username, ok := ctx.Get("username").(string)
-	log.Println("Username: ", username, " ok", ok)
-
-	// If username is not set than use nil
-	if !ok || username == "" {
+	if !middleware.IsUserLoggedIn(ctx) {
+		slog.Info("User is not loggend in")
+		// If user is not logged in
 		return s.Log(ip, userAgent, nil, action, details)
 	}
 
-	return s.Log(ip, userAgent, &username, action, details)
+	username := middleware.GetCurrentUserName(ctx)
+	slog.Info("User is logged in", "username", username)
+	return s.Log(ip, userAgent, username, action, details)
 }

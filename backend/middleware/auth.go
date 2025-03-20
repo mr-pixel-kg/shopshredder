@@ -1,14 +1,17 @@
-package middleware // AuthMiddleware prüft Benutzer anhand der DB
+package middleware
 
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/config"
 	"log"
+	"log/slog"
+	"strconv"
 )
 
 func AuthRequiredMiddleware(authConfig config.AuthConfig) echo.MiddlewareFunc {
 	return middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+		c.Response().Header().Set("X-Auth", "required")
 
 		// Check password
 		if username != authConfig.Username || password != authConfig.Password {
@@ -17,50 +20,52 @@ func AuthRequiredMiddleware(authConfig config.AuthConfig) echo.MiddlewareFunc {
 		}
 
 		// Store user info
-		c.Set("username", username)
+		ctx := c.(*AuthContext)
+		ctx.IsAuthenticated = true
+		ctx.Username = username
+		c = ctx
 		return true, nil
 	})
 }
 
-func OptionalAuthMiddleware(authConfig config.AuthConfig) echo.MiddlewareFunc {
+type AuthContext struct {
+	echo.Context
+	IsAuthenticated bool
+	Username        string
+}
+
+func AuthMiddleware(authConfig config.AuthConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			authHeader := c.Request().Header.Get("Authorization")
-			if authHeader == "" {
-				// No auth header, allow to continue
-				//log.Println("Request: No auth header found")
-				return next(c)
-			}
+		return func(ctx echo.Context) error {
+			c := &AuthContext{ctx, false, ""}
 
-			// Parse basic auth header
 			username, password, ok := c.Request().BasicAuth()
-			if !ok || username != authConfig.Username || password != authConfig.Password {
-				// Wrong credentials, but allow to continue
-				//log.Printf("Request: User %s has wrong credentials\n", username)
-				return next(c)
+			if ok == true && username == authConfig.Username && password == authConfig.Password {
+				c.IsAuthenticated = true
+				c.Username = username
+			} else {
+				if username != "" {
+					slog.Warn("Request with invalid login credentials")
+				}
 			}
 
-			// User is validated
-			//log.Printf("Request: User %s is validated\n", username)
-			c.Set("username", username)
+			ctx.Response().Header().Set("X-Authenticated", strconv.FormatBool(c.IsAuthenticated))
+			ctx.Response().Header().Set("X-Username", c.Username)
+
 			return next(c)
 		}
 	}
 }
 
 func IsUserLoggedIn(context echo.Context) bool {
-	if context.Get("username") != nil {
-		//log.Println("User is logged in")
-		return true
-	}
-	//log.Println("User is not logged in")
-	return false
+	c := context.(*AuthContext)
+	return c.IsAuthenticated
 }
 
 func GetCurrentUserName(context echo.Context) *string {
-	username, ok := context.Get("username").(string)
-	if !ok {
-		return nil
+	c := context.(*AuthContext)
+	if c.IsAuthenticated {
+		return &c.Username
 	}
-	return &username
+	return nil
 }

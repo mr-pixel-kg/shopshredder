@@ -46,11 +46,13 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 	sandboxHandler := sandboxes.NewSandboxHandler(sandboxService, auditLogService, guardService)
 
 	// Init middlewares
-	authMiddleware := middleware.OptionalAuthMiddleware(config.Auth)
+	//authMiddleware := middleware.OptionalAuthMiddleware(config.Auth)
 	authRequiredMiddleware := middleware.AuthRequiredMiddleware(config.Auth)
 
 	// Add api handlers
-	api := e.Group("/api", authMiddleware)
+	api := e.Group("/api")
+
+	api.Use(middleware.AuthMiddleware(config.Auth))
 
 	api.GET("/health", handler.HealthCheckHandler)
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
