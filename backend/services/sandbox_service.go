@@ -25,10 +25,10 @@ type SandboxService struct {
 	imageService      *ImageService
 	guardService      *GuardService
 	sandboxRepository *repository.SandboxRepository
-	guardConfig       config.GuardConfig
+	config            config.Config
 }
 
-func NewSandboxService(dockerService *DockerService, imageService *ImageService, guardService *GuardService, sandboxRepository *repository.SandboxRepository, guardConfig config.GuardConfig) (*SandboxService, error) {
+func NewSandboxService(dockerService *DockerService, imageService *ImageService, guardService *GuardService, sandboxRepository *repository.SandboxRepository, config config.Config) (*SandboxService, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func NewSandboxService(dockerService *DockerService, imageService *ImageService,
 		imageService:      imageService,
 		guardService:      guardService,
 		sandboxRepository: sandboxRepository,
-		guardConfig:       guardConfig,
+		config:            config,
 	}
 	sandboxService.startupCheck()
 
@@ -136,8 +136,8 @@ func (s *SandboxService) GetSandbox(ctx context.Context, sandboxId string) (Sand
 func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, lifetime int) (models.Sandbox, error) {
 
 	sandboxId := uuid.New().String()
-	containerName := "sandbox-" + sandboxId
-	hostname := containerName + ".shopshredder.zion.mr-pixel.de"
+	containerName := s.config.Sandbox.UrlPrefix + sandboxId
+	hostname := containerName + s.config.Sandbox.UrlSuffix
 
 	// Check if image is on whitelist
 	name := strings.Split(imageName, ":")[0]
@@ -149,12 +149,10 @@ func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, li
 
 	// Check if max sandbox limit reached
 	sandboxesList, err := s.ListSandboxes(ctx)
-	slog.Info("Max number of sandboxes", "current", len(sandboxesList), "max_total_sandboxes", s.guardConfig.MaxTotalSandboxes, "err", err)
-	if err != nil && len(sandboxesList) >= s.guardConfig.MaxTotalSandboxes {
-		slog.Warn("Blocked sandbox creation")
+	if err == nil && len(sandboxesList) >= s.config.Guard.MaxTotalSandboxes {
+		slog.Warn("Maximum amount of sandbox containers reached, blocked sandbox creation")
 		return models.Sandbox{}, errors.New("Maximum number of total sandboxes is reached")
 	}
-	slog.Warn("Skipped")
 
 	// Pull docker container
 	out, err := s.client.ImagePull(ctx, imageName, image.PullOptions{})

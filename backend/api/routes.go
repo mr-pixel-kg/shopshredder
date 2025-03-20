@@ -36,7 +36,7 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 		e.Logger.Fatalf("Failed to create Image service: %v", err)
 	}
 
-	sandboxService, err := services.NewSandboxService(dockerService, imageService, guardService, sandboxRepository, config.Guard)
+	sandboxService, err := services.NewSandboxService(dockerService, imageService, guardService, sandboxRepository, *config)
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Sandbox service: %v", err)
 	}

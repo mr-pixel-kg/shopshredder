@@ -2,6 +2,7 @@ package services
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/config"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,8 @@ func setupGuardService(t *testing.T) *GuardService {
 	createTables(t)
 
 	sessionRepository := repository.NewSessionRepository(database.DB)
-	guardService := NewGuardService(sessionRepository)
+	guardConfig := config.GuardConfig{MaxTotalSandboxes: 3, MaxSandboxesPerIP: 2, MaxSandboxLifetimeMins: 1440}
+	guardService := NewGuardService(sessionRepository, guardConfig)
 	assert.NoError(t, err, "Creating docker service should not return an error")
 	return guardService
 }

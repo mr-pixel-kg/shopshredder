@@ -5,6 +5,7 @@ import (
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/models"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
 	"log"
+	"log/slog"
 )
 
 type GuardService struct {
@@ -17,6 +18,7 @@ func NewGuardService(sessionRepository *repository.SessionRepository, guardConfi
 		sessionRepository: sessionRepository,
 		guardConfig:       guardConfig,
 	}
+	guardService.startupCheck()
 	return guardService
 }
 
@@ -73,7 +75,7 @@ func (s *GuardService) CheckAndRegisterSession(ipAddress string, userAgent strin
 	return false, nil
 }
 
-/*func (s *GuardService) startupCheck() {
+func (s *GuardService) startupCheck() {
 	log.Println("*** Executing guard service startup check ***")
 
 	sessions, err := s.sessionRepository.GetAll()
@@ -81,11 +83,15 @@ func (s *GuardService) CheckAndRegisterSession(ipAddress string, userAgent strin
 		log.Panicf("Failed to list sandbox sessions: %v", err)
 	}
 	for _, session := range sessions {
-		log.Printf("Found session: %s", session.ID)
-		_, contErr := s.sandboxService.GetSandbox(context.Background(), session.SandboxID)
+		slog.Info("Remove old session from database", "sessionId", session.ID, "sandboxId", session.SandboxID)
+
+		// Quick fix to remove all sessions on startup
+		s.sessionRepository.Remove(session.SandboxID)
+
+		/*_, contErr := s.sandboxService.GetSandbox(context.Background(), session.SandboxID)
 		if contErr != nil {
 			slog.Warn("Found dangling session database record", "sessionId", session.ID, "sandboxId", session.SandboxID, "err", contErr )
 			s.sessionRepository.Remove(session.SandboxID)
-		}
+		}*/
 	}
-}*/
+}
