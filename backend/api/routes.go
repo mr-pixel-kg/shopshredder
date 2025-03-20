@@ -23,7 +23,7 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 	sessionRepository := repository.NewSessionRepository(database.DB)
 
 	// Init services
-	guardService := services.NewGuardService(sessionRepository)
+	guardService := services.NewGuardService(sessionRepository, config.Guard)
 	auditLogService := services.NewAuditLogService(auditLogRepository)
 
 	dockerService, err := services.NewDockerService()
@@ -31,12 +31,12 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 		e.Logger.Fatalf("Failed to create Docker service: %v", err)
 	}
 
-	imageService, err := services.NewImageService(imageRepository)
+	imageService, err := services.NewImageService(dockerService, imageRepository)
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Image service: %v", err)
 	}
 
-	sandboxService, err := services.NewSandboxService(imageService, guardService, sandboxRepository)
+	sandboxService, err := services.NewSandboxService(dockerService, imageService, guardService, sandboxRepository, config.Guard)
 	if err != nil {
 		e.Logger.Fatalf("Failed to create Sandbox service: %v", err)
 	}

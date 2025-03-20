@@ -11,6 +11,11 @@ auth:
   username: "admin"
   password: "password"
 
+guard:
+  max_total_sandboxes: 1
+  max_sandboxes_per_ip: 5
+  max_sandbox_lifetime: 32
+
 #database:
 #  host: "localhost"
 #  port: 5432

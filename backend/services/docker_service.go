@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"io"
+	"log"
 	"log/slog"
 	"os"
 	"strings"
@@ -53,6 +54,7 @@ func NewDockerService() (*DockerService, error) {
 		return nil, err
 	}
 	dockerService := &DockerService{dockerClient: cli}
+	dockerService.startupCheck()
 	return dockerService, nil
 }
 
@@ -237,4 +239,17 @@ func (ds *DockerService) RemoveContainer(ctx context.Context, containerId string
 		return fmt.Errorf("Failed to remove container %s: %w", containerId, err)
 	}
 	return nil
+}
+
+func (s *DockerService) startupCheck() {
+	log.Println("*** Executing docker service startup check ***")
+
+	containers, err := s.ListContainers(context.Background())
+	if err != nil {
+		log.Panicf("Failed to list docker containers: %v", err)
+	}
+
+	for _, c := range containers {
+		log.Printf("Found docker container: %v", c.Name)
+	}
 }

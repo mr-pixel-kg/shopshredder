@@ -10,6 +10,7 @@ const CONFIG_FILE = "./config.yml"
 type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Auth     AuthConfig     `mapstructure:"auth"`
+	Guard    GuardConfig    `mapstructure:"guard"`
 	Database DatabaseConfig `mapstructure:"database"`
 }
 
@@ -21,6 +22,12 @@ type ServerConfig struct {
 type AuthConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
+}
+
+type GuardConfig struct {
+	MaxTotalSandboxes      int `mapstructure:"max_total_sandboxes"`
+	MaxSandboxesPerIP      int `mapstructure:"max_sandboxes_per_ip"`
+	MaxSandboxLifetimeMins int `mapstructure:"max_sandbox_lifetime"`
 }
 
 type DatabaseConfig struct {
@@ -69,4 +76,11 @@ func initConfig() {
 	viper.BindEnv("auth.username", "AUTH_USERNAME")
 	viper.BindEnv("auth.password", "AUTH_PASSWORD")
 	viper.SetDefault("server.port", 8080)
+
+	viper.BindEnv("guard.max_total_sandboxes", "GUARD_MAX_TOTAL_SANDBOXES")
+	viper.BindEnv("guard.max_sandboxes_per_ip", "GUARD_MAX_SANDBOXES_PER_IP")
+	viper.BindEnv("guard.max_sandbox_lifetime", "GUARD_MAX_SANDBOX_LIFETIME")
+	viper.SetDefault("guard.max_total_sandboxes", 32)
+	viper.SetDefault("guard.max_sandboxes_per_ip", 5)
+	viper.SetDefault("guard.max_sandbox_lifetime", 60)
 }

@@ -30,6 +30,17 @@ func (r *SessionRepository) Create(ipAddress string, userAgent string, username 
 	return nil
 }
 
+func (r *SessionRepository) GetAll() ([]models.Session, error) {
+	var sessions []models.Session
+	query := `SELECT * FROM sessions`
+	err := r.db.Select(&sessions, query)
+	if err != nil {
+		log.Printf("Error getting all sessions: %v", err)
+		return nil, err
+	}
+	return sessions, nil
+}
+
 func (r *SessionRepository) GetSessionsForIp(ipAddress string) ([]models.Session, error) {
 	var sessions []models.Session
 	query := `SELECT * FROM sessions WHERE ip_address = $1`

@@ -7,26 +7,32 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
 )
 
 type ImageService struct {
-	ImageRepository *repository.ImageRepository
+	dockerService   *DockerService
+	imageRepository *repository.ImageRepository
 	client          *client.Client
 }
 
-func NewImageService(imageRepository *repository.ImageRepository) (*ImageService, error) {
+func NewImageService(dockerService *DockerService, imageRepository *repository.ImageRepository) (*ImageService, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 
-	return &ImageService{
-		ImageRepository: imageRepository,
+	imageService := &ImageService{
+		dockerService:   dockerService,
+		imageRepository: imageRepository,
 		client:          cli,
-	}, nil
+	}
+	imageService.startupCheck()
+
+	return imageService, nil
 }
 
 func (s *ImageService) ListImages(ctx context.Context) ([]Image, error) {
@@ -41,7 +47,7 @@ func (s *ImageService) ListImages(ctx context.Context) ([]Image, error) {
 	for _, image := range images {
 
 		// This is a hacky fix to avoid errors by images like "nginx" without tag
-		// TODO: Rewrite this filter
+		// TODO: Rewrite this filter ; IMAGE id is a hash and has no ":" !!!??? FORMAT is sha256:hash
 		if strings.Contains(image.ID, ":") == false || len(image.RepoTags) < 1 || strings.Contains(image.RepoTags[0], ":") == false {
 			continue
 		}
@@ -56,7 +62,7 @@ func (s *ImageService) ListImages(ctx context.Context) ([]Image, error) {
 		imageTag := strings.Split(image.RepoTags[0], ":")[1]
 
 		// Check if image is on whitelist
-		if !s.ImageRepository.IsAllowed(imageName, imageTag) {
+		if !s.imageRepository.IsAllowed(imageName, imageTag) {
 			continue
 		}
 
@@ -90,7 +96,7 @@ func (s *ImageService) GetImage(ctx context.Context, imageId string) (Image, err
 	imageTag := getTagFromImageName(image.RepoTags[0])
 
 	// Check if image is on whitelist
-	if !s.ImageRepository.IsAllowed(imageName, imageTag) {
+	if !s.imageRepository.IsAllowed(imageName, imageTag) {
 		return Image{}, errors.New("Requested docker image is not on whitelist")
 	}
 
@@ -129,7 +135,7 @@ func (s *ImageService) PullImage(ctx context.Context, imageName string) (Image, 
 	imageTag := getTagFromImageName(image.RepoTags[0])
 
 	// Add image to whitelist
-	_, err = s.ImageRepository.Create(imageName, imageTag)
+	_, err = s.imageRepository.Create(imageName, imageTag)
 	if err != nil {
 		return Image{}, err
 	}
@@ -158,7 +164,7 @@ func (s *ImageService) DeleteImage(ctx context.Context, imageId string) error {
 	imageTag := getTagFromImageName(img.RepoTags[0])
 
 	// Check if img is on whitelist
-	if !s.ImageRepository.IsAllowed(imageName, imageTag) {
+	if !s.imageRepository.IsAllowed(imageName, imageTag) {
 		return errors.New("Requested docker img is not on whitelist")
 	}
 
@@ -169,8 +175,21 @@ func (s *ImageService) DeleteImage(ctx context.Context, imageId string) error {
 	}
 
 	// Remove image from whitelist
-	err = s.ImageRepository.DeleteByTagAndName(imageName, imageTag)
+	err = s.imageRepository.DeleteByTagAndName(imageName, imageTag)
 	return nil
+}
+
+func (s *ImageService) startupCheck() {
+	log.Println("*** Executing image service startup check ***")
+
+	images, err := s.ListImages(context.Background())
+	if err != nil {
+		log.Panicf("Failed to list docker images: %v", err)
+	}
+
+	for _, img := range images {
+		log.Printf("Found sandbox image: %s:%s", img.ImageName, img.ImageTag)
+	}
 }
 
 type Image struct {

@@ -8,10 +8,12 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/config"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/models"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -19,22 +21,27 @@ import (
 
 type SandboxService struct {
 	client            *client.Client
+	dockerService     *DockerService
 	imageService      *ImageService
 	guardService      *GuardService
 	sandboxRepository *repository.SandboxRepository
+	guardConfig       config.GuardConfig
 }
 
-func NewSandboxService(imageService *ImageService, guardService *GuardService, sandboxRepository *repository.SandboxRepository) (*SandboxService, error) {
+func NewSandboxService(dockerService *DockerService, imageService *ImageService, guardService *GuardService, sandboxRepository *repository.SandboxRepository, guardConfig config.GuardConfig) (*SandboxService, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 	var sandboxService = &SandboxService{
 		client:            cli,
+		dockerService:     dockerService,
 		imageService:      imageService,
 		guardService:      guardService,
 		sandboxRepository: sandboxRepository,
+		guardConfig:       guardConfig,
 	}
+	sandboxService.startupCheck()
 
 	// start garbage collector scheduler
 	go sandboxService.startGarbageCollectorScheduler()
@@ -135,10 +142,19 @@ func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, li
 	// Check if image is on whitelist
 	name := strings.Split(imageName, ":")[0]
 	tag := strings.Split(imageName, ":")[1]
-	sandboxImage, err := s.imageService.ImageRepository.GetByNameAndTag(name, tag)
+	sandboxImage, err := s.imageService.imageRepository.GetByNameAndTag(name, tag)
 	if err != nil {
 		return models.Sandbox{}, errors.New("Image " + imageName + " is not on whitelist")
 	}
+
+	// Check if max sandbox limit reached
+	sandboxesList, err := s.ListSandboxes(ctx)
+	slog.Info("Max number of sandboxes", "current", len(sandboxesList), "max_total_sandboxes", s.guardConfig.MaxTotalSandboxes, "err", err)
+	if err != nil && len(sandboxesList) >= s.guardConfig.MaxTotalSandboxes {
+		slog.Warn("Blocked sandbox creation")
+		return models.Sandbox{}, errors.New("Maximum number of total sandboxes is reached")
+	}
+	slog.Warn("Skipped")
 
 	// Pull docker container
 	out, err := s.client.ImagePull(ctx, imageName, image.PullOptions{})
@@ -280,4 +296,36 @@ func (s *SandboxService) garbageCollect() {
 	s.ShutdownSandboxes()
 
 	// TODO check for dangling database records which have no corresponding container
+}
+
+func (s *SandboxService) startupCheck() {
+	log.Println("*** Executing sandbox service startup check ***")
+
+	containers, err := s.ListSandboxes(context.Background())
+	if err != nil {
+		log.Panicf("Failed to list docker sandbox containers: %v", err)
+	}
+
+	// Check for dangling sandbox containers
+	for _, c := range containers {
+		log.Printf("Found sandbox container: %v", c.ContainerName)
+		contEntry, recErr := s.sandboxRepository.GetByContainerID(c.ContainerId)
+		if recErr != nil || contEntry == nil {
+			slog.Warn("Found dangling sandbox container", "sandboxId", c.ID)
+			s.dockerService.RemoveContainer(context.Background(), c.ContainerId)
+		}
+	}
+
+	// Check for dongling database records
+	sandboxes, repoErr := s.sandboxRepository.GetAll()
+	if repoErr != nil {
+		log.Panicf("Failed to list sandbox database records: %v", repoErr)
+	}
+	for _, sand := range sandboxes {
+		_, contErr := s.dockerService.GetContainer(context.Background(), sand.ContainerID)
+		if contErr != nil {
+			slog.Warn("Found dangling sandbox database record", "sandboxId", sand.ID, "err", contErr)
+			s.sandboxRepository.Delete(sand.ID)
+		}
+	}
 }

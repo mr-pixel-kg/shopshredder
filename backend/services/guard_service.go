@@ -1,26 +1,28 @@
 package services
 
 import (
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/config"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/models"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/repository"
 	"log"
 )
 
-const MAX_SESSIONS_PER_IP = 3
-
 type GuardService struct {
-	SessionRepository *repository.SessionRepository
+	sessionRepository *repository.SessionRepository
+	guardConfig       config.GuardConfig
 }
 
-func NewGuardService(sessionRepository *repository.SessionRepository) *GuardService {
-	return &GuardService{
-		SessionRepository: sessionRepository,
+func NewGuardService(sessionRepository *repository.SessionRepository, guardConfig config.GuardConfig) *GuardService {
+	guardService := &GuardService{
+		sessionRepository: sessionRepository,
+		guardConfig:       guardConfig,
 	}
+	return guardService
 }
 
 // Gets all sandbox sessions for a given IP address
 func (s *GuardService) GetSessions(ipAddress string) []models.Session {
-	sessions, err := s.SessionRepository.GetSessionsForIp(ipAddress)
+	sessions, err := s.sessionRepository.GetSessionsForIp(ipAddress)
 	if err != nil {
 		log.Printf("Error getting sessions for IP: %v", err)
 		return make([]models.Session, 0)
@@ -30,7 +32,7 @@ func (s *GuardService) GetSessions(ipAddress string) []models.Session {
 
 // Records a new session after new sandbox is created
 func (s *GuardService) RegisterSession(ipAddress string, userAgent string, username *string, sandboxId string) error {
-	err := s.SessionRepository.Create(ipAddress, userAgent, username, sandboxId)
+	err := s.sessionRepository.Create(ipAddress, userAgent, username, sandboxId)
 	if err != nil {
 		return err
 	}
@@ -39,7 +41,7 @@ func (s *GuardService) RegisterSession(ipAddress string, userAgent string, usern
 
 // Removes a sandbox session when the sandbox is deleted
 func (s *GuardService) UnregisterSession(sandboxId string) error {
-	err := s.SessionRepository.Remove(sandboxId)
+	err := s.sessionRepository.Remove(sandboxId)
 	if err != nil {
 		return err
 	}
@@ -51,7 +53,7 @@ func (s *GuardService) UnregisterSession(sandboxId string) error {
 // Returns false if the limit is not exceeded
 func (s *GuardService) IsNewSessionAllowed(ipAddress string) bool {
 	sessions := s.GetSessions(ipAddress)
-	if len(sessions) < MAX_SESSIONS_PER_IP {
+	if len(sessions) < s.guardConfig.MaxSandboxesPerIP {
 		return true
 	}
 	return false
@@ -70,3 +72,20 @@ func (s *GuardService) CheckAndRegisterSession(ipAddress string, userAgent strin
 	}
 	return false, nil
 }
+
+/*func (s *GuardService) startupCheck() {
+	log.Println("*** Executing guard service startup check ***")
+
+	sessions, err := s.sessionRepository.GetAll()
+	if err != nil {
+		log.Panicf("Failed to list sandbox sessions: %v", err)
+	}
+	for _, session := range sessions {
+		log.Printf("Found session: %s", session.ID)
+		_, contErr := s.sandboxService.GetSandbox(context.Background(), session.SandboxID)
+		if contErr != nil {
+			slog.Warn("Found dangling session database record", "sessionId", session.ID, "sandboxId", session.SandboxID, "err", contErr )
+			s.sessionRepository.Remove(session.SandboxID)
+		}
+	}
+}*/
