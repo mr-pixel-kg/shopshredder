@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tailwindcss-primeui";
 
+body {
+    background-color: #f4f4f4;
+}
+
+
+/*
 :root {
   font-family: Verdana, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -18,8 +24,6 @@
 
 body {
   margin: 0;
-  /*display: flex;
-  place-items: center;*/
   background-color: #f4f4f4;
 }
 
@@ -44,3 +48,4 @@ main {
     background-color: #ffffff;
   }
 }
+*/
