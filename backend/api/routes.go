@@ -55,6 +55,7 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 	api.Use(middleware.AuthMiddleware(config.Auth))
 
 	api.GET("/health", handler.HealthCheckHandler)
+	api.GET("/auth", handler.AuthCheckHandler)
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	api.GET("/sandboxes", sandboxHandler.SandboxListHandler)

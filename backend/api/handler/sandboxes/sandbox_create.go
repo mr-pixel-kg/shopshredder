@@ -49,13 +49,13 @@ func (h *SandboxHandler) SandboxCreateHandler(c echo.Context) error {
 	// Input validation
 	if input.Lifetime > 1440 {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Lifetime should be less than 1440",
+			"error": "Lifetime should be less than 1440 minutes",
 		})
 	}
 
 	if input.Lifetime < 5 && input.Lifetime != -1 {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Lifetime should be greater than 5",
+			"error": "Lifetime should be greater than 5 minutes",
 		})
 	}
 
