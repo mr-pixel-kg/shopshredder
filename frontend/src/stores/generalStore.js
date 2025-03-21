@@ -19,12 +19,12 @@ export const GeneralStore = defineStore('general', {
         },
         addSandbox(sandbox) {
             // Überprüfen, ob die Sandbox schon existiert, um Duplikate zu vermeiden
-            if (!this.sandboxEnvironments.some(env => env.sandbox_id === sandbox.sandbox_id)) {
+            if (!this.sandboxEnvironments.some(env => env.sandboxId === sandbox.sandboxId)) {
                 this.sandboxEnvironments.push(sandbox);
             }
         },
         removeSandbox(sandboxId) {
-            this.sandboxEnvironments = this.sandboxEnvironments.filter(env => env.sandbox_id !== sandboxId);
+            this.sandboxEnvironments = this.sandboxEnvironments.filter(env => env.sandboxId !== sandboxId);
         }
     }
 });
