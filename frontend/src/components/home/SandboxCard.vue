@@ -1,91 +1,43 @@
 <script>
 import Card from "primevue/card";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
 import Button from "primevue/button";
-import Tag from "primevue/tag";
-import Dialog from "primevue/dialog";
-import InputText from "primevue/inputtext";
-import ProgressSpinner from "primevue/progressspinner";
-import sandboxService from "@/services/sandboxService.js";
-import { GeneralStore } from "@/stores/generalStore";
+import {SandboxEnvironment} from "@/models/SandboxEnvironment.js";
 
 export default {
+  name: "SandboxCard",
+
   components: {
     Card,
-    DataTable,
-    Column,
     Button,
-    Tag,
-    Dialog,
-    InputText,
-    ProgressSpinner,
   },
 
-  data() {
-    return {
-      title: "Shopware 6.6.10.0",
-      subtitle: "dockware/dev:6.6.10.0",
-      thumbnail: "/shopware-banner.jpg",
-      image: "image",
-      sandboxImage: "dockware/dev:6.6.10.0"
-    };
+  props: {
+    sandboxEnvironment: SandboxEnvironment
   },
 
-  setup() {
-    const store = GeneralStore();
-    return {
-      generalStore: store
+  computed: {
+    sandbox() {
+      return this.sandboxEnvironment;
     }
   },
 
   methods: {
-    async createSandbox() {
-
-      this.generalStore.setLoading(true);
-      console.log("Start loading")
-
-      const startTime = Date.now()
-
-      try {
-        const response = await sandboxService.createSandbox(this.sandboxImage, 60)
-
-        if (response.status === "success") {
-          console.log("Sandbox erfolgreich erstellt", response);
-        } else {
-          const errorMessage = response.message || "Unbekannter Fehler";
-          console.log("Fehler beim Erstellen der Sandbox:", errorMessage);
-        }
-      } catch(error) {
-        console.error("Fehler beim Erstellen der Sandbox:", error.response?.data.message || error.message || error);
-      } finally {
-        const elapsedTime = Date.now() - startTime;
-
-        const minLoadingTime = 8000; // 8 Sekunden
-        const waitTime = Math.max(minLoadingTime - elapsedTime, 0);
-
-        setTimeout(() => {
-          this.generalStore.setLoading(false);
-          console.log("Stop loading")
-        }, waitTime);
-      }
-
+    openUrl() {
+      window.open("https://" + this.sandbox.url, "_blank").focus();
     }
   }
 
-};
+}
 </script>
 
 <template>
   <Card style="width: 25rem; overflow: hidden">
-    <template #header>
-      <img :src="thumbnail" alt="Shopware 6 Sandbox">
-    </template>
-    <template #title>{{ title }}</template>
-    <template #subtitle>{{ subtitle }}</template>
+    <template #title>Shopware Sandbox</template>
+    <template #subtitle>{{ sandbox.image }}</template>
     <template #footer>
-      <div class="flex gap-4 mt-1">
-        <Button label="Starten" class="w-full" @click="createSandbox" />
+      <div class="flex w-full gap-2 mt-1">
+        <Button icon="pi pi-trash" rounded severity="danger" aria-label="Cancel" class="w-1/3" />
+        <Button severity="primary" aria-label="Cancel" class="w-full" label="Öffnen" @click="openUrl" />
       </div>
     </template>
   </Card>
