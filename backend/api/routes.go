@@ -58,10 +58,10 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 	api.GET("/auth", handler.AuthCheckHandler)
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
-	api.GET("/sandboxes", sandboxHandler.SandboxListHandler)
+	api.GET("/sandboxes", sandboxHandler.SandboxListHandler, authRequiredMiddleware)
 	api.GET("/sandboxes/:id", sandboxHandler.SandboxDetailsHandler)
 	api.POST("/sandboxes", sandboxHandler.SandboxCreateHandler)
-	api.DELETE("/sandboxes/:id", sandboxHandler.SandboxDeleteHandler, authRequiredMiddleware)
+	api.DELETE("/sandboxes/:id", sandboxHandler.SandboxDeleteHandler)
 
 	api.GET("/images", imageHandler.ImageListHandler)
 	api.GET("/images/:id", imageHandler.ImageDetailsHandler)

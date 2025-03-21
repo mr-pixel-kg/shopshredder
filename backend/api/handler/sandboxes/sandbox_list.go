@@ -13,6 +13,7 @@ import (
 // @Produce json
 // @Success 200 {object} services.SandboxInfo
 // @Failure 400 {object} map[string]string
+// @Security BasicAuth
 // @Router /api/sandboxes [get]
 func (h *SandboxHandler) SandboxListHandler(c echo.Context) error {
 	ctx := c.Request().Context()

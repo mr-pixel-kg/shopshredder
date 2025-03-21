@@ -18,6 +18,30 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth": {
+            "get": {
+                "description": "Test the authentication.",
+                "consumes": [
+                    "*/*"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System Management"
+                ],
+                "summary": "Endpoint to test the authentication.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/health": {
             "get": {
                 "description": "Get the status of server.",
@@ -211,6 +235,11 @@ const docTemplate = `{
         },
         "/api/sandboxes": {
             "get": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "List sandbox environments",
                 "consumes": [
                     "application/json"

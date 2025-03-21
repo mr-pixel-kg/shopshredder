@@ -3,6 +3,7 @@ package sandboxes
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/database/models"
+	"github.com/mr-pixel-kg/shopware-sandbox-plattform/middleware"
 	"log"
 	"net/http"
 )
@@ -27,6 +28,19 @@ func (h *SandboxHandler) SandboxDeleteHandler(c echo.Context) error {
 
 	ctx := c.Request().Context()
 	sandboxId := c.Param("id")
+
+	// Check if sandbox belongs to session or user is logged in
+	sessions := h.GuardService.GetSessions(c.RealIP())
+	found := middleware.IsUserLoggedIn(c)
+	for _, s := range sessions {
+		if s.SandboxID == sandboxId {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return echo.NewHTTPError(http.StatusForbidden, "This sandbox does not belong to your session!")
+	}
 
 	h.SandboxService.DeleteSandbox(ctx, sandboxId)
 

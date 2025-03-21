@@ -117,6 +117,22 @@ info:
   title: mpXsandbox API
   version: 1.0.0
 paths:
+  /api/auth:
+    get:
+      consumes:
+      - '*/*'
+      description: Test the authentication.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Endpoint to test the authentication.
+      tags:
+      - System Management
   /api/health:
     get:
       consumes:
@@ -259,6 +275,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BasicAuth: []
       summary: List sandbox environments
       tags:
       - Sandbox Management
