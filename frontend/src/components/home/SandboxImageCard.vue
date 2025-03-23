@@ -1,37 +1,23 @@
 <script>
 import Card from "primevue/card";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
 import Button from "primevue/button";
-import Tag from "primevue/tag";
-import Dialog from "primevue/dialog";
-import InputText from "primevue/inputtext";
-import ProgressSpinner from "primevue/progressspinner";
-import sandboxService from "@/services/sandboxService.js";
-import { GeneralStore } from "@/stores/generalStore";
-import { SandboxEnvironment } from "@/models/SandboxEnvironment.js";
-import { SandboxImage } from "@/models/SandboxImage.js";
+import { SandboxImageModel } from "@/models/SandboxImageModel.js";
+import SandboxService from "@/services/sandboxService.js";
+import { GeneralStore } from "@/stores/generalStore.js";
 
 export default {
-  components: {
-    Card,
-    DataTable,
-    Column,
-    Button,
-    Tag,
-    Dialog,
-    InputText,
-    ProgressSpinner,
-  },
+  name: "ActiveSandboxImageCard",
 
   props: {
-    sandboxImage: SandboxImage,
+    sandboxImage: {
+      type: SandboxImageModel,
+      required: true,
+    },
   },
 
-  computed: {
-    image() {
-      return this.sandboxImage;
-    },
+  components: {
+    Card,
+    Button,
   },
 
   setup() {
@@ -42,20 +28,25 @@ export default {
   },
 
   methods: {
-    async createSandbox() {
+    async createDemo() {
+      console.log("Create Demo");
+
       this.generalStore.setLoading(true);
       console.log("Start loading");
 
       const startTime = Date.now();
 
       try {
-        const response = await sandboxService.createSandbox(
+        const resp = await SandboxService.createSandbox(
           this.sandboxImage.imageName,
           60,
         );
 
-        if (response.status === "success") {
-          console.log("Sandbox erfolgreich erstellt", response);
+        if (resp.success) {
+          const sandbox = resp.sandbox;
+          console.log("Sandbox created", sandbox);
+
+          this.generalStore.addSandbox(sandbox);
 
           this.$toast.add({
             severity: "success",
@@ -63,16 +54,10 @@ export default {
             detail: "Sandbox erfolgreich erstellt!",
             life: 3000,
           });
-
-          const sandboxEnvironment = new SandboxEnvironment(
-            response.sandbox_id,
-            response.image,
-            response.url,
-          );
-          this.generalStore.addSandbox(sandboxEnvironment);
         } else {
-          const errorMessage = response.message || "Unbekannter Fehler";
-          console.log("Fehler beim Erstellen der Sandbox:", errorMessage);
+          const errorMessage = resp.message;
+          console.error("Fehler beim Erstellen der Sandbox:", errorMessage);
+
           this.$toast.add({
             severity: "error",
             summary: "Sandbox konnte nicht erstellt werden!",
@@ -84,6 +69,7 @@ export default {
         const errorMessage =
           error.response?.data.message || error.message || error;
         console.error("Fehler beim Erstellen der Sandbox:", errorMessage);
+
         this.$toast.add({
           severity: "error",
           summary: "Sandbox konnte nicht erstellt werden!",
@@ -107,15 +93,28 @@ export default {
 </script>
 
 <template>
-  <Card style="width: 25rem; overflow: hidden">
+  <Card style="overflow: hidden" class="w-full">
     <template #header>
-      <img :src="image.thumbnail" alt="Shopware 6 Sandbox" />
+      <img alt="Sandbox Image Thumbnail" :src="sandboxImage.thumbnailUrl" />
     </template>
-    <template #title>{{ image.title }}</template>
-    <template #subtitle>{{ image.imageName }}</template>
+    <template #title>{{ sandboxImage.title }}</template>
+    <template #subtitle>{{ sandboxImage.imageName }}</template>
+    <template #content>
+      <p class="m-0">
+        {{ sandboxImage.description }}
+      </p>
+    </template>
     <template #footer>
       <div class="flex gap-4 mt-1">
-        <Button label="Starten" class="w-full" @click="createSandbox" />
+        <a :href="sandboxImage.infoLink" class="w-full">
+          <Button
+            label="Zum Store"
+            severity="secondary"
+            class="w-full"
+            outlined
+          />
+        </a>
+        <Button label="Demo" class="w-full" @click="createDemo" />
       </div>
     </template>
   </Card>
