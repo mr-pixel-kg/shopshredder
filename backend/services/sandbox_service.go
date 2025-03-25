@@ -170,15 +170,15 @@ func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, li
 		"sandbox_id":        sandboxId,
 		"sandbox_host":      hostname,
 		"traefik.enable":    "true",
-		fmt.Sprintf("traefik.http.routers.http-%s.rule", containerName): fmt.Sprintf("Host(`%s`)", hostname),
+		fmt.Sprintf("traefik.http.routers.%s.rule", containerName): fmt.Sprintf("Host(`%s`)", hostname),
 	}
 
 	// Add https traefik headers
-	labels["traefik.http.routers.http-"+containerName+".entrypoints"] = "websecure"
-	labels["traefik.http.routers.http-"+containerName+".tls"] = "true"
-	labels["traefik.http.routers.http-"+containerName+".tls.certresolver"] = "production"
-	labels["traefik.http.routers.http-"+containerName+".middleware"] = "sandbox-middleware@file"
-	labels["traefik.http.services.http-"+containerName+".loadbalancer.server.port"] = "80"
+	labels["traefik.http.routers."+containerName+".entrypoints"] = "websecure"
+	labels["traefik.http.routers."+containerName+".tls"] = "true"
+	labels["traefik.http.routers."+containerName+".tls.certresolver"] = "production"
+	labels["traefik.http.routers."+containerName+".middlewares"] = "sandbox-middleware@file"
+	labels["traefik.http.services."+containerName+".loadbalancer.server.port"] = "80"
 
 	// Add env variables
 	envs := []string{
