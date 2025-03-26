@@ -167,10 +167,11 @@ func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, li
 
 	// Create docker container
 	labels := map[string]string{
-		"sandbox_container": "true",
-		"sandbox_id":        sandboxId,
-		"sandbox_host":      hostname,
-		"traefik.enable":    "true",
+		"sandbox_container":      "true",
+		"sandbox_id":             sandboxId,
+		"sandbox_host":           hostname,
+		"traefik.enable":         "true",
+		"traefik.docker.network": "internal",
 		fmt.Sprintf("traefik.http.routers.%s.rule", containerName): fmt.Sprintf("Host(`%s`)", hostname),
 	}
 
@@ -178,7 +179,7 @@ func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, li
 	labels["traefik.http.routers."+containerName+".entrypoints"] = "websecure"
 	labels["traefik.http.routers."+containerName+".tls"] = "true"
 	labels["traefik.http.routers."+containerName+".tls.certresolver"] = "production"
-	labels["traefik.http.routers."+containerName+".middlewares"] = "sandbox-middleware@file"
+	labels["traefik.http.routers."+containerName+".middlewares"] = "sandbox-middleware@file,https-redirect@file"
 	labels["traefik.http.services."+containerName+".loadbalancer.server.port"] = "80"
 
 	// Add env variables

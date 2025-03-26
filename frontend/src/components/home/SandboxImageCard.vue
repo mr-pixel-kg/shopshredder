@@ -71,7 +71,7 @@ export default {
       } finally {
         const elapsedTime = Date.now() - startTime;
 
-        const minLoadingTime = 5000; // 8 Sekunden
+        const minLoadingTime = 15000; // 15 Sekunden
         const waitTime = Math.max(minLoadingTime - elapsedTime, 0);
 
         setTimeout(() => {
