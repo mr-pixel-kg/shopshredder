@@ -6,6 +6,7 @@ http:
           X-Forwarded-Proto: "https"
         customResponseHeaders:
           Content-Security-Policy: "upgrade-insecure-requests;"
+    https-redirect:
       redirectScheme:
         scheme: https
         permanent: true

@@ -200,13 +200,13 @@ func (s *SandboxService) CreateSandbox(ctx context.Context, imageName string, li
 		Env:    envs,
 	}, nil, cNetwork, nil, containerName)
 	if err != nil {
-		log.Fatal("Failed to create sandbox docker container", err)
+		log.Fatal("Failed to create sandbox docker container: ", err)
 		return models.Sandbox{}, err
 	}
 
 	// Start docker container
 	if err := s.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		log.Print("Failed to start sandbox docker container", err)
+		log.Print("Failed to start sandbox docker container: ", err)
 		return models.Sandbox{}, err
 	}
 	log.Printf("Started sandbox %s with image %s", containerName, imageName)
