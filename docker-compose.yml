@@ -6,6 +6,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    expose:
+      - 8080
     ports:
       - "8080:8080"
     environment:
@@ -17,8 +19,8 @@ services:
     networks:
       - sandbox-network
     depends_on:
-      - frontend
-      - database
+      database:
+        condition: service_healthy
 
   frontend:
     restart: always
@@ -27,12 +29,17 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_BACKEND_URL: http://backend:8080
+    expose:
+      - 80
     ports:
       - "8000:80"
     environment:
       - VITE_BACKEND_URL=http://backend:8080
     networks:
       - sandbox-network
+    depends_on:
+      backend:
+        condition: service_healthy
 
   database:
     image: postgres:17.4
@@ -46,6 +53,12 @@ services:
       POSTGRES_DB: mrpix_sandbox
     networks:
       - sandbox-network
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U mrpix_sandbox -d mrpix_sandbox'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 networks:
   sandbox-network:

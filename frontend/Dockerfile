@@ -28,5 +28,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Export Nginx server port
 EXPOSE 80
 
+# Configure health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD curl -f http://localhost || exit 1
+
 # Run nginx server
 CMD ["nginx", "-g", "daemon off;"]

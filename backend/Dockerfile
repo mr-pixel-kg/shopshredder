@@ -31,5 +31,9 @@ COPY --from=builder /app/main ./sandbox-server
 # Export application port
 EXPOSE 8080
 
+# Configure health check
+HEALTHCHECK --interval=30s --timeout=2s --start-period=30s \
+  CMD wget --spider -q http://localhost:8080/api/health || exit 1
+
 # Run application
 CMD ["./sandbox-server"]
