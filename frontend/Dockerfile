@@ -22,6 +22,9 @@ RUN yarn build
 # Step 2: Production stage
 FROM nginx:alpine
 
+# Copy custom nginx config
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
 # Copy build directory from Vite to Nginx directory
 COPY --from=builder /app/dist /usr/share/nginx/html
 
