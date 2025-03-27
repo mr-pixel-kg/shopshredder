@@ -22,8 +22,15 @@ export default {
           "Shopware 6.6",
           "shopware-banner.jpg",
           "mr-pixel/sw-sandbox:6.6.10.0",
-          "Eine vollständige Shopware 6.6.10.0 Entwicklungsumgebung, ausgestattet mit allen notwendigen Dev-Tools. Ideal für Entwickler.",
+          "Eine sofort einsatzbereite, saubere Shopware 6.6.10.0 Installation zum Testen, Experimentieren und Erkunden.",
           "https://www.mr-pixel.de",
+        ),
+        new SandboxImageModel(
+            "Shopware 6.7 RC-1",
+            "shopware-banner.jpg",
+            "mr-pixel/sw-sandbox:6.6.7.0-rc1",
+            "Shopware 6.7.0.0 RC-1 welcher es dir erlaubt Plugins und Themes auf der neuen Shopware Version zu testen.",
+            "https://www.mr-pixel.de",
         )
         /*new SandboxImageModel(
           "Shopware 6.6 Play",

@@ -120,3 +120,40 @@ yarn dev
 ```
 
 The `VITE_BACKEND_URL` can be set in the .env files. For production use, the pipeline will set the correct value by using docker build arguments.
+
+### Custom Shopware Image Build
+
+In order to provide a Shopware sandbox image, you can not use the default dockware image because it has missing configuration options behind proxies.
+To avoid getting Mixed-Content and HSTS problems in your browser, you have to extend the dockware image and build a custom sandbox image.
+Edit the Dockerfile in docker/images/.../Dockerfile and change the Shopware version in the FROM statement.
+In addition you can add your custom configuration files to the image by copying them into the image.
+
+
+Then, you can build your new image.
+```bash
+docker build . -t mr-pixel/sw-sandbox:6.7.0.0-rc1
+```
+
+After that, go to the administration page in the application and add this new image that you just created.
+Now we have a plain shopware image that can be used for demo and testing purposes.
+
+#### Custom Configuration
+
+However, in order to create demonstration images with custom configurations, you have to first start a new sandbox and choose your base image.
+Then you can open your sandbox in the browser and install plugins, custom themes and configure the entire store as you like.
+
+After that, we can create a new image from the running container.
+```bash
+~ docker commit nginx_base
+sha256:0c17f0798823c7febc5a67d5432b48f525320d671beb2e6f04303f3da2f10432
+```
+
+After that we must create a tag for the newly created image.
+```bash
+docker tag 0c17f0798823c7febc5a67d5432b48f525320d671beb2e6f04303f3da2f10432 mrpix/sw6-sandbox-customname:6.6.10.0
+```
+
+Finally, we can go to the administration and add this image to the list of available images.
+Congrats, you have created a custom Shopware demo sandbox image. Don't forget to stop the running sandbox container.
+
+
