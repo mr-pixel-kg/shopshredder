@@ -65,6 +65,7 @@ func RegisterRoutes(e *echo.Echo, config *config.Config) {
 	api.GET("/sandboxes/:id", sandboxHandler.SandboxDetailsHandler)
 	api.POST("/sandboxes", sandboxHandler.SandboxCreateHandler)
 	api.DELETE("/sandboxes/:id", sandboxHandler.SandboxDeleteHandler)
+	api.POST("/sandboxes/:id/commit", sandboxHandler.SandboxCommitHandler, authRequiredMiddleware)
 
 	api.GET("/images", imageHandler.ImageListHandler)
 	api.GET("/images/:id", imageHandler.ImageDetailsHandler)

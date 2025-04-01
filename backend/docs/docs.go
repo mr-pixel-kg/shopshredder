@@ -430,6 +430,51 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/sandboxes/{id}/commit": {
+            "post": {
+                "description": "Creates a new sandbox image from the sandbox container",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sandbox Management"
+                ],
+                "summary": "Creates a new sandbox image from the sandbox container",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "67777b4e-946f-4462-b689-3c608d2d7938",
+                        "description": "Sandbox ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

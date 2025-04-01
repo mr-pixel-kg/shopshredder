@@ -389,6 +389,36 @@ paths:
       summary: Details about a Sandbox
       tags:
       - Sandbox Management
+  /api/sandboxes/{id}/commit:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new sandbox image from the sandbox container
+      parameters:
+      - description: Sandbox ID
+        example: 67777b4e-946f-4462-b689-3c608d2d7938
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Creates a new sandbox image from the sandbox container
+      tags:
+      - Sandbox Management
 schemes:
 - http
 - https
