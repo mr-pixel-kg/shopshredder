@@ -8,6 +8,8 @@ import Dialog from "primevue/dialog";
 import ProgressSpinner from "primevue/progressspinner";
 import SandboxService from "@/services/sandboxService.js";
 import ImagesService from "@/services/imagesService.js";
+import Menu from "primevue/menu";
+import InputText from "primevue/inputtext";
 
 export default {
   components: {
@@ -18,6 +20,8 @@ export default {
     Dialog,
     Tag,
     ProgressSpinner,
+    Menu,
+    InputText,
   },
 
   data() {
@@ -29,6 +33,15 @@ export default {
         form: {
           image: "",
           lifetime: -1,
+        },
+      },
+      createSnapshotDialog: {
+        visible: false,
+        loading: false,
+        form: {
+          sandboxid: "",
+          imagename: "mr-pixel/my-snapshot",
+          imagetag: new Date().toISOString().replace("T", "_").replace(/:/g, "-").split(".")[0],
         },
       },
       availableSandboxImages: [],
@@ -90,6 +103,26 @@ export default {
       window.open(`https://${sandbox.url}`, "_blank").focus();
     },
 
+    async openCreateSnapshotDialog(sandbox) {
+      this.createSnapshotDialog.form.sandboxid = sandbox.id;
+      this.createSnapshotDialog.visible = true;
+    },
+
+    async createSnapshot() {
+      const { sandboxid, imagename, imagetag } = this.createSnapshotDialog.form;
+
+      this.createSnapshotDialog.loading = true;
+      try {
+        await SandboxService.createSnapshot(sandboxid, imagename, imagetag);
+        this.resetCreateSnapshotForm();
+      } catch (error) {
+        console.error("Failed to create snapshot:", error.message);
+      } finally {
+        this.createSnapshotDialog.loading = false;
+        this.createSnapshotDialog.visible = false;
+      }
+    },
+
     getStatus(sandbox) {
       return sandbox.state === "running" ? "success" : "danger";
     },
@@ -124,6 +157,14 @@ export default {
       this.createSandboxDialog.form = {
         image: "",
         lifetime: -1,
+      };
+    },
+
+    resetCreateSnapshotForm() {
+      this.createSnapshotDialog.form = {
+        sandboxid: "",
+        imagename: "mr-pixel/my-snapshot",
+        imagetag: new Date().toISOString().replace("T", "_").replace(/:/g, "-").split(".")[0],
       };
     },
   },
@@ -189,10 +230,18 @@ export default {
               @click="openSandboxWindow(data)"
             />
             <Button
-              icon="pi pi-trash"
-              severity="secondary"
-              rounded
-              @click="deleteSandbox(data)"
+                icon="pi pi-ellipsis-v"
+                severity="secondary"
+                rounded
+                @click="$refs[`menu-${data.id}`].toggle($event)"
+            />
+            <Menu
+                :ref="`menu-${data.id}`"
+                :model="[
+                    { label: 'Delete Sandbox', icon: 'pi pi-trash', command: () => deleteSandbox(data) },
+                    { label: 'Create Snapshot', icon: 'pi pi-camera', command: () => openCreateSnapshotDialog(data) }
+                ]"
+                popup
             />
           </div>
         </template>
@@ -269,6 +318,67 @@ export default {
       </div>
     </div>
   </Dialog>
+
+
+  <!-- Create Snapshot Dialog -->
+  <Dialog
+      v-model:visible="createSnapshotDialog.visible"
+      modal
+      header="Create Sandbox Snapshot"
+      :style="{ width: '30rem' }"
+  >
+    <div class="flex items-center gap-4 mb-4">
+      <label for="imagename" class="font-semibold w-24">Image Name</label>
+      <InputText
+          id="imagename"
+          v-model="createSnapshotDialog.form.imagename"
+          class="flex-auto"
+      />
+    </div>
+    <div class="flex items-center gap-4 mb-8">
+      <label for="imagetag" class="font-semibold w-24">Image Tag</label>
+      <InputText
+          id="imagetag"
+          v-model="createSnapshotDialog.form.imagetag"
+          class="flex-auto"
+      />
+    </div>
+    <div
+        :class="[
+        'flex gap-2',
+        createSnapshotDialog.loading ? 'justify-between' : 'justify-end',
+      ]"
+    >
+      <span
+          v-if="createSnapshotDialog.loading"
+          class="flex items-center gap-2 text-primary"
+      >
+        Creating snapshot...
+        <ProgressSpinner
+            style="width: 50px; height: 30px"
+            strokeWidth="8"
+            fill="transparent"
+            animationDuration=".5s"
+        />
+      </span>
+      <div class="flex gap-2">
+        <Button
+            type="button"
+            label="Cancel"
+            severity="secondary"
+            @click="createSnapshotDialog.visible = false"
+        />
+        <Button
+            type="button"
+            label="Create snapshot"
+            :disabled="createSnapshotDialog.loading"
+            @click="createSnapshot"
+        />
+      </div>
+    </div>
+  </Dialog>
+
+
 </template>
 
 <style scoped></style>

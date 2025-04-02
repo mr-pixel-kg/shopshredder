@@ -321,7 +321,8 @@ func (s *SandboxService) CommitSandbox(ctx context.Context, sandboxId string, im
 	}
 
 	slog.Info("Creating new image from base image", "baseImageName", baseImageName, "imageName", imageName)
-	img, err := local.NewImage(imageName, s.client, local.FromBaseImage(baseImageName))
+
+	img, err := local.NewImage(imageName, s.client, local.FromBaseImage(baseImageName), local.WithCreatedAt(time.Now()))
 	if err != nil {
 		slog.Error("Failed to create new docker image", "err", err)
 		return Image{}, err
@@ -333,13 +334,11 @@ func (s *SandboxService) CommitSandbox(ctx context.Context, sandboxId string, im
 		return Image{}, err
 	}
 
-	inspect, _, err := s.client.ImageInspectWithRaw(context.Background(), originalImageID.String())
+	_, _, err = s.client.ImageInspectWithRaw(context.Background(), originalImageID.String())
 	if err != nil {
 		slog.Error("Failed to inspect the source image id", "err", err)
 		return Image{}, err
 	}
-
-	repoTags := inspect.RepoTags
 
 	/*appendLabels, err := parseNewLabels(c.addLabels)
 	if err != nil {
@@ -362,19 +361,10 @@ func (s *SandboxService) CommitSandbox(ctx context.Context, sandboxId string, im
 		}
 	}
 
-	removed, err := removeImageLabels(img, removeLabels)
+	_, err = removeImageLabels(img, removeLabels)
 	if err != nil {
 		slog.Error("Failed removing labels", "err", err)
 		return Image{}, err
-	}
-
-	/*added, err := addImageLabels(img, appendLabels)
-	if err != nil {
-		log.Panicf("Failed removing labels: %s", err.Error())
-	}*/
-
-	if !removed /*&& !added*/ {
-		slog.Info("OK 327")
 	}
 
 	if err := img.Save(); err != nil {
@@ -392,14 +382,6 @@ func (s *SandboxService) CommitSandbox(ctx context.Context, sandboxId string, im
 	if newImageID == originalImageID {
 		slog.Error("New and old image have the same identifier", "imageId", newImageID)
 		return Image{}, errors.New("new and old image have the same identifier")
-	}
-
-	if len(repoTags) > 1 {
-		slog.Info("OK 344")
-	}
-
-	if len(repoTags) == 1 && repoTags[0] != imageName {
-		slog.Info("OK 348")
 	}
 
 	// Remove old image

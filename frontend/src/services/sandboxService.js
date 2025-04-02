@@ -50,6 +50,23 @@ class SandboxService {
     }
   }
 
+  async createSnapshot(sandboxId, image_name, image_tag) {
+    try {
+      const response = await ApiService.request("post", "/api/sandboxes/" + sandboxId + "/snapshot", {
+        image_name: image_name + ":" + image_tag,
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.log("Failed to create snapshot", e);
+      const errorMessage =
+          e.response?.data?.message ||
+          e.message ||
+          "Ein unbekannter Fehler ist aufgetreten";
+      return { success: false, message: errorMessage };
+    }
+  }
+
   async refreshSandbox(sandbox) {
     try {
       const response = await ApiService.request(
