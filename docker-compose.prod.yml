@@ -55,7 +55,7 @@ services:
       - database_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: mrpix_sandbox
-      POSTGRES_PASSWORD: sandXshredder_mrpix2025
+      POSTGRES_PASSWORD: sandXbox_mrpix2025
       POSTGRES_DB: mrpix_sandbox
     networks:
       - sandbox-network

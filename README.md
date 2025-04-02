@@ -142,18 +142,7 @@ Now we have a plain shopware image that can be used for demo and testing purpose
 However, in order to create demonstration images with custom configurations, you have to first start a new sandbox and choose your base image.
 Then you can open your sandbox in the browser and install plugins, custom themes and configure the entire store as you like.
 
-After that, we can create a new image from the running container.
-```bash
-~ docker commit nginx_base
-sha256:0c17f0798823c7febc5a67d5432b48f525320d671beb2e6f04303f3da2f10432
-```
-
-After that we must create a tag for the newly created image.
-```bash
-docker tag 0c17f0798823c7febc5a67d5432b48f525320d671beb2e6f04303f3da2f10432 mrpix/sw6-sandbox-customname:6.6.10.0
-```
-
-Finally, we can go to the administration and add this image to the list of available images.
+After that you can create a new snapshot of the running sandbox container. Enter your image name and tag.
 Congrats, you have created a custom Shopware demo sandbox image. Don't forget to stop the running sandbox container.
 
 
