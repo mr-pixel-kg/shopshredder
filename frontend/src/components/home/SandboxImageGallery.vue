@@ -25,6 +25,16 @@ export default {
             "mpXvoucher für Shopware 6: Gutscheine erstellen, verwalten & verkaufen – individuell, sicher & einfach.",
             "https://www.mr-pixel.de",
         ),
+
+        new SandboxImageModel(
+            "mpXDirectOrder - Direkte Bestellungen im Shop",
+            "shopware-banner.jpg",
+            "mr-pixel/sw-sandbox:6.6.7.0-rc1",
+            "B2B-Schnellbestellungen per CSV-Upload – wiederkehrende Bestellungen mit einem Klick erledigen. B2B-Schnellbestellungen per CSV-Upload – wiederkehrende Bestellungen mit einem Klick erledigen. B2B-Schnellbestellungen per CSV-Upload – wiederkehrende Bestellungen mit einem Klick erledigen.",
+            "https://www.mr-pixel.de",
+        ),
+
+
         new SandboxImageModel(
             "mpXcolorTabs",
             "shopware-banner.jpg",

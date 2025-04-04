@@ -96,7 +96,7 @@ export default {
 </script>
 
 <template>
-  <Card style="overflow: hidden" class="w-full">
+  <Card style="overflow: hidden" class="w-full" :pt="{ body: { class: ['h-full'] }, content: { class: ['h-full'] } }">
     <template #header>
       <img alt="Sandbox Image Thumbnail" :src="sandboxImage.thumbnailUrl" />
     </template>
