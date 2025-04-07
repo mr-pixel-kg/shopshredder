@@ -53,6 +53,12 @@ export default {
           return "bg-gray-500";
       }
     },
+
+    getProgressBarValue() {
+      const remainingTime = this.sandbox.getRemainingTime();
+      const minutes = parseInt(remainingTime.split("m")[0]);
+      return (minutes * 100) / 60;
+    },
   },
 
   setup() {
@@ -116,7 +122,7 @@ export default {
     <template #title>Shopware Sandbox</template>
     <template #header>
       <ProgressBar
-        :value="100 - (this.remainingTime.split('m')[0] * 100) / 60"
+        :value="this.getProgressBarValue"
         :show-value="false"
         style="height: 5px"
       ></ProgressBar>
