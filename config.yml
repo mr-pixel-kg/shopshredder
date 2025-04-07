@@ -21,9 +21,13 @@ guard:
   max_sandboxes_per_ip: 5
   max_sandbox_lifetime: 60
 
-database:
-  host: "database"
-  port: 5432
-  user: "mrpix_sandbox"
-  password: "sandXbox_mrpix2025"
-  name: "mrpix_sandbox"
+#database:
+#  host: "database"
+#  port: 5432
+#  user: "mrpix_sandbox"
+#  password: "sandXbox_mrpix2025"
+#  name: "mrpix_sandbox"
+
+#sentry:
+#  dsn: "https://b578c482893c9c27e211e738deca9889@sentry.mr-pixel.de/15"
+#  dsn: "https://examplePublicKey@o0.ingest.sentry.io/0"

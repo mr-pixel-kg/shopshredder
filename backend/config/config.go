@@ -13,6 +13,7 @@ type Config struct {
 	Auth     AuthConfig     `mapstructure:"auth"`
 	Guard    GuardConfig    `mapstructure:"guard"`
 	Database DatabaseConfig `mapstructure:"database"`
+	Sentry   SentryConfig   `mapstructure:"sentry"`
 }
 
 type ServerConfig struct {
@@ -43,6 +44,10 @@ type DatabaseConfig struct {
 	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
 	Name     string `mapstructure:"name"`
+}
+
+type SentryConfig struct {
+	SentryDSN string `mapstructure:"dsn"`
 }
 
 // LoadConfig loads configuration from a file or from environment variables
@@ -96,4 +101,6 @@ func initConfig() {
 	viper.SetDefault("guard.max_total_sandboxes", 32)
 	viper.SetDefault("guard.max_sandboxes_per_ip", 5)
 	viper.SetDefault("guard.max_sandbox_lifetime", 60)
+
+	viper.BindEnv("sentry.dsn", "SENTRY_DSN")
 }

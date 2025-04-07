@@ -71,9 +71,11 @@ guard:
 |           | user                  | 	string  | 	"postgres"         | 	Database username.                                     |
 |           | password              | 	string  | 	"password"         | 	Database password.                                     |
 |           | name                  | 	string  | 	"appdb"            | 	Database name.                                         |
+| sentry**  | dsn                   | 	string  | 	                   | 	Sentry DSN.                                            |
 
 *Database configuration is currently disabled. Uncomment it in config.yml to enable.
 If no database is specified a SQLite database is used automatically.
+**Sentry configuration is currently disabled. Uncomment it in config.yml to enable.
 
 ### Overriding Configuration with Environment Variables
 The application supports environment variables to override configuration values.
@@ -90,6 +92,7 @@ Here is a list of environment variables and their corresponding settings:
 | GUARD_MAX_TOTAL_SANDBOXES   | guard.max_total_sandboxes  |
 | GUARD_MAX_SANDBOXES_PER_IP	 | guard.max_sandboxes_per_ip |
 | GUARD_MAX_SANDBOX_LIFETIME	 | guard.max_sandbox_lifetime |
+| SENTRY_DSN                  | sentry.dsn                 |
 
 
 ## Development

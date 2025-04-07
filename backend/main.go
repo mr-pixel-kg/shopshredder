@@ -2,6 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mr-pixel-kg/shopware-sandbox-plattform/api"
@@ -21,16 +24,30 @@ import (
 // @securityDefinitions.basic BasicAuth
 // @schemes http https
 func main() {
-	e := echo.New()
-
 	// Config
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Sentry
+	if cfg.Sentry.SentryDSN == "" {
+		log.Println("Sentry DSN not provided, skipping Sentry initialization")
+	} else {
+		log.Println("Sentry DSN provided, initializing Sentry")
+
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn: cfg.Sentry.SentryDSN,
+		}); err != nil {
+			fmt.Printf("Sentry initialization failed: %v\n", err)
+		}
+	}
+
 	// Database
 	database.ConnectDB(cfg.Database)
+
+	// Echo framework
+	e := echo.New()
 
 	// Middleware
 	e.Use(middleware.Logger())  // Loggt Anfragen
@@ -39,6 +56,10 @@ func main() {
 		AllowOrigins: cfg.Server.AllowedOrigins,
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "Access-Control-Allow-Origin"},
 	}))
+	if cfg.Sentry.SentryDSN != "" {
+		// Add sentry middleware if enabled
+		e.Use(sentryecho.New(sentryecho.Options{}))
+	}
 
 	// Register routes
 	api.RegisterRoutes(e, cfg)
