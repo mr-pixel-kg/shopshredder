@@ -116,7 +116,7 @@ export default {
 
 <template>
   <Card
-    class="w-full max-w-lg shadow-lg border border-gray-200"
+    class="w-full max-w-lg shadow-lg"
     style="overflow: hidden"
   >
     <template #title>Shopware Sandbox</template>
@@ -135,24 +135,24 @@ export default {
       <div class="space-y-2">
         <div class="flex justify-between items-center">
           <span class="font-semibold">Status:</span>
-          <Tag :class="[statusColor, 'px-2 py-1 text-white']">{{
+          <Tag :class="['px-2 py-1 text-white']" :severity="statusColor">{{
             sandbox.status
           }}</Tag>
         </div>
         <div class="flex justify-between items-center">
           <span class="font-semibold">Läuft bis:</span>
-          <span class="text-gray-700">{{ this.remainingTime }}</span>
+          <span class="text-gray-700 dark:text-gray-300">{{ this.remainingTime }}</span>
         </div>
 
-        <div class="bg-gray-100 p-3 rounded-lg mt-6">
-          <h3 class="font-semibold text-gray-600 mb-2">Zugangsdaten:</h3>
+        <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg mt-6">
+          <h3 class="font-semibold text-gray-600 dark:text-gray-200 mb-2">Zugangsdaten:</h3>
           <div class="flex justify-between">
             <span class="">Benutzername:</span>
-            <span class="text-gray-800">admin</span>
+            <span class="text-gray-800 dark:text-gray-200">admin</span>
           </div>
           <div class="flex justify-between">
             <span class="">Passwort:</span>
-            <span class="text-gray-800">shopware</span>
+            <span class="text-gray-800 dark:text-gray-200">shopware</span>
           </div>
         </div>
       </div>
