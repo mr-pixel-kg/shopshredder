@@ -36,21 +36,21 @@ export default {
       // This does not work to refresh tag color when status changes
       switch (this.sandbox.status) {
         case "running":
-          return "bg-green-500";
+          return "success";
         case "stopped":
-          return "bg-yellow-500";
+          return "warn";
         case "created":
-          return "bg-yellow-500";
+          return "warn";
         case "restarting":
-          return "bg-yellow-500";
+          return "info";
         case "exited":
-          return "bg-red-500";
+          return "danger";
         case "dead":
-          return "bg-red-500";
+          return "danger";
         case "paused":
-          return "bg-gray-500";
+          return "info";
         default:
-          return "bg-gray-500";
+          return "secondary";
       }
     },
 
