@@ -1,0 +1,59 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 42 38% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 210 90% 38%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 36 48% 92%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 42 24% 92%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 24 95% 55%;
+    --accent-foreground: 210 40% 98%;
+    --border: 30 22% 85%;
+    --input: 30 22% 85%;
+    --ring: 210 90% 38%;
+    --success: 148 61% 36%;
+    --danger: 0 72% 52%;
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.14), transparent 34%),
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 28%),
+      linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,248,240,0.84));
+    min-height: 100vh;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-4 md:px-8;
+  }
+
+  .hero-panel {
+    @apply relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/90 shadow-panel backdrop-blur;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold tracking-tight text-foreground md:text-3xl;
+  }
+}
