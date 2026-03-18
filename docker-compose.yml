@@ -1,27 +1,86 @@
-version: '2'
+version: '3.8'
 
 services:
-  traefik:
-    image: traefik:2.4
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - ./data/traefik.yml:/traefik.yml:ro
-      - ./data/conf.d:/traefik.conf.d/
+  proxy:
+    image: "traefik:v2.10"
+    restart: always
     ports:
       - "80:80"
-      - "443:443"
-  api:
-    image: shopware/testenv-platform
-    env_file: .env
-    build:
-      context: .
-      dockerfile: Dockerfile
+      - "9000:8080"  # (Optional) Expose Dashboard under port 9000 - Don't do this in production!
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /tmp:/tmp
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`${BASE_HOST}`)"
-      - "traefik.http.routers.api.entrypoints=web"
-      - "traefik.http.services.api.loadbalancer.server.port=8080"
+      - ./proxy/traefik:/etc/traefik
+    networks:
+      - sandbox-network
+      - internal
+
+  backend:
+    restart: always
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - 8080
+    ports:
+      - "8080:8080"
+    environment:
+      - GOPROXY=proxy.golang.org
+      - DOCKER_HOST=unix:///Users/manuel.kienlein/.docker/run/docker.sock #unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/Users/manuel.kienlein/.docker/run/docker.sock #/var/run/docker.sock
+      - ./config.yml:/app/config.yml
+    networks:
+      - sandbox-network
+      - internal
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    restart: always
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_BACKEND_URL: http://localhost:8080
+    expose:
+      - 80
+    ports:
+      - "8000:80"
+    environment:
+      - VITE_BACKEND_URL=http://backend:8080
+    networks:
+      - sandbox-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  database:
+    image: postgres:17.4
+    restart: always
+    shm_size: 128mb
+    volumes:
+        - database_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: mrpix_sandbox
+      POSTGRES_PASSWORD: sandXbox_mrpix2025
+      POSTGRES_DB: mrpix_sandbox
+    networks:
+      - sandbox-network
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U mrpix_sandbox -d mrpix_sandbox'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  sandbox-network:
+    driver: bridge
+  internal:
+    name: internal
+    driver: bridge
+
+volumes:
+  database_data:
+    driver: local
