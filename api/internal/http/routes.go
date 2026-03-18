@@ -53,7 +53,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	imageService := services.NewImageService(imageRepo, dockerClient)
+	imageService := services.NewImageService(imageRepo, dockerClient, cfg.Storage.ThumbnailDir)
 	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient)
 
 	// Sandbox expiration is handled inside the same process on purpose to keep
@@ -90,7 +90,10 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	private.GET("/me/sandboxes", sandboxHandler.ListMine)
 	private.GET("/images", imageHandler.ListAll)
 	private.POST("/images", imageHandler.Create)
+	private.PUT("/images/:id", imageHandler.Update)
 	private.DELETE("/images/:id", imageHandler.Delete)
+	private.POST("/images/:id/thumbnail", imageHandler.UploadThumbnail)
+	private.DELETE("/images/:id/thumbnail", imageHandler.DeleteThumbnail)
 	private.GET("/sandboxes", sandboxHandler.List)
 	private.GET("/sandboxes/:id", sandboxHandler.Get)
 	private.POST("/sandboxes", sandboxHandler.CreatePrivateSandbox)
@@ -99,6 +102,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	private.GET("/audit-logs", auditHandler.List)
 
 	e.File("/swagger/openapi.yaml", "docs/openapi.yaml")
+	e.Static(services.ThumbnailPublicBasePath, cfg.Storage.ThumbnailDir)
 	e.GET("/swagger", func(c echo.Context) error {
 		return c.HTML(http.StatusOK, `<!doctype html>
 <html>
@@ -120,8 +124,9 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	slog.Info("http routes registered",
 		"public_routes", 4,
 		"auth_routes", 2,
-		"private_routes", 9,
+		"private_routes", 12,
 		"guest_cookie_name", cfg.Auth.GuestCookieName,
+		"thumbnail_dir", cfg.Storage.ThumbnailDir,
 	)
 
 	return &Server{echo: e, cfg: cfg}, nil

@@ -8,7 +8,7 @@ type Image struct {
 	Tag             string     `gorm:"size:255;not null" json:"tag"`
 	Title           *string    `gorm:"size:255" json:"title,omitempty"`
 	Description     *string    `gorm:"type:text" json:"description,omitempty"`
-	ThumbnailURL    *string    `gorm:"size:1024" json:"thumbnailUrl,omitempty"`
+	ThumbnailURL    *string    `gorm:"-" json:"thumbnailUrl,omitempty"` /* This field is not stored in the database, it's computed based on the image ID */
 	IsPublic        bool       `gorm:"not null;default:false" json:"isPublic"`
 	CreatedByUserID *uuid.UUID `gorm:"type:uuid" json:"createdByUserId,omitempty"`
 	BaseModel

@@ -128,11 +128,6 @@ components:
           nullable: true
           description: Human-readable image description.
           example: Demo image for the public storefront.
-        thumbnailUrl:
-          type: string
-          nullable: true
-          description: Optional preview image URL for the storefront card.
-          example: https://cdn.shopshredder.de/thumbs/shopware-demo.png
         isPublic:
           type: boolean
           description: Whether this image is visible in the public storefront.
@@ -140,6 +135,27 @@ components:
       required:
         - name
         - tag
+        - isPublic
+    UpdateImageRequest:
+      type: object
+      description: Payload for updating editable image metadata. Name and tag remain immutable.
+      properties:
+        title:
+          type: string
+          nullable: true
+          description: Public or internal display title.
+          example: Shopware Demo v2
+        description:
+          type: string
+          nullable: true
+          description: Human-readable image description.
+          example: Updated image description for the storefront card.
+        isPublic:
+          type: boolean
+          description: Whether this image is visible in the public storefront.
+          example: false
+      required:
+        - isPublic
     CreateSandboxRequest:
       type: object
       description: Payload for creating a sandbox from an existing image.
@@ -178,11 +194,6 @@ components:
           nullable: true
           description: Description for the new image template.
           example: Snapshot taken from a configured employee sandbox.
-        thumbnailUrl:
-          type: string
-          nullable: true
-          description: Optional preview image URL for the new template.
-          example: https://cdn.shopshredder.de/thumbs/shopware-custom-v2.png
         isPublic:
           type: boolean
           description: Whether the snapshot should be visible in the public storefront.
@@ -215,7 +226,8 @@ components:
         thumbnailUrl:
           type: string
           nullable: true
-          example: https://cdn.shopshredder.de/thumbs/shopware-demo.png
+          description: Derived URL of the uploaded thumbnail file when one exists.
+          example: /thumbnails/8ae13ed9-cfb1-4941-a248-bc74b9fb6a24.jpg
         isPublic:
           type: boolean
           example: true
@@ -564,7 +576,6 @@ paths:
                   tag: latest
                   title: Shopware Demo
                   description: Demo image for the public storefront.
-                  thumbnailUrl: https://cdn.shopshredder.de/thumbs/shopware-demo.png
                   isPublic: true
       responses:
         '201':
@@ -586,6 +597,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/images/{id}:
+    put:
+      summary: Update image metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Image UUID.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateImageRequest'
+            examples:
+              image:
+                value:
+                  title: Shopware Demo
+                  description: Fresh storefront copy with updated teaser text.
+                  isPublic: true
+      responses:
+        '200':
+          description: Image updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Image'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       summary: Delete image
       security:
@@ -615,6 +675,89 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Delete failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/images/{id}/thumbnail:
+    post:
+      summary: Upload or replace image thumbnail
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Image UUID.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                thumbnail:
+                  type: string
+                  format: binary
+              required:
+                - thumbnail
+      responses:
+        '200':
+          description: Thumbnail uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Image'
+        '400':
+          description: Validation or unsupported file format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete image thumbnail
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Image UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Thumbnail deleted
+        '400':
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Image not found
           content:
             application/json:
               schema:
@@ -777,7 +920,6 @@ paths:
                   tag: demo-v2
                   title: Shopware Custom Demo V2
                   description: Snapshot taken from a configured employee sandbox.
-                  thumbnailUrl: https://cdn.shopshredder.de/thumbs/shopware-custom-v2.png
                   isPublic: true
       responses:
         '201':
