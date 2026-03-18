@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	"github.com/manuel/shopware-testenv-platform/api/internal/types"
@@ -17,17 +17,17 @@ func Auth(authService *services.AuthService) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			authHeader := c.Request().Header.Get("Authorization")
 			if authHeader == "" {
-				return responses.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Missing bearer token")
+				return responses.FromAppError(c, apperror.Unauthorized("Missing bearer token"))
 			}
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 			if token == authHeader {
-				return responses.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid authorization header")
+				return responses.FromAppError(c, apperror.Unauthorized("Invalid authorization header"))
 			}
 
 			user, tokenID, err := authService.Authenticate(token)
 			if err != nil {
-				return responses.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or expired token")
+				return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
 			}
 
 			c.Set(authContextKey, types.AuthContext{UserID: user.ID, TokenID: tokenID, SessionType: "user"})

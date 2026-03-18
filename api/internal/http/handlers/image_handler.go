@@ -1,10 +1,9 @@
 package handlers
 
 import (
-	"net/http"
-
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
@@ -23,23 +22,23 @@ func NewImageHandler(images *services.ImageService, audit *services.AuditService
 func (h *ImageHandler) ListPublic(c echo.Context) error {
 	images, err := h.images.ListPublic()
 	if err != nil {
-		return responses.Error(c, http.StatusInternalServerError, "IMAGE_LIST_FAILED", "Could not load public images")
+		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load public images").WithCause(err))
 	}
-	return c.JSON(http.StatusOK, images)
+	return c.JSON(200, images)
 }
 
 func (h *ImageHandler) ListAll(c echo.Context) error {
 	images, err := h.images.ListAll()
 	if err != nil {
-		return responses.Error(c, http.StatusInternalServerError, "IMAGE_LIST_FAILED", "Could not load images")
+		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load images").WithCause(err))
 	}
-	return c.JSON(http.StatusOK, images)
+	return c.JSON(200, images)
 }
 
 func (h *ImageHandler) Create(c echo.Context) error {
 	var input dto.CreateImageRequest
 	if err := c.Bind(&input); err != nil {
-		return responses.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body")
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid request body"))
 	}
 
 	auth := mw.MustAuth(c)
@@ -54,24 +53,24 @@ func (h *ImageHandler) Create(c echo.Context) error {
 		input.IsPublic,
 	)
 	if err != nil {
-		return responses.Error(c, http.StatusBadRequest, "IMAGE_CREATE_FAILED", err.Error())
+		return responses.FromAppError(c, apperror.BadRequest("IMAGE_CREATE_FAILED", err.Error()).WithCause(err))
 	}
 
 	_ = h.audit.Log(&auth.UserID, "image.created", c.RealIP(), map[string]any{"imageId": image.ID.String()})
-	return c.JSON(http.StatusCreated, image)
+	return c.JSON(201, image)
 }
 
 func (h *ImageHandler) Delete(c echo.Context) error {
 	auth := mw.MustAuth(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return responses.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid image id")
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid image id"))
 	}
 
 	if err := h.images.Delete(c.Request().Context(), id); err != nil {
-		return responses.Error(c, http.StatusInternalServerError, "IMAGE_DELETE_FAILED", "Could not delete image")
+		return responses.FromAppError(c, apperror.Internal("IMAGE_DELETE_FAILED", "Could not delete image").WithCause(err))
 	}
 
 	_ = h.audit.Log(&auth.UserID, "image.deleted", c.RealIP(), map[string]any{"imageId": id.String()})
-	return c.NoContent(http.StatusNoContent)
+	return c.NoContent(204)
 }
