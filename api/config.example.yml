@@ -1,0 +1,32 @@
+server:
+  port: 8080
+  app_url: "https://api.shopshredder.de"
+  allowed_origins:
+    - "http://localhost:5173"
+    - "https://shopshredder.de"
+
+database:
+  host: "postgres"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  name: "sandbox_platform"
+  sslmode: "disable"
+
+auth:
+  jwt_secret: "change-me"
+  jwt_ttl_minutes: 480
+  guest_jwt_ttl_minutes: 43200
+  guest_cookie_name: "shopshredder_guest"
+
+sandbox:
+  url_prefix: "sandbox-"
+  url_suffix: ".shopshredder.de"
+  default_lifetime: 60
+  max_lifetime: 1440
+  cleanup_interval_seconds: 60
+
+guard:
+  max_total_sandboxes: 32
+  max_sandboxes_per_ip: 5
+  max_sandboxes_per_user: 10
