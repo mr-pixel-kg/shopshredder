@@ -3,7 +3,7 @@ import Card from "primevue/card";
 import Button from "primevue/button";
 import ActiveSandboxImageCard from "@/components/home/SandboxImageCard.vue";
 import ActiveSandboxCard from "@/components/home/SandboxCard.vue";
-import { SandboxImageModel } from "@/models/SandboxImageModel.js";+
+import { SandboxImageModel } from "@/models/SandboxImageModel.js";
 
 export default {
   name: "SandboxImageGallery",
