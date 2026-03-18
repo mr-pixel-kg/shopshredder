@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -78,6 +79,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	public.GET("/images", imageHandler.ListPublic)
 	public.GET("/sandboxes", sandboxHandler.ListGuest)
 	public.POST("/demos", sandboxHandler.CreatePublicDemo)
+	public.DELETE("/sandboxes/:id", sandboxHandler.DeleteGuest)
 
 	auth.POST("/register", authHandler.Register)
 	auth.POST("/login", authHandler.Login)
@@ -114,9 +116,17 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 </html>`)
 	})
 
+	slog.Info("http routes registered",
+		"public_routes", 4,
+		"auth_routes", 2,
+		"private_routes", 9,
+		"guest_cookie_name", cfg.Auth.GuestCookieName,
+	)
+
 	return &Server{echo: e, cfg: cfg}, nil
 }
 
 func (s *Server) Start() error {
+	slog.Info("starting http server", "port", s.cfg.Server.Port)
 	return s.echo.Start(":" + strconv.Itoa(s.cfg.Server.Port))
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
+	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
 )
 
 func Error(c echo.Context, status int, code, message string) error {
@@ -12,6 +13,8 @@ func Error(c echo.Context, status int, code, message string) error {
 }
 
 func FromAppError(c echo.Context, err *apperror.AppError) error {
+	logging.LogRequestError(c, "request failed", err)
+
 	// Keep the external payload intentionally small and stable even if the
 	// internal error object carries more debugging context.
 	body := map[string]any{

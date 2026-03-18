@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +19,7 @@ import (
 var (
 	ErrSandboxLimitReached = errors.New("sandbox limit reached")
 	ErrSandboxNotFound     = errors.New("sandbox not found")
+	ErrSandboxAccessDenied = errors.New("sandbox access denied")
 )
 
 type SandboxService struct {
@@ -183,6 +184,19 @@ func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, clientIP stri
 	return nil
 }
 
+func (s *SandboxService) DeleteForGuest(ctx context.Context, id uuid.UUID, guestSessionID uuid.UUID, clientIP string) error {
+	sandbox, err := s.repo.FindByID(id)
+	if err != nil {
+		return ErrSandboxNotFound
+	}
+
+	if sandbox.GuestSessionID == nil || *sandbox.GuestSessionID != guestSessionID {
+		return ErrSandboxAccessDenied
+	}
+
+	return s.Delete(ctx, id, clientIP, nil)
+}
+
 type CreateSnapshotInput struct {
 	SandboxID    uuid.UUID
 	Name         string
@@ -241,15 +255,18 @@ func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapsho
 
 func (s *SandboxService) StartCleanupLoop(ctx context.Context) {
 	ticker := time.NewTicker(s.cfg.CleanupInterval)
+	slog.Info("sandbox cleanup loop started", "interval", s.cfg.CleanupInterval.String())
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
+				slog.Info("sandbox cleanup loop stopped")
 				return
 			case <-ticker.C:
+				slog.Info("running sandbox cleanup")
 				if err := s.CleanupExpired(ctx); err != nil {
-					log.Printf("cleanup expired sandboxes: %v", err)
+					slog.Error("cleanup expired sandboxes failed", "cause", err.Error())
 				}
 			}
 		}
@@ -261,12 +278,17 @@ func (s *SandboxService) CleanupExpired(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	slog.Info("expired sandboxes loaded", "count", len(expired))
 
 	// Expiration is database-driven so a process restart does not lose the
 	// deletion schedule for previously created sandboxes.
 	for _, sandbox := range expired {
 		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
-			log.Printf("delete expired container %s: %v", sandbox.ContainerID, err)
+			slog.Error("delete expired container failed",
+				"sandbox_id", sandbox.ID.String(),
+				"container_id", sandbox.ContainerID,
+				"cause", err.Error(),
+			)
 			continue
 		}
 
@@ -274,10 +296,18 @@ func (s *SandboxService) CleanupExpired(ctx context.Context) error {
 		sandbox.Status = models.SandboxStatusExpired
 		sandbox.DeletedAt = &now
 		if err := s.repo.Update(&sandbox); err != nil {
-			log.Printf("update expired sandbox %s: %v", sandbox.ID, err)
+			slog.Error("update expired sandbox failed",
+				"sandbox_id", sandbox.ID.String(),
+				"container_id", sandbox.ContainerID,
+				"cause", err.Error(),
+			)
 			continue
 		}
 
+		slog.Info("sandbox expired and cleaned up",
+			"sandbox_id", sandbox.ID.String(),
+			"container_id", sandbox.ContainerID,
+		)
 		_ = s.addEvent(sandbox.ID, "expired", map[string]any{})
 	}
 

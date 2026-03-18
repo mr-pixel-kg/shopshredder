@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,6 +10,7 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
+	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 )
 
@@ -25,6 +27,8 @@ func (h *SandboxHandler) List(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load sandboxes").WithCause(err))
 	}
+	auth := mw.MustAuth(c)
+	slog.Info("listed all sandboxes", logging.RequestFields(c, "user_id", auth.UserID.String(), "count", len(sandboxes))...)
 	return c.JSON(200, sandboxes)
 }
 
@@ -34,6 +38,7 @@ func (h *SandboxHandler) ListMine(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load own sandboxes").WithCause(err))
 	}
+	slog.Info("listed user sandboxes", logging.RequestFields(c, "user_id", auth.UserID.String(), "count", len(sandboxes))...)
 	return c.JSON(200, sandboxes)
 }
 
@@ -43,6 +48,7 @@ func (h *SandboxHandler) ListGuest(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load guest sandboxes").WithCause(err))
 	}
+	slog.Info("listed guest sandboxes", logging.RequestFields(c, "guest_session_id", guest.SessionID.String(), "count", len(sandboxes))...)
 	return c.JSON(200, sandboxes)
 }
 
@@ -56,6 +62,7 @@ func (h *SandboxHandler) Get(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.NotFound("SANDBOX_NOT_FOUND", "Sandbox not found").WithCause(err))
 	}
+	slog.Info("sandbox loaded", logging.RequestFields(c, "sandbox_id", sandbox.ID.String(), "status", sandbox.Status)...)
 	return c.JSON(200, sandbox)
 }
 
@@ -71,6 +78,10 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 	}
 
 	guest := mw.MustGuest(c)
+	slog.Info("public demo creation requested", logging.RequestFields(c,
+		"guest_session_id", guest.SessionID.String(),
+		"image_id", imageID.String(),
+	)...)
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
 		ImageID:        imageID,
 		GuestSessionID: &guest.SessionID,
@@ -80,6 +91,12 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 		return mapSandboxError(c, err)
 	}
 
+	slog.Info("public demo created", logging.RequestFields(c,
+		"guest_session_id", guest.SessionID.String(),
+		"sandbox_id", sandbox.ID.String(),
+		"image_id", sandbox.ImageID.String(),
+		"expires_at", sandbox.ExpiresAt,
+	)...)
 	return c.JSON(201, sandbox)
 }
 
@@ -101,6 +118,11 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 		ttl = &duration
 	}
 
+	slog.Info("private sandbox creation requested", logging.RequestFields(c,
+		"user_id", auth.UserID.String(),
+		"image_id", imageID.String(),
+		"ttl_minutes", input.TTLMinutes,
+	)...)
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
 		ImageID:  imageID,
 		UserID:   &auth.UserID,
@@ -111,6 +133,12 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 		return mapSandboxError(c, err)
 	}
 
+	slog.Info("private sandbox created", logging.RequestFields(c,
+		"user_id", auth.UserID.String(),
+		"sandbox_id", sandbox.ID.String(),
+		"image_id", sandbox.ImageID.String(),
+		"expires_at", sandbox.ExpiresAt,
+	)...)
 	return c.JSON(201, sandbox)
 }
 
@@ -121,10 +149,28 @@ func (h *SandboxHandler) Delete(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
+	slog.Info("sandbox deletion requested", logging.RequestFields(c, "user_id", auth.UserID.String(), "sandbox_id", id.String())...)
 	if err := h.sandboxes.Delete(c.Request().Context(), id, c.RealIP(), &auth.UserID); err != nil {
 		return mapSandboxError(c, err)
 	}
 
+	slog.Info("sandbox deleted", logging.RequestFields(c, "user_id", auth.UserID.String(), "sandbox_id", id.String())...)
+	return c.NoContent(204)
+}
+
+func (h *SandboxHandler) DeleteGuest(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid sandbox id"))
+	}
+
+	guest := mw.MustGuest(c)
+	slog.Info("guest sandbox deletion requested", logging.RequestFields(c, "guest_session_id", guest.SessionID.String(), "sandbox_id", id.String())...)
+	if err := h.sandboxes.DeleteForGuest(c.Request().Context(), id, guest.SessionID, c.RealIP()); err != nil {
+		return mapSandboxError(c, err)
+	}
+
+	slog.Info("guest sandbox deleted", logging.RequestFields(c, "guest_session_id", guest.SessionID.String(), "sandbox_id", id.String())...)
 	return c.NoContent(204)
 }
 
@@ -140,6 +186,13 @@ func (h *SandboxHandler) Snapshot(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
+	slog.Info("sandbox snapshot requested", logging.RequestFields(c,
+		"user_id", auth.UserID.String(),
+		"sandbox_id", id.String(),
+		"name", input.Name,
+		"tag", input.Tag,
+		"is_public", input.IsPublic,
+	)...)
 	image, err := h.sandboxes.CreateSnapshot(c.Request().Context(), services.CreateSnapshotInput{
 		SandboxID:    id,
 		Name:         input.Name,
@@ -155,6 +208,12 @@ func (h *SandboxHandler) Snapshot(c echo.Context) error {
 		return mapSandboxError(c, err)
 	}
 
+	slog.Info("sandbox snapshot created", logging.RequestFields(c,
+		"user_id", auth.UserID.String(),
+		"sandbox_id", id.String(),
+		"image_id", image.ID.String(),
+		"image", image.FullName(),
+	)...)
 	return c.JSON(201, image)
 }
 
@@ -164,6 +223,8 @@ func mapSandboxError(c echo.Context, err error) error {
 		return responses.FromAppError(c, apperror.Conflict("SANDBOX_LIMIT_REACHED", "Maximum number of sandboxes reached"))
 	case services.ErrSandboxNotFound:
 		return responses.FromAppError(c, apperror.NotFound("SANDBOX_NOT_FOUND", "Sandbox not found"))
+	case services.ErrSandboxAccessDenied:
+		return responses.FromAppError(c, apperror.New(403, "SANDBOX_ACCESS_DENIED", "Sandbox does not belong to the current user"))
 	default:
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_ERROR", "Sandbox operation failed").WithCause(err))
 	}

@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
+	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 )
 
@@ -25,9 +28,11 @@ func (h *AuditHandler) List(c echo.Context) error {
 		}
 	}
 
+	auth := middleware.MustAuth(c)
 	logs, err := h.audit.List(limit)
 	if err != nil {
 		return responses.Error(c, http.StatusInternalServerError, "AUDIT_LOG_LIST_FAILED", "Could not load audit logs")
 	}
+	slog.Info("audit logs listed", logging.RequestFields(c, "user_id", auth.UserID.String(), "limit", limit, "count", len(logs))...)
 	return c.JSON(http.StatusOK, logs)
 }

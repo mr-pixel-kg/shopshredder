@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	"github.com/manuel/shopware-testenv-platform/api/internal/types"
 )
@@ -23,6 +25,7 @@ func EnsureGuestSession(guestService *services.GuestSessionService, cookieName s
 
 			token, sessionID, err := guestService.Ensure(tokenValue)
 			if err != nil {
+				slog.Error("guest session provisioning failed", append(logging.RequestFields(c), "has_cookie", tokenValue != "", "cause", err.Error())...)
 				return echo.NewHTTPError(http.StatusInternalServerError, "could not create guest session")
 			}
 
@@ -36,6 +39,9 @@ func EnsureGuestSession(guestService *services.GuestSessionService, cookieName s
 					HttpOnly: true,
 					SameSite: http.SameSiteLaxMode,
 				})
+				slog.Info("guest session created or refreshed", logging.RequestFields(c, "guest_session_id", sessionID.String(), "cookie_updated", true)...)
+			} else {
+				slog.Info("guest session reused", logging.RequestFields(c, "guest_session_id", sessionID.String(), "cookie_updated", false)...)
 			}
 
 			c.Set(guestContextKey, types.GuestContext{SessionID: sessionID})
