@@ -23,6 +23,9 @@ export const useAuthStore = defineStore('auth', () => {
     return token.value !== null && !isTokenExpired(token.value)
   })
 
+  // TODO: Replace with real role check when API adds roles to User type
+  const isAdmin = computed(() => isAuthenticated.value)
+
   async function initialize() {
     if (removeStorageListener) return
 
@@ -109,6 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isAuthenticated,
+    isAdmin,
     initialize,
     login,
     register,
