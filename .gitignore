@@ -5,3 +5,4 @@ dist/
 .output/
 .nuxt/
 api/config.yml
+./web-old
