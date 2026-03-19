@@ -27,7 +27,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Plus, ExternalLink, Clock, Square, Trash2 } from 'lucide-vue-next'
 
-const { activeSandboxes, recentSandboxes, loading, createSandbox, deleteSandbox, refresh } = useSandboxes()
+const { activeSandboxes, recentSandboxes, loading, createSandbox, extendTTL, deleteSandbox, refresh } = useSandboxes()
 const { images } = useImages()
 
 const showNewSandbox = ref(false)
@@ -248,6 +248,7 @@ async function handleConfirmDelete() {
 
     <ExtendTtlDialog
       v-model:open="showExtend"
+      :sandbox-id="selectedSandbox?.id ?? ''"
       :sandbox-name="selectedSandbox?.containerName ?? ''"
     />
 

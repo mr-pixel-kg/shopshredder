@@ -142,6 +142,39 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 	return c.JSON(201, sandbox)
 }
 
+func (h *SandboxHandler) ExtendTTL(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid sandbox id"))
+	}
+
+	var input dto.ExtendTTLRequest
+	if err := c.Bind(&input); err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid request body"))
+	}
+	if input.TTLMinutes <= 0 {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "ttlMinutes must be greater than 0"))
+	}
+
+	auth := mw.MustAuth(c)
+	slog.Info("sandbox TTL extension requested", logging.RequestFields(c,
+		"user_id", auth.UserID.String(),
+		"sandbox_id", id.String(),
+		"ttl_minutes", input.TTLMinutes,
+	)...)
+	sandbox, err := h.sandboxes.ExtendTTL(id, input.TTLMinutes, c.RealIP(), &auth.UserID)
+	if err != nil {
+		return mapSandboxError(c, err)
+	}
+
+	slog.Info("sandbox TTL extended", logging.RequestFields(c,
+		"user_id", auth.UserID.String(),
+		"sandbox_id", id.String(),
+		"new_expires_at", sandbox.ExpiresAt,
+	)...)
+	return c.JSON(200, sandbox)
+}
+
 func (h *SandboxHandler) Delete(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

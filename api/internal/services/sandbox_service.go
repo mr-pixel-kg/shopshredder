@@ -164,6 +164,46 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	return sandbox, nil
 }
 
+func (s *SandboxService) ExtendTTL(id uuid.UUID, additionalMinutes int, clientIP string, userID *uuid.UUID) (*models.Sandbox, error) {
+	sandbox, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, ErrSandboxNotFound
+	}
+
+	if sandbox.Status != models.SandboxStatusRunning && sandbox.Status != models.SandboxStatusStarting {
+		return nil, ErrSandboxNotFound
+	}
+
+	if sandbox.ExpiresAt == nil {
+		return nil, ErrSandboxNotFound
+	}
+
+	additional := time.Duration(additionalMinutes) * time.Minute
+	newExpiry := sandbox.ExpiresAt.Add(additional)
+
+	maxExpiry := time.Now().UTC().Add(s.cfg.MaxTTL)
+	if newExpiry.After(maxExpiry) {
+		newExpiry = maxExpiry
+	}
+
+	sandbox.ExpiresAt = &newExpiry
+	if err := s.repo.Update(sandbox); err != nil {
+		return nil, err
+	}
+
+	_ = s.addEvent(sandbox.ID, "extended", map[string]any{
+		"additionalMinutes": additionalMinutes,
+		"newExpiresAt":      newExpiry.Format(time.RFC3339),
+	})
+
+	_ = s.audit.Log(userID, "sandbox.extended", clientIP, map[string]any{
+		"sandboxId":         sandbox.ID.String(),
+		"additionalMinutes": additionalMinutes,
+	})
+
+	return sandbox, nil
+}
+
 func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, clientIP string, userID *uuid.UUID) error {
 	sandbox, err := s.repo.FindByID(id)
 	if err != nil {

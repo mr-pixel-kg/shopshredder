@@ -32,6 +32,11 @@ export const sandboxesApi = {
     return data
   },
 
+  async extendTTL(id: string, ttlMinutes: number): Promise<Sandbox> {
+    const { data } = await apiClient.patch<Sandbox>(`/api/sandboxes/${id}/ttl`, { ttlMinutes })
+    return data
+  },
+
   async remove(id: string): Promise<void> {
     await apiClient.delete(`/api/sandboxes/${id}`)
   },

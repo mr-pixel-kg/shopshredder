@@ -39,6 +39,7 @@ export function useSandboxes(mode: 'mine' | 'all' = 'mine') {
     refresh: fetch,
     createSandbox: store.createSandbox,
     createPublicDemo: store.createPublicDemo,
+    extendTTL: store.extendTTL,
     deleteSandbox: store.deleteSandbox,
   }
 }

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
+import { useSandboxesStore } from '@/stores/sandboxes.store'
+import { getApiErrorMessage } from '@/utils/error'
 import {
   Dialog,
   DialogContent,
@@ -13,8 +15,9 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
-defineProps<{
+const props = defineProps<{
   open: boolean
+  sandboxId: string
   sandboxName: string
 }>()
 
@@ -22,7 +25,9 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
 }>()
 
+const store = useSandboxesStore()
 const ttlMinutes = ref('60')
+const submitting = ref(false)
 
 const options = [
   { value: '5', label: '+5 Min' },
@@ -32,10 +37,18 @@ const options = [
   { value: '240', label: '+4 Std' },
 ]
 
-function handleSubmit() {
-  // TODO: Call extend API when available
-  toast.info('Laufzeit verlängern ist noch nicht verfügbar')
-  emit('update:open', false)
+async function handleSubmit() {
+  if (!props.sandboxId || submitting.value) return
+  submitting.value = true
+  try {
+    await store.extendTTL(props.sandboxId, Number(ttlMinutes.value))
+    toast.success('Laufzeit wurde verlängert')
+    emit('update:open', false)
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Fehler beim Verlängern der Laufzeit'))
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -62,7 +75,7 @@ function handleSubmit() {
       </div>
       <DialogFooter>
         <Button variant="outline" @click="emit('update:open', false)">Abbrechen</Button>
-        <Button @click="handleSubmit">Verlängern</Button>
+        <Button :disabled="submitting" @click="handleSubmit">Verlängern</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

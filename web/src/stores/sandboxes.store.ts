@@ -69,6 +69,13 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     return sandbox
   }
 
+  async function extendTTL(id: string, ttlMinutes: number): Promise<Sandbox> {
+    const updated = await sandboxesApi.extendTTL(id, ttlMinutes)
+    const idx = sandboxes.value.findIndex((s) => s.id === id)
+    if (idx !== -1) sandboxes.value[idx] = updated
+    return updated
+  }
+
   async function deleteSandbox(id: string) {
     await sandboxesApi.remove(id)
     sandboxes.value = sandboxes.value.filter((s) => s.id !== id)
@@ -86,6 +93,7 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     fetchGuestSandboxes,
     createSandbox,
     createPublicDemo,
+    extendTTL,
     deleteSandbox,
   }
 })
