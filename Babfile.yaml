@@ -118,3 +118,31 @@ tasks:
             WHERE schemaname = 'public'
             ORDER BY tablename;
           "
+
+  docker:purge-dockware:
+    desc: Fully purge all dockware images, containers, build cache, and layers
+    run:
+      - prompt: confirm
+        type: confirm
+        message: "This will stop and remove ALL dockware containers, images, build cache, and layers. Continue?"
+        default: false
+      - cmd: |
+          docker ps -a --filter "ancestor=dockware" --format '{{.ID}}' | xargs -r docker rm -f 2>/dev/null || true
+          for img in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^dockware/'); do
+            docker ps -a --filter "ancestor=$img" --format '{{.ID}}' | xargs -r docker rm -f 2>/dev/null || true
+          done
+
+          docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep '^dockware/' | awk '{print $2}' | sort -u | xargs -r docker rmi -f 2>/dev/null || true
+
+          docker image prune -f 2>/dev/null || true
+
+          docker builder prune -a -f 2>/dev/null || true
+
+          REMAINING=$(docker images | grep 'dockware' | wc -l | tr -d ' ')
+          if [ "$REMAINING" -gt 0 ]; then
+            echo "WARNING: $REMAINING dockware image(s) still found, force removing..."
+            docker images | grep 'dockware' | awk '{print $3}' | sort -u | xargs -r docker rmi -f 2>/dev/null || true
+          fi
+
+          echo ""
+          echo "Done. All dockware images have been purged. Next run will pull fresh images."
