@@ -37,21 +37,120 @@ This starts the database via Docker, then runs the API and web frontend dev serv
 | Api       | `/api/`   | Go, Echo, GORM, PostgreSQL, JWT Auth |
 | Web       | `/web/`   | Vue 3, Shadcn-vue, TypeScript, pnpm  |
 
-## Configuration
+## Configuration Guide
 
-### API Configuration (`api/config.yml`)
+### Configuration File (`api/config.yml`)
 
-Copy `api/config.example.yml` to `api/config.yml` and edit with your settings. The example is pre-configured for local
-development (localhost database, dev JWT secret, Traefik disabled).
+Copy `api/config.example.yml` to `api/config.yml` and edit with your settings.
+The example is pre-configured for local development (localhost database, dev JWT secret, Traefik disabled).
 
-Key sections:
+```yaml
+server:
+  port: 8080
+  app_url: "http://localhost:8080"
+  allowed_origins:
+    - "http://localhost:5173"
+    - "http://localhost:8000"
 
-- `server`: port, app URL, CORS origins
-- `database`: PostgreSQL connection (matches docker-compose credentials)
-- `auth`: JWT secret and token TTL
-- `sandbox`: URL pattern, lifetime, cleanup interval
-- `docker`: Docker/Traefik integration for sandbox containers
-- `guard`: rate limits (max sandboxes per IP/user)
+database:
+  host: "localhost"
+  port: 5432
+  user: "mrpix_sandbox"
+  password: "sandXbox_mrpix2025"
+  name: "mrpix_sandbox"
+  sslmode: "disable"
+
+auth:
+  jwt_secret: "local-dev-secret"
+  jwt_ttl_minutes: 480
+  guest_jwt_ttl_minutes: 43200
+  guest_cookie_name: "shopshredder_guest"
+
+sandbox:
+  url_prefix: "sandbox-"
+  url_suffix: ".localhost"
+  default_lifetime: 60
+  max_lifetime: 1440
+  cleanup_interval_seconds: 60
+  internal_port: 80
+
+docker:
+  mode: "port"
+  network: "internal"
+  traefik_enable: false
+  traefik_entrypoints: "websecure"
+  traefik_certresolver: "production"
+  traefik_middlewares: "sandbox-middleware@file,https-redirect@file"
+  snapshot_author: "shopshredder-api"
+  snapshot_comment: "Sandbox snapshot created by Shopshredder API"
+
+guard:
+  max_total_sandboxes: 32
+  max_sandboxes_per_ip: 5
+  max_sandboxes_per_user: 10
+```
+
+### Configuration Overview
+
+| Section  | Key                      | Type   | Default                 | Description                                            |
+|----------|--------------------------|--------|-------------------------|--------------------------------------------------------|
+| server   | port                     | int    | 8080                    | The port on which the server runs.                     |
+|          | app_url                  | string | "http://localhost:8080" | The base URL of the application.                       |
+|          | allowed_origins          | array  | []                      | List of allowed CORS origins.                          |
+| database | host                     | string | "localhost"             | Database host address.                                 |
+|          | port                     | int    | 5432                    | Database port.                                         |
+|          | user                     | string | "mrpix_sandbox"         | Database username.                                     |
+|          | password                 | string | "sandXbox_mrpix2025"    | Database password.                                     |
+|          | name                     | string | "mrpix_sandbox"         | Database name.                                         |
+|          | sslmode                  | string | "disable"               | PostgreSQL SSL mode.                                   |
+| auth     | jwt_secret               | string | "local-dev-secret"      | JWT signing secret.                                    |
+|          | jwt_ttl_minutes          | int    | 480                     | JWT token TTL in minutes.                              |
+|          | guest_jwt_ttl_minutes    | int    | 43200                   | Guest JWT token TTL in minutes.                        |
+|          | guest_cookie_name        | string | "shopshredder_guest"    | Cookie name for guest tokens.                          |
+| sandbox  | url_prefix               | string | "sandbox-"              | Prefix for sandbox URLs.                               |
+|          | url_suffix               | string | ".localhost"            | Suffix for sandbox URLs.                               |
+|          | default_lifetime         | int    | 60                      | Default sandbox lifetime in minutes.                   |
+|          | max_lifetime             | int    | 1440                    | Maximum sandbox lifetime in minutes.                   |
+|          | cleanup_interval_seconds | int    | 60                      | Interval between cleanup runs in seconds.              |
+|          | internal_port            | int    | 80                      | Internal container port.                               |
+| docker   | mode                     | string | "port"                  | Docker mode ("port" or "traefik").                     |
+|          | network                  | string | "internal"              | Docker network name.                                   |
+|          | traefik_enable           | bool   | false                   | Enable Traefik integration.                            |
+|          | traefik_entrypoints      | string | "websecure"             | Traefik entrypoints.                                   |
+|          | traefik_certresolver     | string | "production"            | Traefik certificate resolver.                          |
+|          | traefik_middlewares      | string | ""                      | Traefik middlewares (comma-separated).                 |
+|          | snapshot_author          | string | "shopshredder-api"      | Author for container snapshots.                        |
+|          | snapshot_comment         | string | ""                      | Comment for container snapshots.                       |
+| guard    | max_total_sandboxes      | int    | 32                      | Maximum number of sandboxes allowed in total.          |
+|          | max_sandboxes_per_ip     | int    | 5                       | Maximum number of concurrent sandboxes per IP address. |
+|          | max_sandboxes_per_user   | int    | 10                      | Maximum number of concurrent sandboxes per user.       |
+
+### Overriding Configuration with Environment Variables
+
+The application supports environment variables to override configuration values.
+
+| Environment Variable         | Corresponding Config Key     |
+|------------------------------|------------------------------|
+| SERVER_PORT                  | server.port                  |
+| SERVER_APP_URL               | server.app_url               |
+| DATABASE_HOST                | database.host                |
+| DATABASE_PORT                | database.port                |
+| DATABASE_USER                | database.user                |
+| DATABASE_PASSWORD            | database.password            |
+| DATABASE_NAME                | database.name                |
+| DATABASE_SSLMODE             | database.sslmode             |
+| AUTH_JWT_SECRET              | auth.jwt_secret              |
+| AUTH_JWT_TTL_MINUTES         | auth.jwt_ttl_minutes         |
+| SANDBOX_URL_PREFIX           | sandbox.url_prefix           |
+| SANDBOX_URL_SUFFIX           | sandbox.url_suffix           |
+| SANDBOX_DEFAULT_LIFETIME     | sandbox.default_lifetime     |
+| SANDBOX_MAX_LIFETIME         | sandbox.max_lifetime         |
+| DOCKER_MODE                  | docker.mode                  |
+| DOCKER_NETWORK               | docker.network               |
+| DOCKER_TRAEFIK_ENABLE        | docker.traefik_enable        |
+| GUARD_MAX_TOTAL_SANDBOXES    | guard.max_total_sandboxes    |
+| GUARD_MAX_SANDBOXES_PER_IP   | guard.max_sandboxes_per_ip   |
+| GUARD_MAX_SANDBOXES_PER_USER | guard.max_sandboxes_per_user |
 
 ### Docker Compose Environment (`.env`)
 
