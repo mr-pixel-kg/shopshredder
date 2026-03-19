@@ -34,7 +34,7 @@ tasks:
   web:dev:
     desc: Start web dev server
     run:
-      - cmd: cd web && npm install && npm run dev
+      - cmd: cd web && pnpm install && pnpm dev
 
   docker:up:
     desc: Start full stack

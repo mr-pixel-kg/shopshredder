@@ -35,7 +35,7 @@ This starts the database via Docker, then runs the API and web frontend dev serv
 | Component | Directory | Stack                                |
 |-----------|-----------|--------------------------------------|
 | Api       | `/api/`   | Go, Echo, GORM, PostgreSQL, JWT Auth |
-| Web       | `/web/`   | Vue 3, Shadcn-vue, TypeScript, npm   |
+| Web       | `/web/`   | Vue 3, Shadcn-vue, TypeScript, pnpm  |
 
 ## Configuration
 
@@ -63,7 +63,7 @@ Copied from `.env.example`. Controls Docker and database settings:
 | `POSTGRES_USER`      | PostgreSQL username                            | `mrpix_sandbox`         |
 | `POSTGRES_PASSWORD`  | PostgreSQL password                            | /                       |
 | `POSTGRES_DB`        | PostgreSQL database name                       | `mrpix_sandbox`         |
-| `VITE_BACKEND_URL`   | Backend URL for frontend                       | `http://localhost:8080` |
+| `WEB_API_URL`        | API URL for web frontend                       | `http://localhost:8080` |
 
 ## Development
 
@@ -99,8 +99,8 @@ bab web:dev
 Or manually:
 
 ```bash
-cp web/.env.example web/.env  # set VITE_API_BASE_URL
-cd web && npm install && npm run dev
+cp web/.env.example web/.env  # set WEB_API_URL
+cd web && pnpm install && pnpm dev
 ```
 
 ### Custom Shopware Image Build
