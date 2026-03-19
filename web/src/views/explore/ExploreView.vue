@@ -8,6 +8,7 @@ import { toast } from 'vue-sonner'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import FilterBar from '@/components/explore/FilterBar.vue'
 import PresetGrid from '@/components/explore/PresetGrid.vue'
+import CardGridSkeleton from '@/components/shared/CardGridSkeleton.vue'
 import NewSandboxDialog from '@/components/modals/NewSandboxDialog.vue'
 
 const { images, loading } = useImages()
@@ -56,7 +57,7 @@ async function handleCreateSandbox(
     <div class="space-y-6">
       <FilterBar v-model="filter" />
 
-      <div v-if="loading" class="text-sm text-muted-foreground">Vorlagen werden geladen...</div>
+      <CardGridSkeleton v-if="loading" :count="6" />
       <PresetGrid
         v-else
         :images="filteredImages"

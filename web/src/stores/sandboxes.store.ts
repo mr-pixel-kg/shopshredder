@@ -18,8 +18,13 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     ),
   )
 
-  async function fetchMySandboxes() {
+  function $reset() {
+    sandboxes.value = []
     loading.value = true
+    error.value = null
+  }
+
+  async function fetchMySandboxes() {
     error.value = null
     try {
       sandboxes.value = await sandboxesApi.listMine()
@@ -31,7 +36,6 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
   }
 
   async function fetchAllSandboxes() {
-    loading.value = true
     error.value = null
     try {
       sandboxes.value = await sandboxesApi.list()
@@ -43,7 +47,6 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
   }
 
   async function fetchGuestSandboxes() {
-    loading.value = true
     error.value = null
     try {
       sandboxes.value = await sandboxesApi.listGuest()
@@ -77,6 +80,7 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     error,
     activeSandboxes,
     recentSandboxes,
+    $reset,
     fetchMySandboxes,
     fetchAllSandboxes,
     fetchGuestSandboxes,

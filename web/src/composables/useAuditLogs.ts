@@ -86,7 +86,11 @@ export function useAuditLogs() {
     URL.revokeObjectURL(url)
   }
 
-  onMounted(fetch)
+  onMounted(() => {
+    allLogs.value = []
+    loading.value = true
+    fetch()
+  })
 
   return {
     logs: paginatedLogs,

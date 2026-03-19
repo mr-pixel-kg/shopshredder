@@ -68,11 +68,11 @@ func (s *SandboxService) ListActive() ([]models.Sandbox, error) {
 }
 
 func (s *SandboxService) ListByUser(userID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListActiveByUser(userID)
+	return s.repo.ListAllByUser(userID)
 }
 
 func (s *SandboxService) ListByGuestSession(sessionID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListActiveByGuestSession(sessionID)
+	return s.repo.ListAllByGuestSession(sessionID)
 }
 
 func (s *SandboxService) FindByID(id uuid.UUID) (*models.Sandbox, error) {
@@ -162,19 +162,27 @@ func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, clientIP stri
 		return ErrSandboxNotFound
 	}
 
-	if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
-		return err
-	}
+	isActive := sandbox.Status == models.SandboxStatusRunning || sandbox.Status == models.SandboxStatusStarting
 
-	now := time.Now().UTC()
-	sandbox.Status = models.SandboxStatusDeleted
-	sandbox.DeletedAt = &now
-	if err := s.repo.Update(sandbox); err != nil {
-		return err
-	}
+	if isActive {
+		// Soft delete: stop container, mark as deleted, keep in history.
+		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
+			return err
+		}
 
-	if err := s.addEvent(sandbox.ID, "deleted", map[string]any{}); err != nil {
-		return err
+		sandbox.Status = models.SandboxStatusDeleted
+		if err := s.repo.Update(sandbox); err != nil {
+			return err
+		}
+
+		if err := s.addEvent(sandbox.ID, "deleted", map[string]any{}); err != nil {
+			return err
+		}
+	} else {
+		// Hard delete: permanently remove from history.
+		if err := s.repo.DeleteByID(sandbox.ID); err != nil {
+			return err
+		}
 	}
 
 	_ = s.audit.Log(userID, "sandbox.deleted", clientIP, map[string]any{

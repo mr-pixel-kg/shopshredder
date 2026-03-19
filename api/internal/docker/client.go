@@ -27,7 +27,9 @@ type SandboxContainer struct {
 }
 
 type Client interface {
+	ImageExists(ctx context.Context, imageName string) bool
 	EnsureImage(ctx context.Context, imageName string) error
+	PullImage(ctx context.Context, imageName string) (io.ReadCloser, error)
 	RemoveImage(ctx context.Context, imageName string) error
 	CreateContainer(ctx context.Context, request SandboxCreateRequest) (*SandboxContainer, error)
 	DeleteContainer(ctx context.Context, containerID string) error
@@ -57,6 +59,11 @@ func NewClient(sandboxCfg config.SandboxConfig, dockerCfg config.DockerConfig) (
 	}, nil
 }
 
+func (c *DockerClient) ImageExists(ctx context.Context, imageName string) bool {
+	_, _, err := c.client.ImageInspectWithRaw(ctx, imageName)
+	return err == nil
+}
+
 func (c *DockerClient) EnsureImage(ctx context.Context, imageName string) error {
 	if imageName == "" {
 		return fmt.Errorf("invalid image reference")
@@ -81,6 +88,13 @@ func (c *DockerClient) EnsureImage(ctx context.Context, imageName string) error 
 	}
 
 	return nil
+}
+
+func (c *DockerClient) PullImage(ctx context.Context, imageName string) (io.ReadCloser, error) {
+	if imageName == "" {
+		return nil, fmt.Errorf("invalid image reference")
+	}
+	return c.client.ImagePull(ctx, imageName, image.PullOptions{})
 }
 
 func (c *DockerClient) RemoveImage(ctx context.Context, imageName string) error {

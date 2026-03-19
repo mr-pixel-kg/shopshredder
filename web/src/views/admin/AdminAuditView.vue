@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Download, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const {
   logs,
@@ -106,24 +107,30 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
     </div>
 
     <div class="rounded-md border">
-      <Table>
+      <Table class="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Zeitpunkt</TableHead>
-            <TableHead>Benutzer</TableHead>
-            <TableHead>Aktion</TableHead>
-            <TableHead>Details</TableHead>
-            <TableHead>IP</TableHead>
+            <TableHead class="w-[20%]">Zeitpunkt</TableHead>
+            <TableHead class="w-[20%]">Benutzer</TableHead>
+            <TableHead class="w-[15%]">Aktion</TableHead>
+            <TableHead class="w-[30%]">Details</TableHead>
+            <TableHead class="w-[15%]">IP</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableEmpty v-if="loading" :colspan="5">
-            Wird geladen...
-          </TableEmpty>
+          <template v-if="loading">
+            <TableRow v-for="i in 3" :key="i" class="h-13">
+              <TableCell><Skeleton class="h-4 w-28" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-20" /></TableCell>
+              <TableCell><Skeleton class="h-5 w-16 rounded-full" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-36" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-20" /></TableCell>
+            </TableRow>
+          </template>
           <TableEmpty v-else-if="logs.length === 0" :colspan="5">
             Keine Einträge gefunden
           </TableEmpty>
-          <TableRow v-for="log in logs" :key="log.id">
+          <TableRow v-for="log in logs" :key="log.id" class="h-13">
             <TableCell class="text-muted-foreground whitespace-nowrap">
               {{ formatDateTime(log.createdAt) }}
             </TableCell>

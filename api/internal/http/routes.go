@@ -53,7 +53,9 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	imageService := services.NewImageService(imageRepo, dockerClient)
+	pullTracker := docker.NewPullTracker()
+	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker)
+	imageService.RecoverStalePulls()
 	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient)
 
 	// Sandbox expiration is handled inside the same process on purpose to keep
@@ -76,6 +78,8 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	private.Use(authmw.Auth(authService))
 	// Public routes create or refresh the guest cookie automatically.
 	public.Use(authmw.EnsureGuestSession(guestService, cfg.Auth.GuestCookieName))
+
+	api.GET("/images/:id/progress", imageHandler.PullProgress)
 
 	public.GET("/images", imageHandler.ListPublic)
 	public.GET("/sandboxes", sandboxHandler.ListGuest)

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -23,6 +25,7 @@ func NewImageHandler(images *services.ImageService, audit *services.AuditService
 }
 
 func (h *ImageHandler) ListPublic(c echo.Context) error {
+
 	images, err := h.images.ListPublic()
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load public images").WithCause(err))
@@ -32,6 +35,7 @@ func (h *ImageHandler) ListPublic(c echo.Context) error {
 }
 
 func (h *ImageHandler) ListAll(c echo.Context) error {
+
 	images, err := h.images.ListAll()
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load images").WithCause(err))
@@ -92,4 +96,49 @@ func (h *ImageHandler) Delete(c echo.Context) error {
 	slog.Info("image deleted successfully", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
 	_ = h.audit.Log(&auth.UserID, "image.deleted", c.RealIP(), map[string]any{"imageId": id.String()})
 	return c.NoContent(204)
+}
+
+func (h *ImageHandler) PullProgress(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid image id"))
+	}
+
+	img, err := h.images.FindByID(id)
+	if err != nil {
+		return responses.FromAppError(c, apperror.NotFound("IMAGE_NOT_FOUND", "Image not found"))
+	}
+
+	c.Response().Header().Set("Content-Type", "text/event-stream")
+	c.Response().Header().Set("Cache-Control", "no-cache")
+	c.Response().Header().Set("Connection", "keep-alive")
+	c.Response().WriteHeader(200)
+
+	if img.Status == "ready" || img.Status == "failed" {
+		data, _ := json.Marshal(map[string]any{
+			"percent": 100,
+			"status":  img.Status,
+		})
+		fmt.Fprintf(c.Response(), "data: %s\n\n", data)
+		c.Response().Flush()
+		return nil
+	}
+
+	ch, cancel := h.images.WatchPullProgress(id.String())
+	defer cancel()
+
+	ctx := c.Request().Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case progress, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			data, _ := json.Marshal(progress)
+			fmt.Fprintf(c.Response(), "data: %s\n\n", data)
+			c.Response().Flush()
+		}
+	}
 }

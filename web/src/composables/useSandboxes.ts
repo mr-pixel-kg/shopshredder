@@ -21,6 +21,7 @@ export function useSandboxes(mode: 'mine' | 'all' = 'mine') {
   }
 
   onMounted(() => {
+    store.$reset()
     fetch()
     pollInterval = setInterval(fetch, 10_000)
   })

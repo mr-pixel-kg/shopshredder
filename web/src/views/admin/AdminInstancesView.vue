@@ -9,7 +9,7 @@ import type { Sandbox, SandboxStatus } from '@/types'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import StatusBadge from '@/components/shared/StatusBadge.vue'
 import ExtendTtlDialog from '@/components/modals/ExtendTtlDialog.vue'
-import ConfirmDeleteDialog from '@/components/modals/ConfirmDeleteDialog.vue'
+import ConfirmDialog from '@/components/modals/ConfirmDialog.vue'
 import {
   Select,
   SelectContent,
@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Clock, Square } from 'lucide-vue-next'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const { sandboxes, deleteSandbox, loading } = useSandboxes('all')
 const { images } = useImages('all')
@@ -92,24 +93,35 @@ async function handleConfirmDelete() {
     </div>
 
     <div class="rounded-md border">
-      <Table>
+      <Table class="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Status</TableHead>
-            <TableHead>Vorlage</TableHead>
-            <TableHead>Gestartet</TableHead>
-            <TableHead>Läuft ab</TableHead>
-            <TableHead class="text-right">Aktionen</TableHead>
+            <TableHead class="w-[15%]">Status</TableHead>
+            <TableHead class="w-[30%]">Vorlage</TableHead>
+            <TableHead class="w-[20%]">Gestartet</TableHead>
+            <TableHead class="w-[20%]">Läuft ab</TableHead>
+            <TableHead class="w-[15%] text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableEmpty v-if="loading" :colspan="5">
-            Wird geladen...
-          </TableEmpty>
+          <template v-if="loading">
+            <TableRow v-for="i in 3" :key="i" class="h-13">
+              <TableCell><Skeleton class="h-5 w-16 rounded-full" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-28" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-24" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-24" /></TableCell>
+              <TableCell class="text-right">
+                <div class="flex items-center justify-end gap-1">
+                  <Skeleton class="h-7 w-7" />
+                  <Skeleton class="h-7 w-7" />
+                </div>
+              </TableCell>
+            </TableRow>
+          </template>
           <TableEmpty v-else-if="filteredSandboxes.length === 0" :colspan="5">
             Keine Instanzen gefunden
           </TableEmpty>
-          <TableRow v-for="sandbox in filteredSandboxes" :key="sandbox.id">
+          <TableRow v-for="sandbox in filteredSandboxes" :key="sandbox.id" class="h-13">
             <TableCell>
               <StatusBadge :status="sandbox.status" />
             </TableCell>
@@ -123,7 +135,7 @@ async function handleConfirmDelete() {
                 <div class="flex items-center justify-end gap-1">
                   <Tooltip v-if="sandbox.status === 'running' || sandbox.status === 'starting'">
                     <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon" @click="handleExtend(sandbox)">
+                      <Button variant="ghost" size="icon-sm" @click="handleExtend(sandbox)">
                         <Clock class="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -133,7 +145,7 @@ async function handleConfirmDelete() {
                     <TooltipTrigger as-child>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="icon-sm"
                         class="text-destructive hover:text-destructive"
                         @click="handleDelete(sandbox)"
                       >
@@ -155,9 +167,11 @@ async function handleConfirmDelete() {
       :sandbox-name="selectedSandbox?.containerName ?? ''"
     />
 
-    <ConfirmDeleteDialog
+    <ConfirmDialog
       v-model:open="showConfirmDelete"
-      :sandbox-name="selectedSandbox?.containerName ?? ''"
+      title="Sandbox beenden"
+      :description="`Bist du sicher, dass du ${selectedSandbox?.containerName ?? 'diese Sandbox'} beenden möchtest? Diese Aktion kann nicht rückgängig gemacht werden.`"
+      confirm-label="Beenden"
       @confirm="handleConfirmDelete"
     />
   </div>

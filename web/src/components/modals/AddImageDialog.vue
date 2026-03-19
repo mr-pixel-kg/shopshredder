@@ -32,25 +32,27 @@ const tag = ref('')
 const title = ref('')
 const description = ref('')
 const isPublic = ref(true)
-const submitting = ref(false)
+const busy = ref(false)
+
+function resetState() {
+  name.value = ''
+  tag.value = ''
+  title.value = ''
+  description.value = ''
+  isPublic.value = true
+  busy.value = false
+}
 
 watch(
   () => props.open,
   (open) => {
-    if (open) {
-      name.value = ''
-      tag.value = ''
-      title.value = ''
-      description.value = ''
-      isPublic.value = true
-      submitting.value = false
-    }
+    if (open) resetState()
   },
 )
 
 function handleSubmit() {
   if (!name.value || !tag.value) return
-  submitting.value = true
+  busy.value = true
   emit(
     'submit',
     {
@@ -61,7 +63,7 @@ function handleSubmit() {
       isPublic: isPublic.value,
     },
     (success: boolean) => {
-      submitting.value = false
+      busy.value = false
       if (success) {
         emit('update:open', false)
       }
@@ -80,29 +82,29 @@ function handleSubmit() {
       <form @submit.prevent="handleSubmit" class="grid gap-4 py-4">
         <div class="grid gap-2">
           <Label for="image-name">Image Name</Label>
-          <Input id="image-name" v-model="name" placeholder="dockware/dev" required :disabled="submitting" />
+          <Input id="image-name" v-model="name" placeholder="dockware/dev" required :disabled="busy" />
         </div>
         <div class="grid gap-2">
           <Label for="image-tag">Tag</Label>
-          <Input id="image-tag" v-model="tag" placeholder="latest" required :disabled="submitting" />
+          <Input id="image-tag" v-model="tag" placeholder="latest" required :disabled="busy" />
         </div>
         <div class="grid gap-2">
           <Label for="image-title">Titel</Label>
-          <Input id="image-title" v-model="title" placeholder="Leere Installation" :disabled="submitting" />
+          <Input id="image-title" v-model="title" placeholder="Leere Installation" :disabled="busy" />
         </div>
         <div class="grid gap-2">
           <Label for="image-description">Beschreibung</Label>
-          <Textarea id="image-description" v-model="description" placeholder="Beschreibung der Vorlage..." :disabled="submitting" />
+          <Textarea id="image-description" v-model="description" placeholder="Beschreibung der Vorlage..." :disabled="busy" />
         </div>
         <div class="flex items-center justify-between">
           <Label for="image-public">Öffentlich sichtbar</Label>
-          <Switch id="image-public" :checked="isPublic" @update:checked="isPublic = $event" :disabled="submitting" />
+          <Switch id="image-public" v-model="isPublic" :disabled="busy" />
         </div>
         <DialogFooter class="pt-2">
-          <Button type="button" variant="outline" :disabled="submitting" @click="emit('update:open', false)">Abbrechen</Button>
-          <Button type="submit" :disabled="!name || !tag || submitting">
-            <Loader2 v-if="submitting" class="h-4 w-4 animate-spin mr-1" />
-            {{ submitting ? 'Wird hinzugefügt...' : 'Hinzufügen' }}
+          <Button type="button" variant="outline" :disabled="busy" @click="emit('update:open', false)">Abbrechen</Button>
+          <Button type="submit" :disabled="!name || !tag || busy">
+            <Loader2 v-if="busy" class="h-4 w-4 animate-spin mr-1" />
+            {{ busy ? 'Wird hinzugefügt...' : 'Hinzufügen' }}
           </Button>
         </DialogFooter>
       </form>

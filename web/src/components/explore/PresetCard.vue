@@ -15,7 +15,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <Card class="flex flex-col">
+  <Card class="flex flex-col h-[200px]">
     <CardHeader class="pb-3">
       <div class="flex items-start justify-between">
         <CardTitle class="text-sm font-medium">{{ image.title || image.name }}</CardTitle>
@@ -30,7 +30,7 @@ const emit = defineEmits<{
       </p>
     </CardContent>
     <CardFooter>
-      <Button size="sm" class="w-full" @click="emit('start', image.id)">
+      <Button size="sm" class="w-full" :disabled="image.status !== 'ready'" @click="emit('start', image.id)">
         <Play class="h-4 w-4 mr-1" />
         Starten
       </Button>

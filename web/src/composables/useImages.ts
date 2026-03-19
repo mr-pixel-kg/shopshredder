@@ -1,4 +1,4 @@
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useImagesStore } from '@/stores/images.store'
 import { useAuthStore } from '@/stores/auth.store'
@@ -16,7 +16,12 @@ export function useImages(mode: 'public' | 'all' = 'public') {
   }
 
   onMounted(() => {
+    store.$reset()
     fetch()
+  })
+
+  onUnmounted(() => {
+    store.unsubscribeAll()
   })
 
   return {
