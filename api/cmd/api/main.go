@@ -8,7 +8,7 @@
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Enter "Bearer {token}"
+// @description Paste the JWT token. "Bearer " is optional.
 
 //go:generate go tool swag init -g main.go -d .,../../internal/http/handlers,../../internal/http/dto,../../internal/models,../../internal/http -o ../../docs --parseInternal --packagePrefix github.com/manuel/shopware-testenv-platform/api
 

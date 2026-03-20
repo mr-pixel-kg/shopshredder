@@ -1055,7 +1055,7 @@ paths:
       - System
 securityDefinitions:
   BearerAuth:
-    description: Enter "Bearer {token}"
+    description: Paste the JWT token. "Bearer " is optional.
     in: header
     name: Authorization
     type: apiKey
