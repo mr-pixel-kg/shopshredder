@@ -108,6 +108,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	})
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
+    // TODO more dynamic public and private and auth routes instead of manually maintain these ints
 	slog.Info("http routes registered",
 		"public_routes", 4,
 		"auth_routes", 2,
