@@ -2,9 +2,6 @@ package services
 
 import (
 	"context"
-	"log/slog"
-	"sync"
-	"time"
 	"errors"
 	"io"
 	"log/slog"
@@ -13,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
@@ -40,10 +39,10 @@ const (
 var ErrUnsupportedThumbnailFormat = errors.New("unsupported thumbnail format")
 
 type ImageService struct {
-	repo        *repositories.ImageRepository
-	sandboxRepo *repositories.SandboxRepository
-	docker      docker.Client
-	tracker     *docker.PullTracker
+	repo         *repositories.ImageRepository
+	sandboxRepo  *repositories.SandboxRepository
+	docker       docker.Client
+	tracker      *docker.PullTracker
 	thumbnailDir string
 
 	mu           sync.RWMutex
@@ -66,6 +65,7 @@ func NewImageService(
 		thumbnailDir: thumbnailDir,
 		pullCancels:  make(map[string]context.CancelFunc),
 		pendingPulls: make(map[string]*PendingPull),
+	}
 
 	if err := os.MkdirAll(service.thumbnailDir, 0o755); err != nil {
 		slog.Error("create thumbnail directory failed", "path", service.thumbnailDir, "cause", err.Error())
@@ -73,14 +73,6 @@ func NewImageService(
 
 	return service
 }
-
-func NewImageService(repo *repositories.ImageRepository, dockerClient docker.Client, thumbnailDir string) *ImageService {
-	service := &ImageService{
-	repo:         repo,
-	docker:       dockerClient,
-	thumbnailDir: thumbnailDir,
-}
-
 
 func (s *ImageService) ListPublic() ([]models.Image, error) {
 	images, err := s.repo.ListPublic()
@@ -134,15 +126,14 @@ func (s *ImageService) CreateForUser(
 	}
 
 	pending := &PendingPull{
-		ID:           uuid.New(),
-		Name:         name,
-		Tag:          tag,
-		Title:        title,
-		Description:  description,
-		ThumbnailURL: thumbnailURL,
-		IsPublic:     isPublic,
-		UserID:       userID,
-		Status:       "pulling",
+		ID:          uuid.New(),
+		Name:        name,
+		Tag:         tag,
+		Title:       title,
+		Description: description,
+		IsPublic:    isPublic,
+		UserID:      userID,
+		Status:      "pulling",
 	}
 
 	pullCtx, cancel := context.WithCancel(context.Background())
@@ -211,7 +202,7 @@ func (s *ImageService) pullImage(ctx context.Context, pending *PendingPull, full
 	slog.Info("image pull complete", "image_id", idStr, "image", fullName)
 	s.tracker.Finish(idStr, nil)
 
-	return s.attachThumbnailURL(image), nil
+	// todo hier kein image zurückgeben? s.attachThumbnailURL(image)
 }
 
 func (s *ImageService) WatchPullProgress(imageID string) (<-chan docker.PullProgress, func()) {
