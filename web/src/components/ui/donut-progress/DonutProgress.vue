@@ -10,10 +10,9 @@ const props = withDefaults(
   },
 )
 
-// Circle geometry — matches Lucide icon viewBox (0 0 24 24)
-const cx = 12
-const cy = 12
-const r = 10
+const cx = 24
+const cy = 24
+const r = 20
 const circumference = 2 * Math.PI * r
 const dashoffset = computed(() => circumference * ((100 - Math.min(Math.max(props.modelValue, 0), 100)) / 100))
 </script>
@@ -23,9 +22,10 @@ const dashoffset = computed(() => circumference * ((100 - Math.min(Math.max(prop
     xmlns="http://www.w3.org/2000/svg"
     width="24"
     height="24"
-    viewBox="0 0 24 24"
+    viewBox="0 0 48 48"
     fill="none"
-    class="-rotate-90"
+    shape-rendering="geometricPrecision"
+    style="transform: rotate(-90deg) translateZ(0); will-change: transform; backface-visibility: hidden;"
   >
     <!-- Track -->
     <circle
@@ -33,7 +33,7 @@ const dashoffset = computed(() => circumference * ((100 - Math.min(Math.max(prop
       :cy="cy"
       :r="r"
       stroke="currentColor"
-      stroke-width="2"
+      stroke-width="4"
       opacity="0.2"
     />
     <!-- Progress arc -->
@@ -42,7 +42,7 @@ const dashoffset = computed(() => circumference * ((100 - Math.min(Math.max(prop
       :cy="cy"
       :r="r"
       stroke="currentColor"
-      stroke-width="2"
+      stroke-width="4"
       stroke-linecap="round"
       :stroke-dasharray="circumference"
       :stroke-dashoffset="dashoffset"
