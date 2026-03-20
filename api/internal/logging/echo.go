@@ -23,20 +23,33 @@ func EchoRequestLogger() echo.MiddlewareFunc {
 		LogContentLength: true,
 		LogResponseSize:  true,
 		LogValuesFunc: func(c echo.Context, v echomw.RequestLoggerValues) error {
-			fields := []any{
-				"component", "http_request",
-				"request_id", v.RequestID,
-				"method", v.Method,
-				"uri", v.URI,
-				"route", v.RoutePath,
-				"remote_ip", v.RemoteIP,
-				"host", v.Host,
-				"user_agent", v.UserAgent,
-				"status", v.Status,
-				"latency_ms", float64(v.Latency.Nanoseconds()) / 1e6,
-				"bytes_in", v.ContentLength,
-				"bytes_out", v.ResponseSize,
+			var fields []any
+
+			if TextMode {
+				fields = []any{
+					"component", "http",
+					"method", v.Method,
+					"uri", v.URI,
+					"status", v.Status,
+					"latency_ms", float64(v.Latency.Nanoseconds()) / 1e6,
+				}
+			} else {
+				fields = []any{
+					"component", "http_request",
+					"request_id", v.RequestID,
+					"method", v.Method,
+					"uri", v.URI,
+					"route", v.RoutePath,
+					"remote_ip", v.RemoteIP,
+					"host", v.Host,
+					"user_agent", v.UserAgent,
+					"status", v.Status,
+					"latency_ms", float64(v.Latency.Nanoseconds()) / 1e6,
+					"bytes_in", v.ContentLength,
+					"bytes_out", v.ResponseSize,
+				}
 			}
+
 			if v.Error != nil {
 				fields = append(fields, "error", v.Error.Error())
 			}

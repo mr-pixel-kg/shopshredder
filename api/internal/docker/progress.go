@@ -195,7 +195,7 @@ func (t *PullTracker) notifyWatchers(imageID string) {
 	progress := t.computeProgress(imageID)
 
 	if state, ok := t.pulls[imageID]; ok && progress.Percent != state.lastLoggedPercent {
-		slog.Info("image pull progress", "image_id", imageID, "percent", progress.Percent)
+		slog.Debug("image pull progress", "component", "docker", "image_id", imageID, "percent", progress.Percent)
 		state.lastLoggedPercent = progress.Percent
 	}
 

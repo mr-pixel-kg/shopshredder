@@ -21,19 +21,19 @@ func Auth(authService *services.AuthService) echo.MiddlewareFunc {
 			// handled by the dedicated guest middleware.
 			authHeader := strings.TrimSpace(c.Request().Header.Get(echo.HeaderAuthorization))
 			if authHeader == "" {
-				slog.Warn("missing authorization header", logging.RequestFields(c)...)
+				slog.Warn("missing authorization header", logging.RequestFields(c, "component", "auth")...)
 				return responses.FromAppError(c, apperror.Unauthorized("Missing bearer token"))
 			}
 
 			token, ok := parseAuthorizationHeader(authHeader)
 			if !ok {
-				slog.Warn("invalid authorization header format", logging.RequestFields(c)...)
+				slog.Warn("invalid authorization header format", logging.RequestFields(c, "component", "auth")...)
 				return responses.FromAppError(c, apperror.Unauthorized("Invalid authorization header"))
 			}
 
 			user, tokenID, err := authService.Authenticate(token)
 			if err != nil {
-				slog.Warn("token authentication failed", append(logging.RequestFields(c), "cause", err.Error())...)
+				slog.Warn("token authentication failed", append(logging.RequestFields(c, "component", "auth"), "error", err.Error())...)
 				return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
 			}
 
@@ -41,7 +41,7 @@ func Auth(authService *services.AuthService) echo.MiddlewareFunc {
 			// need to parse or validate the token again.
 			c.Set(authContextKey, types.AuthContext{UserID: user.ID, TokenID: tokenID, SessionType: "user"})
 			c.Set("user", user)
-			slog.Info("request authenticated", logging.RequestFields(c, "user_id", user.ID.String(), "token_id", tokenID)...)
+			slog.Debug("request authenticated", logging.RequestFields(c, "component", "auth", "user_id", user.ID.String(), "token_id", tokenID)...)
 			return next(c)
 		}
 	}
