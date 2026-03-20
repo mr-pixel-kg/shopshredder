@@ -40,7 +40,7 @@ func (h *ImageHandler) ListPublic(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load public images").WithCause(err))
 	}
-	slog.Info("listed public images", logging.RequestFields(c, "count", len(images))...)
+	slog.Debug("listed public images", logging.RequestFields(c, "component", "image", "count", len(images))...)
 	return c.JSON(200, images)
 }
 
@@ -59,7 +59,7 @@ func (h *ImageHandler) ListAll(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load images").WithCause(err))
 	}
-	slog.Info("listed all images", logging.RequestFields(c, "count", len(images))...)
+	slog.Debug("listed all images", logging.RequestFields(c, "component", "image", "count", len(images))...)
 	return c.JSON(200, images)
 }
 
@@ -83,7 +83,8 @@ func (h *ImageHandler) Create(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
-	slog.Info("image creation requested", logging.RequestFields(c,
+	slog.Debug("image creation requested", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"name", input.Name,
 		"tag", input.Tag,
@@ -111,6 +112,7 @@ func (h *ImageHandler) Create(c echo.Context) error {
 	// todo: think about it
 	if pending != nil {
 		slog.Info("image pull started", logging.RequestFields(c,
+			"component", "image",
 			"user_id", auth.UserID.String(),
 			"image_id", pending.ID.String(),
 			"image", input.Name+":"+input.Tag,
@@ -126,6 +128,7 @@ func (h *ImageHandler) Create(c echo.Context) error {
 	}
 
 	slog.Info("image created", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
 		"image", image.FullName(),
@@ -160,7 +163,8 @@ func (h *ImageHandler) Update(c echo.Context) error {
 		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid request body"))
 	}
 
-	slog.Info("image update requested", logging.RequestFields(c,
+	slog.Debug("image update requested", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", id.String(),
 		"is_public", input.IsPublic,
@@ -170,7 +174,8 @@ func (h *ImageHandler) Update(c echo.Context) error {
 		return mapImageError(c, "IMAGE_UPDATE_FAILED", "Could not update image", err)
 	}
 
-	slog.Info("image updated successfully", logging.RequestFields(c,
+	slog.Info("image updated", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
 		"is_public", image.IsPublic,
@@ -213,7 +218,8 @@ func (h *ImageHandler) UploadThumbnail(c echo.Context) error {
 	}
 	defer file.Close()
 
-	slog.Info("thumbnail upload requested", logging.RequestFields(c,
+	slog.Debug("thumbnail upload requested", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", id.String(),
 		"filename", fileHeader.Filename,
@@ -227,7 +233,8 @@ func (h *ImageHandler) UploadThumbnail(c echo.Context) error {
 		return mapImageError(c, "THUMBNAIL_UPLOAD_FAILED", "Could not store thumbnail", err)
 	}
 
-	slog.Info("thumbnail uploaded successfully", logging.RequestFields(c,
+	slog.Info("thumbnail uploaded", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
 		"thumbnail_url", image.ThumbnailURL,
@@ -255,16 +262,16 @@ func (h *ImageHandler) DeleteThumbnail(c echo.Context) error {
 		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid image id"))
 	}
 
-	slog.Info("thumbnail deletion requested", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
+	slog.Debug("thumbnail deletion requested", logging.RequestFields(c, "component", "image", "user_id", auth.UserID.String(), "image_id", id.String())...)
 	image, err := h.images.DeleteThumbnail(id)
 	if err != nil {
 		return mapImageError(c, "THUMBNAIL_DELETE_FAILED", "Could not delete thumbnail", err)
 	}
 
-	slog.Info("thumbnail deleted successfully", logging.RequestFields(c,
+	slog.Info("thumbnail deleted", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
-		"has_thumbnail", image.ThumbnailURL != nil,
 	)...)
 	_ = h.audit.Log(&auth.UserID, "image.thumbnail_deleted", c.RealIP(), map[string]any{"imageId": image.ID.String()})
 	return c.NoContent(http.StatusNoContent)
@@ -289,12 +296,12 @@ func (h *ImageHandler) Delete(c echo.Context) error {
 		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid image id"))
 	}
 
-	slog.Info("image deletion requested", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
+	slog.Debug("image deletion requested", logging.RequestFields(c, "component", "image", "user_id", auth.UserID.String(), "image_id", id.String())...)
 	if err := h.images.Delete(c.Request().Context(), id); err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_DELETE_FAILED", "Could not delete image").WithCause(err))
 	}
 
-	slog.Info("image deleted successfully", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
+	slog.Info("image deleted", logging.RequestFields(c, "component", "image", "user_id", auth.UserID.String(), "image_id", id.String())...)
 	_ = h.audit.Log(&auth.UserID, "image.deleted", c.RealIP(), map[string]any{"imageId": id.String()})
 	return c.NoContent(204)
 }

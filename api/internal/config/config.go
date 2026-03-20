@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	Logging  LoggingConfig
 	Server   ServerConfig
 	Database DatabaseConfig
 	Auth     AuthConfig
@@ -16,6 +17,27 @@ type Config struct {
 	Docker   DockerConfig
 	Storage  StorageConfig
 	Guard    GuardConfig
+}
+
+type LogLevel string
+
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+)
+
+type LogFormat string
+
+const (
+	LogFormatJSON LogFormat = "json"
+	LogFormatText LogFormat = "text"
+)
+
+type LoggingConfig struct {
+	Level  LogLevel
+	Format LogFormat
 }
 
 type ServerConfig struct {
@@ -91,6 +113,10 @@ func MustLoad() Config {
 	// Map the raw Viper values into typed config structs once so the rest of the
 	// application can avoid stringly-typed lookups.
 	cfg := Config{
+		Logging: LoggingConfig{
+			Level:  LogLevel(v.GetString("logging.level")),
+			Format: LogFormat(v.GetString("logging.format")),
+		},
 		Server: ServerConfig{
 			Port:           v.GetInt("server.port"),
 			BaseURL:        v.GetString("server.app_url"),
@@ -137,6 +163,13 @@ func MustLoad() Config {
 			MaxPublicDemosPerIP: v.GetInt("guard.max_sandboxes_per_ip"),
 			MaxActivePerUser:    v.GetInt("guard.max_sandboxes_per_user"),
 		},
+	}
+
+	if cfg.Logging.Level == "" {
+		cfg.Logging.Level = LogLevelInfo
+	}
+	if cfg.Logging.Format == "" {
+		cfg.Logging.Format = LogFormatJSON
 	}
 
 	if cfg.Server.Port == 0 {

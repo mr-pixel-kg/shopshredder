@@ -44,6 +44,6 @@ func (h *AuditHandler) List(c echo.Context) error {
 	if err != nil {
 		return responses.Error(c, http.StatusInternalServerError, "AUDIT_LOG_LIST_FAILED", "Could not load audit logs")
 	}
-	slog.Info("audit logs listed", logging.RequestFields(c, "user_id", auth.UserID.String(), "limit", limit, "count", len(logs))...)
+	slog.Debug("audit logs listed", logging.RequestFields(c, "component", "audit", "user_id", auth.UserID.String(), "limit", limit, "count", len(logs))...)
 	return c.JSON(http.StatusOK, logs)
 }

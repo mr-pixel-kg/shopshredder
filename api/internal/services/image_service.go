@@ -68,7 +68,7 @@ func NewImageService(
 	}
 
 	if err := os.MkdirAll(service.thumbnailDir, 0o755); err != nil {
-		slog.Error("create thumbnail directory failed", "path", service.thumbnailDir, "cause", err.Error())
+		slog.Error("create thumbnail directory failed", "component", "image", "path", service.thumbnailDir, "error", err.Error())
 	}
 
 	return service
@@ -164,9 +164,9 @@ func (s *ImageService) pullImage(ctx context.Context, pending *PendingPull, full
 	reader, err := s.docker.PullImage(ctx, fullName)
 	if err != nil {
 		if ctx.Err() != nil {
-			slog.Info("image pull cancelled", "image_id", idStr, "image", fullName)
+			slog.Info("image pull cancelled", "component", "image", "image_id", idStr, "image", fullName)
 		} else {
-			slog.Error("image pull failed", "image_id", idStr, "image", fullName, "error", err.Error())
+			slog.Error("image pull failed", "component", "image", "image_id", idStr, "image", fullName, "error", err.Error())
 		}
 		s.tracker.Finish(idStr, err)
 		return
@@ -175,9 +175,9 @@ func (s *ImageService) pullImage(ctx context.Context, pending *PendingPull, full
 
 	if err := s.tracker.ConsumePullStream(idStr, reader); err != nil {
 		if ctx.Err() != nil {
-			slog.Info("image pull cancelled", "image_id", idStr, "image", fullName)
+			slog.Info("image pull cancelled", "component", "image", "image_id", idStr, "image", fullName)
 		} else {
-			slog.Error("image pull stream failed", "image_id", idStr, "image", fullName, "error", err.Error())
+			slog.Error("image pull stream failed", "component", "image", "image_id", idStr, "image", fullName, "error", err.Error())
 		}
 		s.tracker.Finish(idStr, err)
 		return
@@ -194,12 +194,12 @@ func (s *ImageService) pullImage(ctx context.Context, pending *PendingPull, full
 		CreatedByUserID: pending.UserID,
 	}
 	if err := s.repo.Create(img); err != nil {
-		slog.Error("failed to persist image after pull", "image_id", idStr, "error", err.Error())
+		slog.Error("failed to persist image after pull", "component", "image", "image_id", idStr, "error", err.Error())
 		s.tracker.Finish(idStr, err)
 		return
 	}
 
-	slog.Info("image pull complete", "image_id", idStr, "image", fullName)
+	slog.Info("image pull complete", "component", "image", "image_id", idStr, "image", fullName)
 	s.tracker.Finish(idStr, nil)
 
 	// todo hier kein image zurückgeben? s.attachThumbnailURL(image)
@@ -329,18 +329,18 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 	for _, sb := range sandboxes {
 		if sb.Status == models.SandboxStatusStarting || sb.Status == models.SandboxStatusRunning {
 			if err := s.docker.DeleteContainer(ctx, sb.ContainerID); err != nil {
-				slog.Warn("failed to delete sandbox container during image deletion", "container_id", sb.ContainerID, "error", err.Error())
+				slog.Warn("failed to delete sandbox container during image deletion", "component", "image", "container_id", sb.ContainerID, "error", err.Error())
 			}
 		}
 		if err := s.sandboxRepo.DeleteByID(sb.ID); err != nil {
-			slog.Warn("failed to delete sandbox during image deletion", "sandbox_id", sb.ID.String(), "error", err.Error())
+			slog.Warn("failed to delete sandbox during image deletion", "component", "image", "sandbox_id", sb.ID.String(), "error", err.Error())
 		}
 	}
 
 	// Remove Docker image if it exists locally.
 	if s.docker.ImageExists(ctx, img.FullName()) {
 		if err := s.docker.RemoveImage(ctx, img.FullName()); err != nil {
-			slog.Warn("docker image removal failed, proceeding with db deletion", "image", img.FullName(), "error", err.Error())
+			slog.Warn("docker image removal failed, proceeding with db deletion", "component", "image", "image", img.FullName(), "error", err.Error())
 		}
 	}
 
@@ -361,7 +361,7 @@ func (s *ImageService) attachThumbnailURLs(images []models.Image) []models.Image
 func (s *ImageService) attachThumbnailURL(image *models.Image) *models.Image {
 	path, err := s.thumbnailPath(image.ID)
 	if err != nil {
-		slog.Error("resolve thumbnail path failed", "image_id", image.ID.String(), "cause", err.Error())
+		slog.Error("resolve thumbnail path failed", "component", "image", "image_id", image.ID.String(), "error", err.Error())
 		image.ThumbnailURL = nil
 		return image
 	}

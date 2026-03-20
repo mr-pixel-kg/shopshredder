@@ -1,6 +1,7 @@
 package database
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/manuel/shopware-testenv-platform/api/internal/config"
@@ -9,9 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
+func Connect(cfg config.DatabaseConfig, logLevel slog.Level) (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
-		Logger: logging.NewGormLogger(),
+		Logger: logging.NewGormLogger(logLevel),
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},

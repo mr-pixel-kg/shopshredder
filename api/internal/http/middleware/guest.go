@@ -25,7 +25,7 @@ func EnsureGuestSession(guestService *services.GuestSessionService, cookieName s
 
 			token, sessionID, err := guestService.Ensure(tokenValue)
 			if err != nil {
-				slog.Error("guest session provisioning failed", append(logging.RequestFields(c), "has_cookie", tokenValue != "", "cause", err.Error())...)
+				slog.Error("guest session provisioning failed", append(logging.RequestFields(c, "component", "guest"), "has_cookie", tokenValue != "", "error", err.Error())...)
 				return echo.NewHTTPError(http.StatusInternalServerError, "could not create guest session")
 			}
 
@@ -39,9 +39,9 @@ func EnsureGuestSession(guestService *services.GuestSessionService, cookieName s
 					HttpOnly: true,
 					SameSite: http.SameSiteLaxMode,
 				})
-				slog.Info("guest session created or refreshed", logging.RequestFields(c, "guest_session_id", sessionID.String(), "cookie_updated", true)...)
+				slog.Info("guest session created or refreshed", logging.RequestFields(c, "component", "guest", "guest_session_id", sessionID.String())...)
 			} else {
-				slog.Info("guest session reused", logging.RequestFields(c, "guest_session_id", sessionID.String(), "cookie_updated", false)...)
+				slog.Debug("guest session reused", logging.RequestFields(c, "component", "guest", "guest_session_id", sessionID.String())...)
 			}
 
 			c.Set(guestContextKey, types.GuestContext{SessionID: sessionID})
