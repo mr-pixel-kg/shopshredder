@@ -1,65 +1,63 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { imagesApi } from '@/api'
-import type { Image, CreateImageRequest } from '@/types'
+import type { Image, CreateImageRequest, CreateImageResult, PendingPull } from '@/types'
+
+export type FetchMode = 'public' | 'all'
 
 export const useImagesStore = defineStore('images', () => {
   const images = ref<Image[]>([])
+  const pendingPulls = ref<PendingPull[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const fetchMode = ref<FetchMode>('public')
+
   const sseConnections = new Map<string, EventSource>()
 
   const publicImages = computed(() => images.value.filter((i) => i.isPublic))
 
-  function mergeImages(fetched: Image[]) {
-    const fetchedMap = new Map(fetched.map((img) => [img.id, img]))
-    for (let i = images.value.length - 1; i >= 0; i--) {
-      const existing = images.value[i]
-      const updated = fetchedMap.get(existing.id)
-      if (updated) {
-        Object.assign(existing, updated)
-        fetchedMap.delete(existing.id)
-      } else {
-        images.value.splice(i, 1)
-      }
-    }
-
-    for (const img of fetched) {
-      if (fetchedMap.has(img.id)) {
-        images.value.push(img)
-      }
+  async function fetchImages() {
+    const isInitial = images.value.length === 0
+    if (isInitial) loading.value = true
+    error.value = null
+    try {
+      images.value =
+        fetchMode.value === 'all' ? await imagesApi.listAll() : await imagesApi.listPublic()
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : 'Fehler beim Laden'
+    } finally {
+      loading.value = false
     }
   }
 
-  function subscribePullProgress(imageId: string) {
-    if (sseConnections.has(imageId)) return
+  function subscribePull(pull: PendingPull) {
+    if (sseConnections.has(pull.id)) return
 
     const baseURL = import.meta.env.WEB_API_URL || ''
-    const es = new EventSource(`${baseURL}/api/images/${imageId}/progress`)
-    sseConnections.set(imageId, es)
+    const es = new EventSource(`${baseURL}/api/images/${pull.id}/progress`)
+    sseConnections.set(pull.id, es)
 
     es.onmessage = (event) => {
+      // TODO i hate empty catch blocks its not a nice pattern please refactor me
       try {
-        const data = JSON.parse(event.data) as { percent?: number; status?: string; error?: string }
-        const image = images.value.find((i) => i.id === imageId)
-        if (!image) {
-          closeSseConnection(imageId)
+        const data = JSON.parse(event.data) as { percent?: number; status?: string }
+        const pending = pendingPulls.value.find((p) => p.id === pull.id)
+
+        if (data.status === 'ready' || data.status === 'complete') {
+          removePendingPull(pull.id)
+          closeSse(pull.id)
+          fetchImages()
           return
         }
 
-        const pct = data.percent ?? 0
-        if (pct > (image.pullProgress ?? 0)) {
-          image.pullProgress = pct
+        if (data.status === 'failed') {
+          removePendingPull(pull.id)
+          closeSse(pull.id)
+          return
         }
 
-        if (data.status === 'complete' || data.status === 'ready') {
-          image.status = 'ready'
-          image.pullProgress = 100
-          closeSseConnection(imageId)
-        } else if (data.status === 'failed') {
-          image.status = 'failed'
-          image.errorMessage = data.error || 'Pull fehlgeschlagen'
-          closeSseConnection(imageId)
+        if (pending && data.percent !== undefined) {
+          pending.percent = Math.max(pending.percent, data.percent)
         }
       } catch {
         // ignore parse errors
@@ -67,93 +65,81 @@ export const useImagesStore = defineStore('images', () => {
     }
 
     es.onerror = () => {
-      closeSseConnection(imageId)
+      closeSse(pull.id)
+      removePendingPull(pull.id)
     }
   }
 
-  function closeSseConnection(imageId: string) {
-    const es = sseConnections.get(imageId)
+  function closeSse(id: string) {
+    const es = sseConnections.get(id)
     if (es) {
       es.close()
-      sseConnections.delete(imageId)
+      sseConnections.delete(id)
     }
   }
 
-  function subscribeAllPulling() {
-    for (const image of images.value) {
-      if (image.status === 'pulling') {
-        subscribePullProgress(image.id)
-      }
-    }
-  }
-
-  function unsubscribeAll() {
+  function closeAllSse() {
     for (const [id, es] of sseConnections) {
       es.close()
       sseConnections.delete(id)
     }
   }
 
-  function $reset() {
-    unsubscribeAll()
-    images.value = []
-    loading.value = true
-    error.value = null
+  function removePendingPull(id: string) {
+    pendingPulls.value = pendingPulls.value.filter((p) => p.id !== id)
   }
-
-  async function fetchPublicImages() {
-    const isInitial = images.value.length === 0
-    if (isInitial) loading.value = true
-    error.value = null
+  // TODO i hate empty catch blocks its not a nice pattern please refactor me
+  async function initPendingPulls() {
     try {
-      mergeImages(await imagesApi.listPublic())
-      subscribeAllPulling()
-    } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Fehler beim Laden'
-    } finally {
-      loading.value = false
+      const pulls = await imagesApi.listPulls()
+      pendingPulls.value = pulls
+      for (const pull of pulls) {
+        subscribePull(pull)
+      }
+    } catch {
+      // silently ignore
     }
   }
 
-  async function fetchAllImages() {
-    const isInitial = images.value.length === 0
-    if (isInitial) loading.value = true
-    error.value = null
-    try {
-      mergeImages(await imagesApi.listAll())
-      subscribeAllPulling()
-    } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Fehler beim Laden'
-    } finally {
-      loading.value = false
+  async function createImage(req: CreateImageRequest): Promise<CreateImageResult> {
+    const result = await imagesApi.create(req)
+    if (result.image) {
+      images.value.unshift(result.image)
     }
-  }
-
-  async function createImage(req: CreateImageRequest): Promise<Image> {
-    const image = await imagesApi.create(req)
-    images.value.unshift(image)
-    if (image.status === 'pulling') {
-      subscribePullProgress(image.id)
+    if (result.pendingPull) {
+      pendingPulls.value.unshift(result.pendingPull)
+      subscribePull(result.pendingPull)
     }
-    return image
+    return result
   }
 
   async function deleteImage(id: string) {
-    closeSseConnection(id)
+    closeSse(id)
     await imagesApi.remove(id)
     images.value = images.value.filter((i) => i.id !== id)
+    pendingPulls.value = pendingPulls.value.filter((p) => p.id !== id)
+  }
+
+  function $reset() {
+    closeAllSse()
+    images.value = []
+    pendingPulls.value = []
+    loading.value = false
+    error.value = null
   }
 
   return {
     images,
+    pendingPulls,
     loading,
     error,
+    fetchMode,
     publicImages,
-    fetchPublicImages,
-    fetchAllImages,
+    fetchImages,
+    initPendingPulls,
+    closeAllSse,
     createImage,
     deleteImage,
-    unsubscribeAll,
     $reset,
   }
 })

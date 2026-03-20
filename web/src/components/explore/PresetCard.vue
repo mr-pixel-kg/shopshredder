@@ -30,7 +30,7 @@ const emit = defineEmits<{
       </p>
     </CardContent>
     <CardFooter>
-      <Button size="sm" class="w-full" :disabled="image.status !== 'ready'" @click="emit('start', image.id)">
+      <Button size="sm" class="w-full" @click="emit('start', image.id)">
         <Play class="h-4 w-4 mr-1" />
         Starten
       </Button>

@@ -1,35 +1,34 @@
 import { onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useImagesStore } from '@/stores/images.store'
+import { useImagesStore, type FetchMode } from '@/stores/images.store'
 import { useAuthStore } from '@/stores/auth.store'
 
-export function useImages(mode: 'public' | 'all' = 'public') {
+export function useImages(mode: FetchMode = 'public') {
   const store = useImagesStore()
   const authStore = useAuthStore()
-  const { images, publicImages, loading, error } = storeToRefs(store)
+  const { images, pendingPulls, publicImages, loading, error } = storeToRefs(store)
 
-  function fetch() {
-    if (mode === 'all' && authStore.isAuthenticated) {
-      return store.fetchAllImages()
-    }
-    return store.fetchPublicImages()
-  }
+  const effectiveMode = mode === 'all' && authStore.isAuthenticated ? 'all' : 'public'
 
   onMounted(() => {
-    store.$reset()
-    fetch()
+    store.fetchMode = effectiveMode
+    store.fetchImages()
+    if (authStore.isAuthenticated) {
+      store.initPendingPulls()
+    }
   })
 
   onUnmounted(() => {
-    store.unsubscribeAll()
+    store.closeAllSse()
   })
 
   return {
     images,
+    pendingPulls,
     publicImages,
     loading,
     error,
-    refresh: fetch,
+    refresh: () => store.fetchImages(),
     createImage: store.createImage,
     deleteImage: store.deleteImage,
   }

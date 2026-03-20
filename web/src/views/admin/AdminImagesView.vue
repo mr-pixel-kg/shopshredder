@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useImages } from '@/composables/useImages'
 import { getApiErrorMessage } from '@/utils/error'
 import { toast } from 'vue-sonner'
@@ -19,19 +19,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Plus, Trash2, CircleAlert, CircleCheck } from 'lucide-vue-next'
+import { Plus, Trash2, CircleCheck } from 'lucide-vue-next'
 import { DonutProgress } from '@/components/ui/donut-progress'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const { images, loading, createImage, deleteImage, refresh } = useImages('all')
+const { images, pendingPulls, loading, createImage, deleteImage } = useImages('all')
 
 const showAddImage = ref(false)
 const showConfirmDelete = ref(false)
 const selectedImageId = ref<string | null>(null)
-
-watch(showAddImage, (open) => {
-  if (!open) refresh()
-})
 
 function requestDelete(id: string) {
   selectedImageId.value = id
@@ -43,10 +39,10 @@ async function handleCreateImage(
   done: (success: boolean) => void,
 ) {
   try {
-    const image = await createImage(payload)
-    if (image.status === 'ready') {
+    const result = await createImage(payload)
+    if (result.image) {
       toast.success('Vorlage wurde hinzugefügt')
-    } else if (image.status === 'pulling') {
+    } else {
       toast.success('Image wird heruntergeladen...')
     }
     done(true)
@@ -83,6 +79,21 @@ function handleToggleVisibility() {
       </template>
     </PageHeader>
 
+    <div v-if="pendingPulls.length > 0" class="mb-4 space-y-2">
+      <div
+        v-for="pull in pendingPulls"
+        :key="pull.id"
+        class="flex items-center gap-3 rounded-md border p-3 bg-muted/50"
+      >
+        <DonutProgress :model-value="pull.percent" class="h-5 w-5" />
+        <div class="flex-1 min-w-0">
+          <span class="text-sm font-medium">{{ pull.title || pull.name }}</span>
+          <Badge variant="secondary" class="ml-2 text-xs">{{ pull.name }}:{{ pull.tag }}</Badge>
+        </div>
+        <span class="text-sm tabular-nums text-muted-foreground">{{ pull.percent }}%</span>
+      </div>
+    </div>
+
     <div class="rounded-md border">
       <Table class="table-fixed">
         <TableHeader>
@@ -118,28 +129,13 @@ function handleToggleVisibility() {
               <Badge variant="secondary">{{ image.name }}:{{ image.tag }}</Badge>
             </TableCell>
             <TableCell>
-              <div v-if="image.status === 'ready'" class="flex items-center gap-1.5 text-emerald-600">
+              <div class="flex items-center gap-1.5 text-emerald-600">
                 <CircleCheck class="h-4 w-4" />
                 <span class="text-sm">Bereit</span>
               </div>
-              <div v-else-if="image.status === 'pulling'" class="flex items-center gap-1.5 text-muted-foreground">
-                <DonutProgress :model-value="image.pullProgress ?? 0" class="h-4 w-4" />
-                <span class="text-sm tabular-nums">{{ image.pullProgress ?? 0 }}%</span>
-              </div>
-              <TooltipProvider v-else-if="image.status === 'failed'">
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <div class="flex items-center gap-1.5 text-destructive cursor-help">
-                      <CircleAlert class="h-4 w-4" />
-                      <span class="text-sm">Fehlgeschlagen</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>{{ image.errorMessage || 'Unbekannter Fehler' }}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </TableCell>
             <TableCell>
-              <Switch :model-value="image.isPublic" :disabled="image.status !== 'ready'" @update:model-value="handleToggleVisibility" />
+              <Switch :model-value="image.isPublic" @update:model-value="handleToggleVisibility" />
             </TableCell>
             <TableCell class="text-right">
               <TooltipProvider>
