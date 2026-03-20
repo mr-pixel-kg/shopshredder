@@ -45,4 +45,3 @@ func (r *ImageRepository) Update(image *models.Image) error {
 func (r *ImageRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&models.Image{}, "id = ?", id).Error
 }
-
