@@ -83,7 +83,7 @@ func TestAttachThumbnailURLOverridesStaleValue(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
-	service := NewImageService(nil, nil, nil, nil, tempDir)
+	service := NewImageService(nil, nil, nil, nil, "", tempDir)
 
 	id := uuid.New()
 	stale := "https://old.example.invalid/thumb.png"
