@@ -12,6 +12,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import PresetGrid from '@/components/explore/PresetGrid.vue'
 import CardGridSkeleton from '@/components/shared/CardGridSkeleton.vue'
 import SandboxCard from '@/components/explore/SandboxCard.vue'
+import type { MetadataGroup } from '@/components/explore/SandboxCard.vue'
 
 const { images, loading: imagesLoading } = useImages()
 const {
@@ -58,6 +59,23 @@ const sandboxActionsMap = computed(() => {
       })
     }
     map[sandbox.id] = actions
+  }
+  return map
+})
+
+// TODO: Replace with dynamic schema from API
+const sandboxMetadataMap = computed(() => {
+  const map: Record<string, MetadataGroup[]> = {}
+  for (const sandbox of activeSandboxes.value) {
+    map[sandbox.id] = [
+      {
+        title: 'Zugangsdaten',
+        fields: [
+          { label: 'Benutzername', value: 'admin' },
+          { label: 'Passwort', value: 'shopware', secret: true },
+        ],
+      },
+    ]
   }
   return map
 })
@@ -135,6 +153,7 @@ async function handleDemo(imageId: string) {
             :sandbox="sandbox"
             :title="getImageTitle(sandbox)"
             :actions="sandboxActionsMap[sandbox.id]"
+            :metadata="sandboxMetadataMap[sandbox.id]"
           />
         </div>
       </section>
