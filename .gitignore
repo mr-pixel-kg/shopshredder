@@ -18,5 +18,4 @@ dist-ssr/
 *.sw?
 
 api/config.yml
-web-old/
 web/src/vite-env.d.ts
