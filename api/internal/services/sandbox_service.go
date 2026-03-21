@@ -97,6 +97,13 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	if err != nil {
 		return nil, err
 	}
+
+	if image.Status == models.ImageStatusPulling {
+		return nil, fmt.Errorf("image is still being pulled")
+	}
+	if image.Status == models.ImageStatusFailed {
+		return nil, fmt.Errorf("image pull failed: %s", ptrStr(image.Error))
+	}
 	if err := s.docker.EnsureImage(ctx, image.FullName()); err != nil {
 		return nil, err
 	}
@@ -278,7 +285,7 @@ func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapsho
 		return nil, err
 	}
 
-	image, _, err := s.images.CreateForUser(
+	image, err := s.images.CreateForUser(
 		ctx,
 		input.UserID,
 		input.Name,
@@ -405,6 +412,13 @@ func (s *SandboxService) enforceLimits(input CreateSandboxInput) error {
 	}
 
 	return nil
+}
+
+func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (s *SandboxService) addEvent(sandboxID uuid.UUID, eventType string, metadata map[string]any) error {

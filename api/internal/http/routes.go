@@ -63,6 +63,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	// deployment simple for the single-service architecture.
 	sandboxService.StartCleanupLoop(context.Background())
 
+	imageService.ReconcileOnStartup(context.Background())
 	authHandler := handlers.NewAuthHandler(authService, auditService)
 	imageHandler := handlers.NewImageHandler(imageService, auditService)
 	sandboxHandler := handlers.NewSandboxHandler(sandboxService)
