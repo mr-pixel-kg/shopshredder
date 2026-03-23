@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pressly/goose/v3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -64,28 +64,17 @@ func ApplyMigrations(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
 	dir := filepath.Join("..", "database", "migrations")
-	entries, err := os.ReadDir(dir)
+	sqlDB, err := db.DB()
 	if err != nil {
-		t.Fatalf("read migrations directory: %v", err)
+		t.Fatalf("open sql database handle: %v", err)
 	}
 
-	files := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
-			continue
-		}
-		files = append(files, filepath.Join(dir, entry.Name()))
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatalf("set goose dialect: %v", err)
 	}
-	sort.Strings(files)
 
-	for _, path := range files {
-		sqlBytes, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read migration %s: %v", path, err)
-		}
-		if err := db.Exec(string(sqlBytes)).Error; err != nil {
-			t.Fatalf("apply migration %s: %v", path, err)
-		}
+	if err := goose.Up(sqlDB, dir); err != nil {
+		t.Fatalf("apply goose migrations from %s: %v", dir, err)
 	}
 }
 

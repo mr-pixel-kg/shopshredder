@@ -10,6 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.3
+	github.com/pressly/goose/v3 v3.24.3
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/echo-swagger v1.5.2
@@ -46,13 +47,13 @@ require (
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/spec v0.20.9 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
-	github.com/jackc/pgx/v5 v5.5.5 // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.7.4 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -63,6 +64,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/term v0.5.2 // indirect
@@ -77,6 +79,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
@@ -98,8 +101,8 @@ require (
 	go.opentelemetry.io/otel/sdk v1.42.0 // indirect
 	go.opentelemetry.io/otel/trace v1.42.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
