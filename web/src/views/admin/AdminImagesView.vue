@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '@/utils/error'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import AddImageDialog from '@/components/modals/AddImageDialog.vue'
+import EditImageDrawer from '@/components/modals/EditImageDrawer.vue'
 import ConfirmDialog from '@/components/modals/ConfirmDialog.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -224,6 +225,12 @@ async function handleToggleVisibility(image: Image) {
     <AddImageDialog
       v-model:open="showAddImage"
       @submit="handleCreateImage"
+    />
+
+    <EditImageDrawer
+      v-model:open="showEditDrawer"
+      :image="selectedImage"
+      @saved="selectedImage = null"
     />
 
     <ConfirmDialog
