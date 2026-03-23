@@ -97,6 +97,13 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	if err != nil {
 		return nil, err
 	}
+
+	if image.Status == models.ImageStatusPulling {
+		return nil, fmt.Errorf("image is still being pulled")
+	}
+	if image.Status == models.ImageStatusFailed {
+		return nil, fmt.Errorf("image pull failed: %s", ptrStr(image.Error))
+	}
 	if err := s.docker.EnsureImage(ctx, image.FullName()); err != nil {
 		return nil, err
 	}
@@ -278,7 +285,7 @@ func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapsho
 		return nil, err
 	}
 
-	image, _, err := s.images.CreateForUser(
+	image, err := s.images.CreateForUser(
 		ctx,
 		input.UserID,
 		input.Name,
@@ -309,18 +316,18 @@ func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapsho
 
 func (s *SandboxService) StartCleanupLoop(ctx context.Context) {
 	ticker := time.NewTicker(s.cfg.CleanupInterval)
-	slog.Info("sandbox cleanup loop started", "interval", s.cfg.CleanupInterval.String())
+	slog.Info("sandbox cleanup loop started", "component", "cleanup", "interval", s.cfg.CleanupInterval.String())
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
-				slog.Info("sandbox cleanup loop stopped")
+				slog.Info("sandbox cleanup loop stopped", "component", "cleanup")
 				return
 			case <-ticker.C:
-				slog.Info("running sandbox cleanup")
+				slog.Debug("running sandbox cleanup", "component", "cleanup")
 				if err := s.CleanupExpired(ctx); err != nil {
-					slog.Error("cleanup expired sandboxes failed", "cause", err.Error())
+					slog.Error("cleanup expired sandboxes failed", "component", "cleanup", "error", err.Error())
 				}
 			}
 		}
@@ -332,16 +339,17 @@ func (s *SandboxService) CleanupExpired(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	slog.Info("expired sandboxes loaded", "count", len(expired))
+	slog.Debug("expired sandboxes loaded", "component", "cleanup", "count", len(expired))
 
 	// Expiration is database-driven so a process restart does not lose the
 	// deletion schedule for previously created sandboxes.
 	for _, sandbox := range expired {
 		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
 			slog.Error("delete expired container failed",
+				"component", "cleanup",
 				"sandbox_id", sandbox.ID.String(),
 				"container_id", sandbox.ContainerID,
-				"cause", err.Error(),
+				"error", err.Error(),
 			)
 			continue
 		}
@@ -351,14 +359,16 @@ func (s *SandboxService) CleanupExpired(ctx context.Context) error {
 		sandbox.DeletedAt = &now
 		if err := s.repo.Update(&sandbox); err != nil {
 			slog.Error("update expired sandbox failed",
+				"component", "cleanup",
 				"sandbox_id", sandbox.ID.String(),
 				"container_id", sandbox.ContainerID,
-				"cause", err.Error(),
+				"error", err.Error(),
 			)
 			continue
 		}
 
 		slog.Info("sandbox expired and cleaned up",
+			"component", "cleanup",
 			"sandbox_id", sandbox.ID.String(),
 			"container_id", sandbox.ContainerID,
 		)
@@ -402,6 +412,13 @@ func (s *SandboxService) enforceLimits(input CreateSandboxInput) error {
 	}
 
 	return nil
+}
+
+func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (s *SandboxService) addEvent(sandboxID uuid.UUID, eventType string, metadata map[string]any) error {

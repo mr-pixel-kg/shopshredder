@@ -45,6 +45,10 @@ Copy `api/config.example.yml` to `api/config.yml` and edit with your settings.
 The example is pre-configured for local development (localhost database, dev JWT secret, Traefik disabled).
 
 ```yaml
+logging:
+  level: "debug"
+  format: "text"
+
 server:
   port: 8080
   app_url: "http://localhost:8080"
@@ -84,6 +88,9 @@ docker:
   snapshot_author: "shopshredder-api"
   snapshot_comment: "Sandbox snapshot created by Shopshredder API"
 
+storage:
+  thumbnail_dir: "storage/thumbnails"
+
 guard:
   max_total_sandboxes: 32
   max_sandboxes_per_ip: 5
@@ -94,6 +101,8 @@ guard:
 
 | Section  | Key                      | Type   | Default                 | Description                                            |
 |----------|--------------------------|--------|-------------------------|--------------------------------------------------------|
+| logging  | level                    | string | "info"                  | Log level: debug, info, warn, error.                   |
+|          | format                   | string | "json"                  | Log format: json (production) or text (colorized dev). |
 | server   | port                     | int    | 8080                    | The port on which the server runs.                     |
 |          | app_url                  | string | "http://localhost:8080" | The base URL of the application.                       |
 |          | allowed_origins          | array  | []                      | List of allowed CORS origins.                          |
@@ -121,6 +130,7 @@ guard:
 |          | traefik_middlewares      | string | ""                      | Traefik middlewares (comma-separated).                 |
 |          | snapshot_author          | string | "shopshredder-api"      | Author for container snapshots.                        |
 |          | snapshot_comment         | string | ""                      | Comment for container snapshots.                       |
+| storage  | thumbnail_dir            | string | "storage/thumbnails"    | Directory for image thumbnail files.                   |
 | guard    | max_total_sandboxes      | int    | 32                      | Maximum number of sandboxes allowed in total.          |
 |          | max_sandboxes_per_ip     | int    | 5                       | Maximum number of concurrent sandboxes per IP address. |
 |          | max_sandboxes_per_user   | int    | 10                      | Maximum number of concurrent sandboxes per user.       |
@@ -131,6 +141,8 @@ The application supports environment variables to override configuration values.
 
 | Environment Variable         | Corresponding Config Key     |
 |------------------------------|------------------------------|
+| LOGGING_LEVEL                | logging.level                |
+| LOGGING_FORMAT               | logging.format               |
 | SERVER_PORT                  | server.port                  |
 | SERVER_APP_URL               | server.app_url               |
 | DATABASE_HOST                | database.host                |

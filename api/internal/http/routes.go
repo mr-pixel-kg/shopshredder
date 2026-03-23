@@ -63,6 +63,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	// deployment simple for the single-service architecture.
 	sandboxService.StartCleanupLoop(context.Background())
 
+	imageService.ReconcileOnStartup(context.Background())
 	authHandler := handlers.NewAuthHandler(authService, auditService)
 	imageHandler := handlers.NewImageHandler(imageService, auditService)
 	sandboxHandler := handlers.NewSandboxHandler(sandboxService)
@@ -112,7 +113,8 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	e.Static(services.ThumbnailPublicBasePath, cfg.Storage.ThumbnailDir)
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
-	slog.Info("http routes registered",
+	slog.Debug("http routes registered",
+		"component", "http",
 		"guest_cookie_name", cfg.Auth.GuestCookieName,
 		"thumbnail_dir", cfg.Storage.ThumbnailDir,
 	)
@@ -134,4 +136,8 @@ func healthCheck(c echo.Context) error {
 func (s *Server) Start() error {
 	slog.Info("starting http server", "port", s.cfg.Server.Port)
 	return s.echo.Start(":" + strconv.Itoa(s.cfg.Server.Port))
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.echo.Shutdown(ctx)
 }

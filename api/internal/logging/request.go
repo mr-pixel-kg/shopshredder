@@ -10,6 +10,9 @@ import (
 )
 
 func RequestFields(c echo.Context, extra ...any) []any {
+	if TextMode {
+		return extra
+	}
 	fields := []any{
 		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
 		"method", c.Request().Method,

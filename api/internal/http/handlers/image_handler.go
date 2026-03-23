@@ -14,6 +14,7 @@ import (
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	"github.com/manuel/shopware-testenv-platform/api/internal/models"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	"gorm.io/gorm"
 )
@@ -40,7 +41,7 @@ func (h *ImageHandler) ListPublic(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load public images").WithCause(err))
 	}
-	slog.Info("listed public images", logging.RequestFields(c, "count", len(images))...)
+	slog.Debug("listed public images", logging.RequestFields(c, "component", "image", "count", len(images))...)
 	return c.JSON(200, images)
 }
 
@@ -59,7 +60,7 @@ func (h *ImageHandler) ListAll(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load images").WithCause(err))
 	}
-	slog.Info("listed all images", logging.RequestFields(c, "count", len(images))...)
+	slog.Debug("listed all images", logging.RequestFields(c, "component", "image", "count", len(images))...)
 	return c.JSON(200, images)
 }
 
@@ -72,7 +73,6 @@ func (h *ImageHandler) ListAll(c echo.Context) error {
 // @Produce      json
 // @Param        body body dto.CreateImageRequest true "Image details"
 // @Success      201 {object} models.Image
-// @Success      202 {object} dto.PendingPullResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Router       /api/images [post]
@@ -83,14 +83,15 @@ func (h *ImageHandler) Create(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
-	slog.Info("image creation requested", logging.RequestFields(c,
+	slog.Debug("image creation requested", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"name", input.Name,
 		"tag", input.Tag,
 		"is_public", input.IsPublic,
 	)...)
 
-	image, pending, err := h.images.CreateForUser(
+	image, err := h.images.CreateForUser(
 		c.Request().Context(),
 		&auth.UserID,
 		input.Name,
@@ -108,27 +109,12 @@ func (h *ImageHandler) Create(c echo.Context) error {
 		"tag":  input.Tag,
 	})
 
-	// todo: think about it
-	if pending != nil {
-		slog.Info("image pull started", logging.RequestFields(c,
-			"user_id", auth.UserID.String(),
-			"image_id", pending.ID.String(),
-			"image", input.Name+":"+input.Tag,
-		)...)
-		return c.JSON(202, dto.PendingPullResponse{
-			ID:      pending.ID.String(),
-			Name:    pending.Name,
-			Tag:     pending.Tag,
-			Title:   pending.Title,
-			Percent: 0,
-			Status:  "pulling",
-		})
-	}
-
 	slog.Info("image created", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
 		"image", image.FullName(),
+		"status", image.Status,
 	)...)
 	return c.JSON(201, image)
 }
@@ -160,7 +146,8 @@ func (h *ImageHandler) Update(c echo.Context) error {
 		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid request body"))
 	}
 
-	slog.Info("image update requested", logging.RequestFields(c,
+	slog.Debug("image update requested", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", id.String(),
 		"is_public", input.IsPublic,
@@ -170,7 +157,8 @@ func (h *ImageHandler) Update(c echo.Context) error {
 		return mapImageError(c, "IMAGE_UPDATE_FAILED", "Could not update image", err)
 	}
 
-	slog.Info("image updated successfully", logging.RequestFields(c,
+	slog.Info("image updated", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
 		"is_public", image.IsPublic,
@@ -213,7 +201,8 @@ func (h *ImageHandler) UploadThumbnail(c echo.Context) error {
 	}
 	defer file.Close()
 
-	slog.Info("thumbnail upload requested", logging.RequestFields(c,
+	slog.Debug("thumbnail upload requested", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", id.String(),
 		"filename", fileHeader.Filename,
@@ -227,7 +216,8 @@ func (h *ImageHandler) UploadThumbnail(c echo.Context) error {
 		return mapImageError(c, "THUMBNAIL_UPLOAD_FAILED", "Could not store thumbnail", err)
 	}
 
-	slog.Info("thumbnail uploaded successfully", logging.RequestFields(c,
+	slog.Info("thumbnail uploaded", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
 		"thumbnail_url", image.ThumbnailURL,
@@ -255,16 +245,16 @@ func (h *ImageHandler) DeleteThumbnail(c echo.Context) error {
 		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid image id"))
 	}
 
-	slog.Info("thumbnail deletion requested", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
+	slog.Debug("thumbnail deletion requested", logging.RequestFields(c, "component", "image", "user_id", auth.UserID.String(), "image_id", id.String())...)
 	image, err := h.images.DeleteThumbnail(id)
 	if err != nil {
 		return mapImageError(c, "THUMBNAIL_DELETE_FAILED", "Could not delete thumbnail", err)
 	}
 
-	slog.Info("thumbnail deleted successfully", logging.RequestFields(c,
+	slog.Info("thumbnail deleted", logging.RequestFields(c,
+		"component", "image",
 		"user_id", auth.UserID.String(),
 		"image_id", image.ID.String(),
-		"has_thumbnail", image.ThumbnailURL != nil,
 	)...)
 	_ = h.audit.Log(&auth.UserID, "image.thumbnail_deleted", c.RealIP(), map[string]any{"imageId": image.ID.String()})
 	return c.NoContent(http.StatusNoContent)
@@ -289,19 +279,19 @@ func (h *ImageHandler) Delete(c echo.Context) error {
 		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid image id"))
 	}
 
-	slog.Info("image deletion requested", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
+	slog.Debug("image deletion requested", logging.RequestFields(c, "component", "image", "user_id", auth.UserID.String(), "image_id", id.String())...)
 	if err := h.images.Delete(c.Request().Context(), id); err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_DELETE_FAILED", "Could not delete image").WithCause(err))
 	}
 
-	slog.Info("image deleted successfully", logging.RequestFields(c, "user_id", auth.UserID.String(), "image_id", id.String())...)
+	slog.Info("image deleted", logging.RequestFields(c, "component", "image", "user_id", auth.UserID.String(), "image_id", id.String())...)
 	_ = h.audit.Log(&auth.UserID, "image.deleted", c.RealIP(), map[string]any{"imageId": id.String()})
 	return c.NoContent(204)
 }
 
 // ListPulls godoc
 // @Summary      List ongoing image pulls
-// @Description  Returns all images currently being pulled (in-memory only, not persisted)
+// @Description  Returns all images currently being pulled, with progress percentage
 // @Tags         Images
 // @Security     BearerAuth
 // @Produce      json
@@ -309,17 +299,17 @@ func (h *ImageHandler) Delete(c echo.Context) error {
 // @Failure      401 {object} dto.ErrorResponse
 // @Router       /api/images/pulls [get]
 func (h *ImageHandler) ListPulls(c echo.Context) error {
-	pending := h.images.ListPendingPulls()
+	images, percents := h.images.ListPullingImages()
 
-	out := make([]dto.PendingPullResponse, len(pending))
-	for i, p := range pending {
+	out := make([]dto.PendingPullResponse, len(images))
+	for i, img := range images {
 		out[i] = dto.PendingPullResponse{
-			ID:      p.ID.String(),
-			Name:    p.Name,
-			Tag:     p.Tag,
-			Title:   p.Title,
-			Percent: p.Percent,
-			Status:  p.Status,
+			ID:      img.ID.String(),
+			Name:    img.Name,
+			Tag:     img.Tag,
+			Title:   img.Title,
+			Percent: percents[img.ID.String()],
+			Status:  "pulling",
 		}
 	}
 	return c.JSON(200, out)
@@ -343,45 +333,66 @@ func (h *ImageHandler) PullProgress(c echo.Context) error {
 
 	idStr := id.String()
 
-	// If the image already exists in the db, its done and return ready
-	if _, dbErr := h.images.FindByID(id); dbErr == nil {
-		c.Response().Header().Set("Content-Type", "text/event-stream")
-		c.Response().Header().Set("Cache-Control", "no-cache")
-		c.Response().Header().Set("Connection", "keep-alive")
-		c.Response().WriteHeader(200)
-		data, _ := json.Marshal(map[string]any{"percent": 100, "status": "ready"})
-		fmt.Fprintf(c.Response(), "data: %s\n\n", data)
-		c.Response().Flush()
-		return nil
-	}
-
-	// if its not a pending pull too, return 404.
-	if !h.images.IsPulling(idStr) {
+	image, dbErr := h.images.FindByID(id)
+	if dbErr != nil {
 		return responses.FromAppError(c, apperror.NotFound("IMAGE_NOT_FOUND", "Image not found"))
 	}
 
+	switch image.Status {
+	case models.ImageStatusReady:
+		writeSSEHeaders(c)
+		sendSSEEvent(c, map[string]any{"percent": 100, "status": "ready"})
+		return nil
+
+	case models.ImageStatusFailed:
+		writeSSEHeaders(c)
+		errMsg := ""
+		if image.Error != nil {
+			errMsg = *image.Error
+		}
+		sendSSEEvent(c, map[string]any{"percent": 0, "status": "failed", "error": errMsg})
+		return nil
+
+	case models.ImageStatusPulling:
+		if !h.images.IsPulling(idStr) {
+			writeSSEHeaders(c)
+			sendSSEEvent(c, map[string]any{"percent": 0, "status": "failed", "error": "pull process not running"})
+			return nil
+		}
+
+		writeSSEHeaders(c)
+		ch, cancel := h.images.WatchPullProgress(idStr)
+		defer cancel()
+
+		ctx := c.Request().Context()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case progress, ok := <-ch:
+				if !ok {
+					return nil
+				}
+				sendSSEEvent(c, progress)
+			}
+		}
+
+	default:
+		return responses.FromAppError(c, apperror.NotFound("IMAGE_NOT_FOUND", "Image not found"))
+	}
+}
+
+func writeSSEHeaders(c echo.Context) {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
 	c.Response().WriteHeader(200)
+}
 
-	ch, cancel := h.images.WatchPullProgress(idStr)
-	defer cancel()
-
-	ctx := c.Request().Context()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case progress, ok := <-ch:
-			if !ok {
-				return nil
-			}
-			data, _ := json.Marshal(progress)
-			fmt.Fprintf(c.Response(), "data: %s\n\n", data)
-			c.Response().Flush()
-		}
-	}
+func sendSSEEvent(c echo.Context, v any) {
+	data, _ := json.Marshal(v)
+	fmt.Fprintf(c.Response(), "data: %s\n\n", data)
+	c.Response().Flush()
 }
 
 func mapImageError(c echo.Context, code, message string, err error) error {

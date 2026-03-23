@@ -19,19 +19,6 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 )
 
-type PendingPull struct {
-	ID           uuid.UUID
-	Name         string
-	Tag          string
-	Title        *string
-	Description  *string
-	ThumbnailURL *string
-	IsPublic     bool
-	UserID       *uuid.UUID
-	Percent      int
-	Status       string // could be redundant but usefully for future currently its most of the time just "pulling"
-}
-
 const (
 	ThumbnailPublicBasePath = "/thumbnails"
 )
@@ -46,9 +33,8 @@ type ImageService struct {
 	thumbnailDir  string
 	publicBaseURL string
 
-	mu           sync.RWMutex
-	pullCancels  map[string]context.CancelFunc
-	pendingPulls map[string]*PendingPull
+	mu          sync.RWMutex
+	pullCancels map[string]context.CancelFunc
 }
 
 func NewImageService(
@@ -67,14 +53,44 @@ func NewImageService(
 		thumbnailDir:  thumbnailDir,
 		publicBaseURL: strings.TrimRight(publicBaseURL, "/"),
 		pullCancels:   make(map[string]context.CancelFunc),
-		pendingPulls:  make(map[string]*PendingPull),
 	}
 
 	if err := os.MkdirAll(service.thumbnailDir, 0o755); err != nil {
-		slog.Error("create thumbnail directory failed", "path", service.thumbnailDir, "cause", err.Error())
+		slog.Error("create thumbnail directory failed", "component", "image", "path", service.thumbnailDir, "error", err.Error())
 	}
 
 	return service
+}
+
+func (s *ImageService) ReconcileOnStartup(ctx context.Context) {
+	pulling, err := s.repo.ListByStatus(models.ImageStatusPulling)
+	if err != nil {
+		slog.Error("reconcile: failed to list pulling images", "component", "image", "error", err.Error())
+	}
+	for _, img := range pulling {
+		errMsg := "pull interrupted by API restart"
+		if err := s.repo.UpdateStatus(img.ID, models.ImageStatusFailed, &errMsg); err != nil {
+			slog.Error("reconcile: failed to mark image as failed", "component", "image", "image_id", img.ID.String(), "error", err.Error())
+		} else {
+			slog.Info("reconcile: marked stale pulling image as failed", "component", "image", "image_id", img.ID.String(), "image", img.FullName())
+		}
+	}
+
+	ready, err := s.repo.ListByStatus(models.ImageStatusReady)
+	if err != nil {
+		slog.Error("reconcile: failed to list ready images", "component", "image", "error", err.Error())
+		return
+	}
+	for _, img := range ready {
+		if !s.docker.ImageExists(ctx, img.FullName()) {
+			slog.Info("reconcile: ready image missing from docker, re-pulling", "component", "image", "image_id", img.ID.String(), "image", img.FullName())
+			if err := s.repo.UpdateStatus(img.ID, models.ImageStatusPulling, nil); err != nil {
+				slog.Error("reconcile: failed to update status to pulling", "component", "image", "image_id", img.ID.String(), "error", err.Error())
+				continue
+			}
+			s.startPull(img.ID, img.FullName())
+		}
+	}
 }
 
 func (s *ImageService) ListPublic() ([]models.Image, error) {
@@ -109,103 +125,94 @@ func (s *ImageService) CreateForUser(
 	title *string,
 	description *string,
 	isPublic bool,
-) (*models.Image, *PendingPull, error) {
+) (*models.Image, error) {
 	fullName := name + ":" + tag
 
+	img := &models.Image{
+		ID:              uuid.New(),
+		Name:            name,
+		Tag:             tag,
+		Title:           title,
+		Description:     description,
+		IsPublic:        isPublic,
+		Status:          models.ImageStatusPulling,
+		CreatedByUserID: userID,
+	}
+
+	if err := s.repo.Create(img); err != nil {
+		return nil, err
+	}
+
 	if s.docker.ImageExists(ctx, fullName) {
-		img := &models.Image{
-			ID:              uuid.New(),
-			Name:            name,
-			Tag:             tag,
-			Title:           title,
-			Description:     description,
-			IsPublic:        isPublic,
-			CreatedByUserID: userID,
+		img.Status = models.ImageStatusReady
+		if err := s.repo.UpdateStatus(img.ID, models.ImageStatusReady, nil); err != nil {
+			slog.Error("failed to mark image as ready", "component", "image", "image_id", img.ID.String(), "error", err.Error())
 		}
-		if err := s.repo.Create(img); err != nil {
-			return nil, nil, err
-		}
-		return img, nil, nil
+		return s.attachThumbnailURL(img), nil
 	}
 
-	pending := &PendingPull{
-		ID:          uuid.New(),
-		Name:        name,
-		Tag:         tag,
-		Title:       title,
-		Description: description,
-		IsPublic:    isPublic,
-		UserID:      userID,
-		Status:      "pulling",
-	}
+	s.startPull(img.ID, fullName)
 
+	return s.attachThumbnailURL(img), nil
+}
+
+func (s *ImageService) startPull(imageID uuid.UUID, fullName string) {
 	pullCtx, cancel := context.WithCancel(context.Background())
-	idStr := pending.ID.String()
+	idStr := imageID.String()
 
 	s.mu.Lock()
-	s.pendingPulls[idStr] = pending
 	s.pullCancels[idStr] = cancel
 	s.mu.Unlock()
 
-	go s.pullImage(pullCtx, pending, fullName)
-
-	return nil, pending, nil
+	go s.pullImage(pullCtx, imageID, fullName)
 }
 
-func (s *ImageService) pullImage(ctx context.Context, pending *PendingPull, fullName string) {
-	idStr := pending.ID.String()
+func (s *ImageService) pullImage(ctx context.Context, imageID uuid.UUID, fullName string) {
+	idStr := imageID.String()
 	s.tracker.Start(idStr)
 
 	defer func() {
 		s.mu.Lock()
 		delete(s.pullCancels, idStr)
-		delete(s.pendingPulls, idStr)
 		s.mu.Unlock()
 		time.AfterFunc(10*time.Second, func() { s.tracker.Remove(idStr) })
 	}()
 
 	reader, err := s.docker.PullImage(ctx, fullName)
 	if err != nil {
-		if ctx.Err() != nil {
-			slog.Info("image pull cancelled", "image_id", idStr, "image", fullName)
-		} else {
-			slog.Error("image pull failed", "image_id", idStr, "image", fullName, "error", err.Error())
-		}
-		s.tracker.Finish(idStr, err)
+		s.finishPull(idStr, imageID, fullName, err, ctx.Err() != nil)
 		return
 	}
 	defer reader.Close()
 
 	if err := s.tracker.ConsumePullStream(idStr, reader); err != nil {
-		if ctx.Err() != nil {
-			slog.Info("image pull cancelled", "image_id", idStr, "image", fullName)
-		} else {
-			slog.Error("image pull stream failed", "image_id", idStr, "image", fullName, "error", err.Error())
-		}
+		s.finishPull(idStr, imageID, fullName, err, ctx.Err() != nil)
+		return
+	}
+
+	if err := s.repo.UpdateStatus(imageID, models.ImageStatusReady, nil); err != nil {
+		slog.Error("failed to mark image as ready after pull", "component", "image", "image_id", idStr, "error", err.Error())
 		s.tracker.Finish(idStr, err)
 		return
 	}
 
-	img := &models.Image{
-		ID:              pending.ID,
-		Name:            pending.Name,
-		Tag:             pending.Tag,
-		Title:           pending.Title,
-		Description:     pending.Description,
-		ThumbnailURL:    pending.ThumbnailURL,
-		IsPublic:        pending.IsPublic,
-		CreatedByUserID: pending.UserID,
-	}
-	if err := s.repo.Create(img); err != nil {
-		slog.Error("failed to persist image after pull", "image_id", idStr, "error", err.Error())
-		s.tracker.Finish(idStr, err)
-		return
-	}
-
-	slog.Info("image pull complete", "image_id", idStr, "image", fullName)
+	slog.Info("image pull complete", "component", "image", "image_id", idStr, "image", fullName)
 	s.tracker.Finish(idStr, nil)
+}
 
-	// todo hier kein image zurückgeben? s.attachThumbnailURL(image)
+func (s *ImageService) finishPull(idStr string, imageID uuid.UUID, fullName string, err error, cancelled bool) {
+	if cancelled {
+		slog.Info("image pull cancelled", "component", "image", "image_id", idStr, "image", fullName)
+	} else {
+		slog.Error("image pull failed", "component", "image", "image_id", idStr, "image", fullName, "error", err.Error())
+	}
+
+	errMsg := err.Error()
+	if dbErr := s.repo.UpdateStatus(imageID, models.ImageStatusFailed, &errMsg); dbErr != nil {
+		slog.Error("failed to mark image as failed", "component", "image", "image_id", idStr, "error", dbErr.Error())
+	}
+
+	s.tracker.Finish(idStr, err)
 }
 
 func (s *ImageService) WatchPullProgress(imageID string) (<-chan docker.PullProgress, func()) {
@@ -276,26 +283,25 @@ func (s *ImageService) DeleteThumbnail(id uuid.UUID) (*models.Image, error) {
 
 func (s *ImageService) IsPulling(imageID string) bool {
 	s.mu.RLock()
-	_, ok := s.pendingPulls[imageID]
+	_, ok := s.pullCancels[imageID]
 	s.mu.RUnlock()
 	return ok
 }
 
-func (s *ImageService) ListPendingPulls() []PendingPull {
-	s.mu.RLock()
-	copies := make([]PendingPull, 0, len(s.pendingPulls))
-	ids := make([]string, 0, len(s.pendingPulls))
-	for id, p := range s.pendingPulls {
-		copies = append(copies, *p)
-		ids = append(ids, id)
+func (s *ImageService) ListPullingImages() ([]models.Image, map[string]int) {
+	images, err := s.repo.ListByStatus(models.ImageStatusPulling)
+	if err != nil {
+		slog.Error("failed to list pulling images", "component", "image", "error", err.Error())
+		return nil, nil
 	}
-	s.mu.RUnlock()
 
-	for i, id := range ids {
-		progress := s.tracker.Progress(id)
-		copies[i].Percent = progress.Percent
+	percents := make(map[string]int, len(images))
+	for _, img := range images {
+		progress := s.tracker.Progress(img.ID.String())
+		percents[img.ID.String()] = progress.Percent
 	}
-	return copies
+
+	return s.attachThumbnailURLs(images), percents
 }
 
 func (s *ImageService) cancelPull(imageID string) {
@@ -311,11 +317,10 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 	idStr := id.String()
 
 	s.mu.RLock()
-	_, isPending := s.pendingPulls[idStr]
+	_, isPulling := s.pullCancels[idStr]
 	s.mu.RUnlock()
-	if isPending {
+	if isPulling {
 		s.cancelPull(idStr)
-		return nil
 	}
 
 	img, err := s.repo.FindByID(id)
@@ -332,18 +337,18 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 	for _, sb := range sandboxes {
 		if sb.Status == models.SandboxStatusStarting || sb.Status == models.SandboxStatusRunning {
 			if err := s.docker.DeleteContainer(ctx, sb.ContainerID); err != nil {
-				slog.Warn("failed to delete sandbox container during image deletion", "container_id", sb.ContainerID, "error", err.Error())
+				slog.Warn("failed to delete sandbox container during image deletion", "component", "image", "container_id", sb.ContainerID, "error", err.Error())
 			}
 		}
 		if err := s.sandboxRepo.DeleteByID(sb.ID); err != nil {
-			slog.Warn("failed to delete sandbox during image deletion", "sandbox_id", sb.ID.String(), "error", err.Error())
+			slog.Warn("failed to delete sandbox during image deletion", "component", "image", "sandbox_id", sb.ID.String(), "error", err.Error())
 		}
 	}
 
 	// Remove Docker image if it exists locally.
 	if s.docker.ImageExists(ctx, img.FullName()) {
 		if err := s.docker.RemoveImage(ctx, img.FullName()); err != nil {
-			slog.Warn("docker image removal failed, proceeding with db deletion", "image", img.FullName(), "error", err.Error())
+			slog.Warn("docker image removal failed, proceeding with db deletion", "component", "image", "image", img.FullName(), "error", err.Error())
 		}
 	}
 
@@ -364,7 +369,7 @@ func (s *ImageService) attachThumbnailURLs(images []models.Image) []models.Image
 func (s *ImageService) attachThumbnailURL(image *models.Image) *models.Image {
 	path, err := s.thumbnailPath(image.ID)
 	if err != nil {
-		slog.Error("resolve thumbnail path failed", "image_id", image.ID.String(), "cause", err.Error())
+		slog.Error("resolve thumbnail path failed", "component", "image", "image_id", image.ID.String(), "error", err.Error())
 		image.ThumbnailURL = nil
 		return image
 	}

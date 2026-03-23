@@ -16,9 +16,19 @@ type GormLogger struct {
 	ignoreRecordNotFoundError bool
 }
 
-func NewGormLogger() gormlogger.Interface {
+func NewGormLogger(appLevel slog.Level) gormlogger.Interface {
+	var gormLevel gormlogger.LogLevel
+	switch {
+	case appLevel <= slog.LevelDebug:
+		gormLevel = gormlogger.Info
+	case appLevel <= slog.LevelInfo:
+		gormLevel = gormlogger.Warn
+	default:
+		gormLevel = gormlogger.Error
+	}
+
 	return &GormLogger{
-		logLevel:                  gormlogger.Info,
+		logLevel:                  gormLevel,
 		slowThreshold:             200 * time.Millisecond,
 		ignoreRecordNotFoundError: true,
 	}
@@ -35,7 +45,7 @@ func (l *GormLogger) Info(_ context.Context, msg string, data ...interface{}) {
 		return
 	}
 
-	slog.Info("gorm info", "message", fmt.Sprintf(msg, data...))
+	slog.Info("gorm info", "component", "database", "message", fmt.Sprintf(msg, data...))
 }
 
 func (l *GormLogger) Warn(_ context.Context, msg string, data ...interface{}) {
@@ -43,7 +53,7 @@ func (l *GormLogger) Warn(_ context.Context, msg string, data ...interface{}) {
 		return
 	}
 
-	slog.Warn("gorm warning", "message", fmt.Sprintf(msg, data...))
+	slog.Warn("gorm warning", "component", "database", "message", fmt.Sprintf(msg, data...))
 }
 
 func (l *GormLogger) Error(_ context.Context, msg string, data ...interface{}) {
@@ -51,7 +61,7 @@ func (l *GormLogger) Error(_ context.Context, msg string, data ...interface{}) {
 		return
 	}
 
-	slog.Error("gorm error", "message", fmt.Sprintf(msg, data...))
+	slog.Error("gorm error", "component", "database", "message", fmt.Sprintf(msg, data...))
 }
 
 func (l *GormLogger) Trace(_ context.Context, begin time.Time, fc func() (string, int64), err error) {
@@ -62,7 +72,7 @@ func (l *GormLogger) Trace(_ context.Context, begin time.Time, fc func() (string
 	elapsed := time.Since(begin)
 	sql, rows := fc()
 	fields := []any{
-		"component", "gorm",
+		"component", "database",
 		"elapsed_ms", float64(elapsed.Nanoseconds()) / 1e6,
 		"rows", rows,
 		"sql", sql,
