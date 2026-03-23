@@ -19,3 +19,4 @@ dist-ssr/
 
 api/config.yml
 web/src/vite-env.d.ts
+lefthook-local.yml
