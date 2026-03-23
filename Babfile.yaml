@@ -160,7 +160,11 @@ tasks:
   check:
     desc: Run all checks (same as pre-commit)
     run:
-      - task: format
+      - parallel:
+          - task: web:format
+            label: web:format
+          - task: api:format
+            label: api:format
       - parallel:
           - task: web:lint
             label: web:lint
@@ -170,12 +174,7 @@ tasks:
             label: typecheck
 
   web:lint:
-    desc: Lint web/ code
-    run:
-      - cmd: cd web && pnpm lint
-
-  web:lint:fix:
-    desc: Lint and fix web/ code
+    desc: Lint and auto-fix web/ code
     run:
       - cmd: cd web && pnpm lint:fix
 
@@ -192,7 +191,7 @@ tasks:
   api:lint:
     desc: Lint api/ code
     run:
-      - cmd: cd api && go tool golangci-lint run ./...
+      - cmd: cd api && go tool golangci-lint run --fix ./...
 
   api:format:
     desc: Format api/ code
