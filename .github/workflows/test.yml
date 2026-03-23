@@ -6,12 +6,8 @@ on:
   pull_request:
     branches: ["master", "development"]
 
-defaults:
-  run:
-    working-directory: api
-
 jobs:
-  quality:
+  api-quality:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,21 +20,60 @@ jobs:
           cache-dependency-path: api/go.sum
 
       - name: Check formatting
-        run: |
-          unformatted=$(gofmt -l $(find . -name '*.go' -not -path './.gocache/*' -not -path './.gomodcache/*'))
-          if [ -n "$unformatted" ]; then
-            echo "These files need gofmt:"
-            echo "$unformatted"
-            exit 1
-          fi
+        working-directory: api
+        run: test -z "$(go tool gofumpt -l .)"
+
+      - name: Lint
+        working-directory: api
+        run: go tool golangci-lint run ./...
 
       - name: Vet
+        working-directory: api
         run: go vet ./...
 
       - name: Build
+        working-directory: api
         run: go build -v ./...
 
-  unit-tests:
+  web-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        working-directory: web
+        run: pnpm format:check
+
+      - name: Lint
+        working-directory: web
+        run: pnpm lint
+
+      - name: Typecheck
+        working-directory: web
+        run: pnpm typecheck
+
+      - name: Build
+        working-directory: web
+        run: pnpm build
+
+  api-unit-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -51,9 +86,10 @@ jobs:
           cache-dependency-path: api/go.sum
 
       - name: Run unit tests
+        working-directory: api
         run: go test -v ./...
 
-  integration-tests:
+  api-integration-tests:
     runs-on: ubuntu-latest
 
     services:
@@ -84,9 +120,10 @@ jobs:
           cache-dependency-path: api/go.sum
 
       - name: Run integration tests
+        working-directory: api
         run: go test -v -tags=integration ./internal/http ./internal/repositories/...
 
-  swagger:
+  api-swagger:
     runs-on: ubuntu-latest
 
     steps:
@@ -99,7 +136,9 @@ jobs:
           cache-dependency-path: api/go.sum
 
       - name: Regenerate Swagger docs
+        working-directory: api
         run: go generate ./cmd/api
 
       - name: Check generated docs are committed
+        working-directory: api
         run: git diff --exit-code -- docs/
