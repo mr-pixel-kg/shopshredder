@@ -7,7 +7,8 @@ import { useSandboxesStore } from '@/stores/sandboxes.store'
 export function useSandboxes(mode: 'mine' | 'all' = 'mine') {
   const store = useSandboxesStore()
   const authStore = useAuthStore()
-  const { sandboxes, activeSandboxes, recentSandboxes, loading, error } = storeToRefs(store)
+  const { sandboxes, activeSandboxes, recentSandboxes, loading, error, healthBySandboxId } =
+    storeToRefs(store)
 
   let pollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -44,6 +45,6 @@ export function useSandboxes(mode: 'mine' | 'all' = 'mine') {
     extendTTL: store.extendTTL,
     deleteSandbox: store.deleteSandbox,
     snapshotSandbox: store.snapshotSandbox,
-    healthBySandboxId: store.healthBySandboxId,
+    healthBySandboxId,
   }
 }

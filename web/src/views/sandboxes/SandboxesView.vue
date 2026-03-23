@@ -45,6 +45,7 @@ const { isAdmin } = storeToRefs(authStore)
 
 const {
   activeSandboxes,
+  healthBySandboxId,
   recentSandboxes,
   loading,
   createSandbox,
@@ -122,8 +123,30 @@ function getImageTag(imageId: string): string | undefined {
 }
 
 function handleOpen(sandbox: Sandbox) {
-  if (sandbox.status !== 'running') return
+  if (!isSandboxReadyForOpen(sandbox)) return
   if (sandbox.url) window.open(sandbox.url, '_blank')
+}
+
+function getLiveHealth(sandbox: Sandbox) {
+  return healthBySandboxId.value[sandbox.id]
+}
+
+function isSandboxOffline(sandbox: Sandbox): boolean {
+  const health = getLiveHealth(sandbox)
+  return sandbox.status === 'running' && health?.status === 'offline'
+}
+
+function isSandboxReadyForOpen(sandbox: Sandbox): boolean {
+  const health = getLiveHealth(sandbox)
+  if (sandbox.status !== 'running') return false
+  if (!health) return true
+  return health.ready
+}
+
+function getOpenTooltip(sandbox: Sandbox): string {
+  if (isSandboxReadyForOpen(sandbox)) return 'Öffnen'
+  if (isSandboxOffline(sandbox)) return 'Sandbox ist laut Health-Check aktuell offline'
+  return 'Wird erreichbar, sobald die Sandbox bereit ist'
 }
 
 function handleExtend(sandbox: Sandbox) {
@@ -243,7 +266,12 @@ async function handleConfirmDelete() {
               <TableEmpty v-else-if="!hasActive" :colspan="4"> Keine aktiven Sandboxes </TableEmpty>
               <TableRow v-for="sandbox in activeSandboxes" :key="sandbox.id" class="h-13">
                 <TableCell>
-                  <StatusBadge :status="sandbox.status" />
+                  <div class="flex items-center gap-2">
+                    <StatusBadge :status="sandbox.status" />
+                    <Badge v-if="isSandboxOffline(sandbox)" variant="destructive" class="text-xs">
+                      Offline
+                    </Badge>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center gap-2">
@@ -266,19 +294,13 @@ async function handleConfirmDelete() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            :disabled="sandbox.status !== 'running'"
+                            :disabled="!isSandboxReadyForOpen(sandbox)"
                             @click="handleOpen(sandbox)"
                           >
                             <ExternalLink class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
-                          {{
-                            sandbox.status === 'running'
-                              ? 'Öffnen'
-                              : 'Wird erreichbar, sobald die Sandbox bereit ist'
-                          }}
-                        </TooltipContent>
+                        <TooltipContent>{{ getOpenTooltip(sandbox) }}</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger as-child>

@@ -73,7 +73,6 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
 
     if (event.ready) {
       updateSandboxStatus(event.sandboxId, 'running')
-      closeHealthStream(event.sandboxId)
       return
     }
 
@@ -104,25 +103,25 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
 
     es.onerror = () => {
       const sandbox = sandboxes.value.find((item) => item.id === id)
-      if (!sandbox || sandbox.status !== 'starting') {
+      if (!sandbox || (sandbox.status !== 'starting' && sandbox.status !== 'running')) {
         closeHealthStream(id)
       }
     }
   }
 
   function syncHealthSubscriptions() {
-    const startingIds = new Set(
+    const activeIds = new Set(
       sandboxes.value
-        .filter((sandbox) => sandbox.status === 'starting')
+        .filter((sandbox) => sandbox.status === 'starting' || sandbox.status === 'running')
         .map((sandbox) => sandbox.id),
     )
 
-    for (const sandboxId of startingIds) {
+    for (const sandboxId of activeIds) {
       subscribeHealth(sandboxId)
     }
 
     for (const [sandboxId] of healthConnections) {
-      if (!startingIds.has(sandboxId)) {
+      if (!activeIds.has(sandboxId)) {
         closeHealthStream(sandboxId)
       }
     }

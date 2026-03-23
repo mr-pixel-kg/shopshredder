@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -61,10 +62,42 @@ func NewSandboxHealthService(repo *repositories.SandboxRepository) *SandboxHealt
 	}
 }
 
+func (s *SandboxHealthService) StartMonitoring(sandboxID uuid.UUID) {
+	s.mu.Lock()
+	if _, exists := s.active[sandboxID]; exists {
+		s.mu.Unlock()
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.active[sandboxID] = &sandboxHealthState{
+		subscribers: make(map[chan SandboxHealthEvent]struct{}),
+		cancel:      cancel,
+	}
+	s.mu.Unlock()
+
+	go s.monitor(ctx, sandboxID)
+}
+
+func (s *SandboxHealthService) StartMonitoringActive() {
+	sandboxes, err := s.repo.ListAllActive()
+	if err != nil {
+		slog.Error("load active sandboxes for health monitoring failed", "component", "sandbox_health", "error", err.Error())
+		return
+	}
+
+	for _, sandbox := range sandboxes {
+		s.StartMonitoring(sandbox.ID)
+	}
+}
+
 func (s *SandboxHealthService) Watch(sandbox *models.Sandbox) (<-chan SandboxHealthEvent, func()) {
 	ch := make(chan SandboxHealthEvent, 8)
 
-	if sandbox.Status != models.SandboxStatusStarting {
+	switch sandbox.Status {
+	case models.SandboxStatusStarting, models.SandboxStatusRunning:
+		s.StartMonitoring(sandbox.ID)
+	default:
 		ch <- sandboxHealthEventFromStatus(sandbox)
 		close(ch)
 		return ch, func() {}
@@ -72,19 +105,9 @@ func (s *SandboxHealthService) Watch(sandbox *models.Sandbox) (<-chan SandboxHea
 
 	s.mu.Lock()
 	state := s.active[sandbox.ID]
-	if state == nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		state = &sandboxHealthState{
-			subscribers: map[chan SandboxHealthEvent]struct{}{ch: {}},
-			cancel:      cancel,
-		}
-		s.active[sandbox.ID] = state
-		go s.monitor(ctx, sandbox.ID)
-	} else {
-		state.subscribers[ch] = struct{}{}
-		if state.last != nil {
-			ch <- *state.last
-		}
+	state.subscribers[ch] = struct{}{}
+	if state.last != nil {
+		ch <- *state.last
 	}
 	s.mu.Unlock()
 
@@ -126,35 +149,43 @@ func (s *SandboxHealthService) runProbe(sandboxID uuid.UUID) bool {
 		return true
 	}
 
-	if sandbox.Status != models.SandboxStatusStarting {
+	switch sandbox.Status {
+	case models.SandboxStatusStarting:
+		event := s.probeSandbox(sandbox, false)
+		if event.Ready {
+			sandbox.Status = models.SandboxStatusRunning
+			if err := s.repo.Update(sandbox); err != nil {
+				event.Ready = false
+				event.Status = "error"
+				event.FailureReason = "status_update_failed"
+				event.Message = fmt.Sprintf("Could not persist running state: %v", err)
+				s.broadcast(sandboxID, event)
+				return false
+			}
+			event.Status = "ready"
+		}
+		s.broadcast(sandboxID, event)
+		return false
+
+	case models.SandboxStatusRunning:
+		s.broadcast(sandboxID, s.probeSandbox(sandbox, true))
+		return false
+
+	default:
 		s.broadcastFinal(sandboxID, sandboxHealthEventFromStatus(sandbox))
 		return true
 	}
-
-	event := s.probeSandbox(sandbox)
-	if event.Ready {
-		sandbox.Status = models.SandboxStatusRunning
-		if err := s.repo.Update(sandbox); err != nil {
-			event.Ready = false
-			event.Status = "error"
-			event.FailureReason = "status_update_failed"
-			event.Message = fmt.Sprintf("Could not persist running state: %v", err)
-			s.broadcast(sandboxID, event)
-			return false
-		}
-		event.Status = "ready"
-		s.broadcastFinal(sandboxID, event)
-		return true
-	}
-
-	s.broadcast(sandboxID, event)
-	return false
 }
 
-func (s *SandboxHealthService) probeSandbox(sandbox *models.Sandbox) SandboxHealthEvent {
+func (s *SandboxHealthService) probeSandbox(sandbox *models.Sandbox, wasReady bool) SandboxHealthEvent {
+	status := "probing"
+	if wasReady || sandbox.Status == models.SandboxStatusRunning {
+		status = "offline"
+	}
+
 	event := SandboxHealthEvent{
 		SandboxID: sandbox.ID,
-		Status:    "probing",
+		Status:    status,
 		Ready:     false,
 		URL:       sandbox.URL,
 		CheckedAt: time.Now().UTC(),
@@ -188,6 +219,7 @@ func (s *SandboxHealthService) probeSandbox(sandbox *models.Sandbox) SandboxHeal
 
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
 		event.Ready = true
+		event.Status = "ready"
 		event.Message = "Sandbox URL is reachable"
 		return event
 	}
@@ -225,6 +257,7 @@ func (s *SandboxHealthService) broadcastFinal(sandboxID uuid.UUID, event Sandbox
 
 	delete(s.active, sandboxID)
 	state.last = &event
+	state.cancel()
 	subscribers := make([]chan SandboxHealthEvent, 0, len(state.subscribers))
 	for ch := range state.subscribers {
 		subscribers = append(subscribers, ch)
@@ -250,10 +283,6 @@ func (s *SandboxHealthService) removeSubscriber(sandboxID uuid.UUID, ch chan San
 	}
 
 	delete(state.subscribers, ch)
-	if len(state.subscribers) == 0 {
-		delete(s.active, sandboxID)
-		state.cancel()
-	}
 }
 
 func (s *SandboxHealthService) stopMonitor(sandboxID uuid.UUID) {
@@ -281,6 +310,7 @@ func sandboxHealthEventFromStatus(sandbox *models.Sandbox) SandboxHealthEvent {
 
 	switch sandbox.Status {
 	case models.SandboxStatusRunning:
+		event.Status = "ready"
 		event.Message = "Sandbox URL is reachable"
 	case models.SandboxStatusStarting:
 		event.Status = "probing"

@@ -208,6 +208,7 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 	if err != nil {
 		return mapSandboxError(c, err)
 	}
+	h.health.StartMonitoring(sandbox.ID)
 
 	slog.Info("public demo created", logging.RequestFields(c,
 		"component", "sandbox",
@@ -267,6 +268,7 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 	if err != nil {
 		return mapSandboxError(c, err)
 	}
+	h.health.StartMonitoring(sandbox.ID)
 
 	slog.Info("private sandbox created", logging.RequestFields(c,
 		"component", "sandbox",

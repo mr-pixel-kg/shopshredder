@@ -23,10 +23,10 @@ func TestSandboxHealthServiceProbeSandboxReady(t *testing.T) {
 		ID:     uuid.New(),
 		Status: models.SandboxStatusStarting,
 		URL:    server.URL,
-	})
+	}, false)
 
 	assert.True(t, event.Ready)
-	assert.Equal(t, "probing", event.Status)
+	assert.Equal(t, "ready", event.Status)
 	assert.Equal(t, http.StatusOK, event.HTTPStatus)
 	assert.Equal(t, "Sandbox URL is reachable", event.Message)
 }
@@ -42,7 +42,7 @@ func TestSandboxHealthServiceProbeSandboxPending(t *testing.T) {
 		ID:     uuid.New(),
 		Status: models.SandboxStatusStarting,
 		URL:    server.URL,
-	})
+	}, false)
 
 	assert.False(t, event.Ready)
 	assert.Equal(t, "probing", event.Status)
@@ -61,6 +61,6 @@ func TestSandboxHealthEventFromStatusRunning(t *testing.T) {
 	event := sandboxHealthEventFromStatus(sandbox)
 
 	require.True(t, event.Ready)
-	assert.Equal(t, "running", event.Status)
+	assert.Equal(t, "ready", event.Status)
 	assert.Equal(t, "Sandbox URL is reachable", event.Message)
 }
