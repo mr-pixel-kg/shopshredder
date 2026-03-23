@@ -4,8 +4,8 @@ import { ref } from 'vue'
 
 import TtlChip from '@/components/sandboxes/TtlChip.vue'
 import StatusBadge from '@/components/shared/StatusBadge.vue'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 import ActionButton from './ActionButton.vue'
