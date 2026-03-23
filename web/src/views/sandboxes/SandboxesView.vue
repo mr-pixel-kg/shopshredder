@@ -149,7 +149,7 @@ async function handleConfirmDelete() {
 
     <div class="space-y-8">
       <section>
-        <h3 class="text-sm font-medium text-muted-foreground mb-3">Aktive Sandboxes</h3>
+        <h3 class="text-muted-foreground mb-3 text-sm font-medium">Aktive Sandboxes</h3>
         <div class="rounded-md border">
           <Table class="table-fixed">
             <TableHeader>
@@ -182,16 +182,16 @@ async function handleConfirmDelete() {
                   </TableCell>
                 </TableRow>
               </template>
-              <TableEmpty v-else-if="!hasActive" :colspan="4">
-                Keine aktiven Sandboxes
-              </TableEmpty>
+              <TableEmpty v-else-if="!hasActive" :colspan="4"> Keine aktiven Sandboxes </TableEmpty>
               <TableRow v-for="sandbox in activeSandboxes" :key="sandbox.id" class="h-13">
                 <TableCell>
                   <StatusBadge :status="sandbox.status"/>
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium truncate">{{ getImageName(sandbox.imageId) }}</span>
+                    <span class="truncate text-sm font-medium">{{
+                      getImageName(sandbox.imageId)
+                    }}</span>
                     <Badge v-if="getImageTag(sandbox.imageId)" variant="secondary" class="text-xs">
                       {{ getImageTag(sandbox.imageId) }}
                     </Badge>
@@ -247,7 +247,7 @@ variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive"
       </section>
 
       <section v-if="hasRecent || loading">
-        <h3 class="text-sm font-medium text-muted-foreground mb-3">Zuletzt beendet</h3>
+        <h3 class="text-muted-foreground mb-3 text-sm font-medium">Zuletzt beendet</h3>
         <div class="rounded-md border">
           <Table class="table-fixed">
             <TableHeader>
@@ -281,7 +281,9 @@ variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive"
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium truncate">{{ getImageName(sandbox.imageId) }}</span>
+                    <span class="truncate text-sm font-medium">{{
+                      getImageName(sandbox.imageId)
+                    }}</span>
                     <Badge v-if="getImageTag(sandbox.imageId)" variant="secondary" class="text-xs">
                       {{ getImageTag(sandbox.imageId) }}
                     </Badge>
