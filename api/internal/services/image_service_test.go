@@ -96,7 +96,7 @@ func TestAttachThumbnailURLOverridesStaleValue(t *testing.T) {
 	assert.Nil(t, got.ThumbnailURL)
 
 	targetPath := filepath.Join(tempDir, id.String()+".png")
-	require.NoError(t, os.WriteFile(targetPath, []byte("png"), 0o644))
+	require.NoError(t, os.WriteFile(targetPath, []byte("png"), 0o600))
 
 	got = service.attachThumbnailURL(image)
 	require.NotNil(t, got.ThumbnailURL)

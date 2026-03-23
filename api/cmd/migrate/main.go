@@ -25,8 +25,7 @@ func run(args []string) error {
 	}
 
 	command := args[0]
-	switch command {
-	case "create":
+	if command == "create" {
 		if len(args) < 2 || args[1] == "" {
 			return fmt.Errorf("missing migration name")
 		}
@@ -44,7 +43,9 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("open sql database handle: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		_ = sqlDB.Close()
+	}()
 
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("set goose dialect: %w", err)
