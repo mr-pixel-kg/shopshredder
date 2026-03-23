@@ -112,7 +112,9 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
 
   function syncHealthSubscriptions() {
     const startingIds = new Set(
-      sandboxes.value.filter((sandbox) => sandbox.status === 'starting').map((sandbox) => sandbox.id),
+      sandboxes.value
+        .filter((sandbox) => sandbox.status === 'starting')
+        .map((sandbox) => sandbox.id),
     )
 
     for (const sandboxId of startingIds) {

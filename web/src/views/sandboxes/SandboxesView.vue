@@ -273,7 +273,11 @@ async function handleConfirmDelete() {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {{ sandbox.status === 'running' ? 'Öffnen' : 'Wird erreichbar, sobald die Sandbox bereit ist' }}
+                          {{
+                            sandbox.status === 'running'
+                              ? 'Öffnen'
+                              : 'Wird erreichbar, sobald die Sandbox bereit ist'
+                          }}
                         </TooltipContent>
                       </Tooltip>
                       <Tooltip>
