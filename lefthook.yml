@@ -1,0 +1,51 @@
+pre-commit:
+  commands:
+    web-format-fix:
+      priority: 1
+      root: "web/"
+      glob: "**/*.{ts,vue,js,css,json}"
+      exclude: "node_modules/**"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    web-lint-fix:
+      priority: 1
+      root: "web/"
+      glob: "**/*.{ts,vue,js}"
+      exclude: "node_modules/**"
+      run: npx eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+
+    api-format-fix:
+      priority: 1
+      root: "api/"
+      glob: "**/*.go"
+      exclude: "docs/**"
+      run: go tool gofumpt -w {staged_files}
+      stage_fixed: true
+
+    api-lint-fix:
+      priority: 1
+      root: "api/"
+      glob: "**/*.go"
+      exclude: "docs/**"
+      run: go tool golangci-lint run --fix {staged_files}
+      stage_fixed: true
+
+    web-lint:
+      priority: 2
+      root: "web/"
+      glob: "**/*.{ts,vue,js}"
+      exclude: "node_modules/**"
+      run: npx eslint --no-warn-ignored {staged_files}
+
+    web-typecheck:
+      priority: 2
+      root: "web/"
+      glob: "**/*.{ts,vue}"
+      run: npx vue-tsc --noEmit
+
+    api-lint:
+      priority: 2
+      root: "api/"
+      run: go tool golangci-lint run ./...

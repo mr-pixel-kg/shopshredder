@@ -1,7 +1,8 @@
 tasks:
   setup:
-    desc: Copy example configs
+    desc: Copy example configs and install git hooks
     run:
+      - cmd: go tool lefthook install
       - cmd: |
           [ -f api/config.yml ] && echo "api/config.yml already exists, skipping." || (cp api/config.example.yml api/config.yml && echo "Created api/config.yml")
           [ -f .env ] && echo ".env already exists, skipping." || (cp .env.example .env && echo "Created .env")
@@ -132,6 +133,89 @@ tasks:
     desc: Generate Swagger/OpenAPI docs from code annotations
     run:
       - cmd: cd api && go generate ./cmd/api
+
+  lint:
+    desc: Run all linters
+    run:
+      - parallel:
+          - task: web:lint
+            label: web
+          - task: api:lint
+            label: api
+
+  format:
+    desc: Format all code
+    run:
+      - parallel:
+          - task: web:format
+            label: web
+          - task: api:format
+            label: api
+
+  format:check:
+    desc: Check formatting without fixing
+    run:
+      - parallel:
+          - task: web:format:check
+            label: web
+          - task: api:format:check
+            label: api
+
+  typecheck:
+    desc: Run type checking
+    run:
+      - cmd: cd web && pnpm typecheck
+
+  check:
+    desc: Run all checks (same as pre-commit)
+    run:
+      - parallel:
+          - task: web:format
+            label: web:format
+          - task: api:format
+            label: api:format
+      - parallel:
+          - task: web:lint
+            label: web:lint
+          - task: api:lint
+            label: api:lint
+          - task: typecheck
+            label: typecheck
+
+  web:lint:
+    desc: Lint and auto-fix web/ code
+    run:
+      - cmd: cd web && pnpm lint:fix
+
+  web:format:
+    desc: Format web/ code
+    run:
+      - cmd: cd web && pnpm format
+
+  web:format:check:
+    desc: Check web/ formatting
+    run:
+      - cmd: cd web && pnpm format:check
+
+  api:lint:
+    desc: Lint api/ code
+    run:
+      - cmd: cd api && go tool golangci-lint run --fix ./...
+
+  api:format:
+    desc: Format api/ code
+    run:
+      - cmd: cd api && go tool gofumpt -w .
+
+  api:format:check:
+    desc: Check api/ formatting
+    run:
+      - cmd: "cd api && test -z \"$(go tool gofumpt -l .)\""
+
+  api:vet:
+    desc: Run go vet on api/
+    run:
+      - cmd: cd api && go vet ./...
 
   docker:purge-dockware:
     desc: Fully purge all dockware images, containers, build cache, and layers
