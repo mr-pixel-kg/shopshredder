@@ -19,7 +19,7 @@ export function useAuditLogs() {
     let logs = allLogs.value
 
     if (userFilter.value && userFilter.value !== 'all') {
-      logs = logs.filter((l) => l.userId === userFilter.value)
+      logs = logs.filter((l) => l.user?.id === userFilter.value)
     }
 
     if (actionFilter.value && actionFilter.value !== 'all') {
@@ -48,8 +48,13 @@ export function useAuditLogs() {
   })
 
   const uniqueUsers = computed(() => {
-    const ids = new Set(allLogs.value.map((l) => l.userId).filter(Boolean))
-    return [...ids] as string[]
+    const users = new Map<string, string>()
+    for (const log of allLogs.value) {
+      if (log.user) {
+        users.set(log.user.id, log.user.email)
+      }
+    }
+    return [...users.entries()].map(([id, email]) => ({ id, email }))
   })
 
   const uniqueActions = computed(() => {
@@ -73,7 +78,7 @@ export function useAuditLogs() {
     const headers = ['Zeitpunkt', 'Benutzer', 'Aktion', 'Details', 'IP']
     const rows = filteredLogs.value.map((l) => [
       l.createdAt,
-      l.userId ?? '',
+      l.user?.email ?? l.user?.id ?? '',
       l.action,
       JSON.stringify(l.details),
       l.ipAddress,
