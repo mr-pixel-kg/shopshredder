@@ -4,11 +4,11 @@ services:
       - "80:80"
       - "9000:8080"
 
-  backend:
+  api:
     ports:
       - "8080:8080"
 
-  frontend:
+  web:
     ports:
       - "8000:80"
 

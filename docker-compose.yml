@@ -11,10 +11,10 @@ services:
       - sandbox-network
       - internal
 
-  backend:
+  api:
     restart: always
     build:
-      context: ./backend
+      context: ./api
       dockerfile: Dockerfile
     expose:
       - 8080
@@ -31,10 +31,10 @@ services:
       database:
         condition: service_healthy
 
-  frontend:
+  web:
     restart: always
     build:
-      context: ./frontend
+      context: ./web
       dockerfile: Dockerfile
       args:
         VITE_BACKEND_URL: http://localhost:8080
