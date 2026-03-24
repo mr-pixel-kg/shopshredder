@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/handlers"
 	authmw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -51,7 +53,15 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	auditService := services.NewAuditService(auditRepo)
 	authService := services.NewAuthService(userRepo, sessionRepo, passwordService, tokenService, cfg.Registration)
 	guestService := services.NewGuestSessionService(sessionRepo, tokenService)
-	dockerClient, err := docker.NewClient(cfg.Sandbox, cfg.Docker)
+	reg, err := registry.Load(cfg.RegistryPath)
+	if err != nil {
+		return nil, fmt.Errorf("load image registry: %w", err)
+	}
+	resolver, err := registry.NewResolver(reg)
+	if err != nil {
+		return nil, fmt.Errorf("compile image registry: %w", err)
+	}
+	dockerClient, err := docker.NewClient(cfg.Sandbox, cfg.Docker, resolver)
 	if err != nil {
 		return nil, err
 	}

@@ -126,16 +126,19 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 		hostname = fmt.Sprintf("%s%s", containerName, s.cfg.HostSuffix)
 	}
 
+	expiresAt := time.Now().UTC().Add(ttl)
 	container, err := s.docker.CreateContainer(ctx, docker.SandboxCreateRequest{
 		ImageName:     image.FullName(),
 		ContainerName: containerName,
 		Hostname:      hostname,
+		SandboxID:     sandboxID.String(),
+		TTL:           ttl.String(),
+		ExpiresAt:     expiresAt.Format(time.RFC3339),
+		ClientIP:      input.ClientIP,
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	expiresAt := time.Now().UTC().Add(ttl)
 	sandbox := &models.Sandbox{
 		ID:              sandboxID,
 		ImageID:         image.ID,
@@ -222,7 +225,7 @@ func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, clientIP stri
 
 	if isActive {
 		// Soft delete: stop container, mark as deleted, keep in history.
-		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
+		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID, s.resolveImageName(sandbox.ImageID)); err != nil {
 			return err
 		}
 
@@ -382,7 +385,7 @@ func (s *SandboxService) CleanupExpired(ctx context.Context) error {
 	// Expiration is database-driven so a process restart does not lose the
 	// deletion schedule for previously created sandboxes.
 	for _, sandbox := range expired {
-		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
+		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID, s.resolveImageName(sandbox.ImageID)); err != nil {
 			slog.Error("delete expired container failed",
 				"component", "cleanup",
 				"sandbox_id", sandbox.ID.String(),
@@ -530,6 +533,14 @@ func (s *SandboxService) addEvent(sandboxID uuid.UUID, eventType string, metadat
 		Metadata:  datatypes.JSON(payload),
 		CreatedAt: time.Now().UTC(),
 	})
+}
+
+func (s *SandboxService) resolveImageName(imageID uuid.UUID) string {
+	img, err := s.imageRepo.FindByID(imageID)
+	if err != nil {
+		return ""
+	}
+	return img.FullName()
 }
 
 func sandboxActorType(sandbox *models.Sandbox) string {
