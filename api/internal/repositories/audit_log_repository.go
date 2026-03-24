@@ -19,6 +19,12 @@ func (r *AuditLogRepository) Create(entry *models.AuditLog) error {
 
 func (r *AuditLogRepository) List(limit int) ([]models.AuditLog, error) {
 	var logs []models.AuditLog
-	err := r.db.Order("created_at desc").Limit(limit).Find(&logs).Error
+	err := r.db.
+		Preload("User", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "email")
+		}).
+		Order("created_at desc").
+		Limit(limit).
+		Find(&logs).Error
 	return logs, err
 }

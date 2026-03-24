@@ -65,7 +65,10 @@ export interface SandboxHealthEvent {
 
 export interface AuditLog {
   id: string
-  userId?: string
+  user?: {
+    id: string
+    email: string
+  } | null
   action: string
   ipAddress: string
   details: Record<string, unknown> | unknown[]
