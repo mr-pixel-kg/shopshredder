@@ -12,5 +12,5 @@ WORKDIR /usr/share/nginx/html
 RUN chmod +x vite-envs.sh
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-  CMD wget -qO- http://localhost/ || exit 1
+  CMD wget -qO- http://127.0.0.1/ || exit 1
 CMD ["sh", "-c", "sh ./vite-envs.sh && nginx -g 'daemon off;'"]
