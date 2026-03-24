@@ -36,7 +36,10 @@ docker:
   mode: "port"
   network: "internal"
   traefik_enable: false
-
+# trusted_proxies: "0.0.0.0/0"
+# traefik_entrypoints: "websecure"
+# traefik_certresolver: "production"
+# traefik_middlewares: "sandbox-middleware@file,https-redirect@file"
 storage:
   thumbnail_dir: "storage/thumbnails"
 
