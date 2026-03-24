@@ -1,5 +1,35 @@
 basePath: /
 definitions:
+  dto.AuditLogResponse:
+    properties:
+      action:
+        example: sandbox.created
+        type: string
+      createdAt:
+        example: "2026-03-20T10:15:00Z"
+        type: string
+      details:
+        type: object
+      id:
+        example: 4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf
+        format: uuid
+        type: string
+      ipAddress:
+        example: 203.0.113.25
+        type: string
+      user:
+        $ref: '#/definitions/dto.AuditLogUser'
+    type: object
+  dto.AuditLogUser:
+    properties:
+      email:
+        example: jane.doe@example.com
+        type: string
+      id:
+        example: 5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2
+        format: uuid
+        type: string
+    type: object
   dto.AuthLoginResponse:
     properties:
       token:
@@ -184,28 +214,6 @@ definitions:
       title:
         type: string
     type: object
-  models.AuditLog:
-    properties:
-      action:
-        example: sandbox.created
-        type: string
-      createdAt:
-        example: "2026-03-20T10:15:00Z"
-        type: string
-      details:
-        type: object
-      id:
-        example: 4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf
-        format: uuid
-        type: string
-      ipAddress:
-        example: 203.0.113.25
-        type: string
-      userId:
-        example: 5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2
-        format: uuid
-        type: string
-    type: object
   models.Image:
     properties:
       createdAt:
@@ -361,7 +369,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.AuditLog'
+              $ref: '#/definitions/dto.AuditLogResponse'
             type: array
         "401":
           description: Unauthorized

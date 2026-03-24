@@ -77,7 +77,7 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Alle Benutzer</SelectItem>
-          <SelectItem v-for="u in uniqueUsers" :key="u" :value="u">{{ u }}</SelectItem>
+          <SelectItem v-for="u in uniqueUsers" :key="u.id" :value="u.id">{{ u.email }}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -133,7 +133,7 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
             <TableCell class="text-muted-foreground whitespace-nowrap">
               {{ formatDateTime(log.createdAt) }}
             </TableCell>
-            <TableCell>{{ log.userId ?? '—' }}</TableCell>
+            <TableCell>{{ log.user?.email ?? log.user?.id ?? '—' }}</TableCell>
             <TableCell>
               <Badge variant="outline" :class="actionBadgeConfig(log.action).class">
                 {{ actionBadgeConfig(log.action).label }}

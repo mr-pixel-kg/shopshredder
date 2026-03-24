@@ -1,6 +1,12 @@
 package dto
 
-import "github.com/manuel/shopware-testenv-platform/api/internal/models"
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/manuel/shopware-testenv-platform/api/internal/models"
+	"gorm.io/datatypes"
+)
 
 type ErrorDetail struct {
 	Code    string `json:"code" example:"VALIDATION_ERROR"`
@@ -15,6 +21,20 @@ type ErrorResponse struct {
 type AuthLoginResponse struct {
 	Token string      `json:"token" example:"eyJhbGciOiJIUzI1NiIs..."`
 	User  models.User `json:"user"`
+}
+
+type AuditLogUser struct {
+	ID    uuid.UUID `json:"id" format:"uuid" example:"5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"`
+	Email string    `json:"email" example:"jane.doe@example.com"`
+}
+
+type AuditLogResponse struct {
+	ID        uuid.UUID      `json:"id" format:"uuid" example:"4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf"`
+	User      *AuditLogUser  `json:"user"`
+	Action    string         `json:"action" example:"sandbox.created"`
+	IPAddress string         `json:"ipAddress" example:"203.0.113.25"`
+	Details   datatypes.JSON `json:"details" swaggertype:"object"`
+	CreatedAt time.Time      `json:"createdAt" example:"2026-03-20T10:15:00Z"`
 }
 
 type HealthResponse struct {
