@@ -18,6 +18,7 @@ RUN apk add --no-cache ca-certificates wget
 WORKDIR /app
 
 COPY --from=builder /out/api /usr/local/bin/api
+COPY config.yml /app/config.yml
 
 RUN mkdir -p /app/storage/thumbnails
 
