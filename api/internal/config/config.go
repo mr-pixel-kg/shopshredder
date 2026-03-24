@@ -113,20 +113,6 @@ func MustLoad() Config {
 		panic(fmt.Sprintf("read config file %s: %v", cfgPath, err))
 	}
 
-	for _, b := range []struct{ key, env string }{
-		{"database.host", "DB_HOST"},
-		{"database.port", "DB_PORT"},
-		{"database.user", "DB_USER"},
-		{"database.password", "DB_PASSWORD"},
-		{"database.name", "DB_NAME"},
-		{"database.sslmode", "DB_SSLMODE"},
-		{"auth.jwt_secret", "JWT_SECRET"},
-		{"server.app_url", "APP_URL"},
-	} {
-		if err := v.BindEnv(b.key, b.env); err != nil {
-			panic(fmt.Sprintf("bind env %s to %s: %v", b.env, b.key, err))
-		}
-	}
 	// Map the raw Viper values into typed config structs once so the rest of the
 	// application can avoid stringly-typed lookups.
 	cfg := Config{
