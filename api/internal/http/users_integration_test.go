@@ -57,7 +57,10 @@ func TestAdminUsersCRUD(t *testing.T) {
 	var created models.User
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 	assert.Equal(t, models.RoleUser, created.Role)
-	assert.False(t, created.IsPending())
+
+	storedCreated, err := repositories.NewUserRepository(db).FindByID(created.ID)
+	require.NoError(t, err)
+	assert.False(t, storedCreated.IsPending())
 
 	getRec := performJSONRequest(t, router, http.MethodGet, "/api/admin/users/"+created.ID.String(), nil, "Bearer "+adminToken)
 	require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
