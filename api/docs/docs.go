@@ -180,7 +180,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.AuditLog"
+                                "$ref": "#/definitions/dto.AuditLogResponse"
                             }
                         }
                     },
@@ -1429,6 +1429,48 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.AuditLogResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "example": "sandbox.created"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:15:00Z"
+                },
+                "details": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf"
+                },
+                "ipAddress": {
+                    "type": "string",
+                    "example": "203.0.113.25"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.AuditLogUser"
+                }
+            }
+        },
+        "dto.AuditLogUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane.doe@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
+                }
+            }
+        },
         "dto.AuthLoginResponse": {
             "type": "object",
             "properties": {
@@ -1687,36 +1729,6 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
-                }
-            }
-        },
-        "models.AuditLog": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "example": "sandbox.created"
-                },
-                "createdAt": {
-                    "type": "string",
-                    "example": "2026-03-20T10:15:00Z"
-                },
-                "details": {
-                    "type": "object"
-                },
-                "id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "example": "4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf"
-                },
-                "ipAddress": {
-                    "type": "string",
-                    "example": "203.0.113.25"
-                },
-                "userId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
                 }
             }
         },
