@@ -20,9 +20,16 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_HOST: database
+      DB_HOST: ${DB_HOST:-database}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-mrpix_sandbox}
       DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-mrpix_sandbox}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
       JWT_SECRET: ${JWT_SECRET}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      SANDBOX_URL_PREFIX: ${SANDBOX_URL_PREFIX:-sandbox-}
+      SANDBOX_URL_SUFFIX: ${SANDBOX_URL_SUFFIX:-.localhost}
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       - ./api/storage:/app/storage
