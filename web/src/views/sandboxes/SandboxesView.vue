@@ -1,0 +1,538 @@
+<script setup lang="ts">
+import { Camera, Clock, ExternalLink, Plus, Square, Trash2 } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { toast } from 'vue-sonner'
+
+import { sandboxesApi } from '@/api'
+import ConfirmDialog from '@/components/modals/ConfirmDialog.vue'
+import ExtendTtlDialog from '@/components/modals/ExtendTtlDialog.vue'
+import NewSandboxDialog from '@/components/modals/NewSandboxDialog.vue'
+import SnapshotDialog from '@/components/modals/SnapshotDialog.vue'
+import TtlChip from '@/components/sandboxes/TtlChip.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
+import StatusBadge from '@/components/shared/StatusBadge.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useImages } from '@/composables/useImages'
+import { useSandboxes } from '@/composables/useSandboxes'
+import { useAuthStore } from '@/stores/auth.store'
+import { getApiErrorMessage } from '@/utils/error'
+import { formatDateTime } from '@/utils/formatters'
+
+import type { Sandbox, SandboxStatus } from '@/types'
+
+const authStore = useAuthStore()
+const { isAdmin } = storeToRefs(authStore)
+
+const {
+  activeSandboxes,
+  healthBySandboxId,
+  recentSandboxes,
+  loading,
+  createSandbox,
+  deleteSandbox,
+  snapshotSandbox,
+  refresh,
+} = useSandboxes()
+const { images, uploadThumbnail } = useImages()
+
+const allSandboxes = ref<Sandbox[]>([])
+const allLoading = ref(false)
+const adminStatusFilter = ref<string>('all')
+
+const filteredAllSandboxes = computed(() => {
+  if (adminStatusFilter.value === 'all') return allSandboxes.value
+  const activeStatuses: SandboxStatus[] = ['running', 'starting']
+  const inactiveStatuses: SandboxStatus[] = ['stopped', 'expired', 'deleted', 'failed']
+  if (adminStatusFilter.value === 'active')
+    return allSandboxes.value.filter((s) => activeStatuses.includes(s.status))
+  if (adminStatusFilter.value === 'inactive')
+    return allSandboxes.value.filter((s) => inactiveStatuses.includes(s.status))
+  return allSandboxes.value
+})
+
+async function fetchAllInstances() {
+  try {
+    allSandboxes.value = await sandboxesApi.list()
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Fehler beim Laden der Instanzen'))
+  } finally {
+    allLoading.value = false
+  }
+}
+
+async function handleAdminDelete(sandbox: Sandbox) {
+  selectedSandbox.value = sandbox
+  showConfirmDelete.value = true
+}
+
+let adminPoll: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  if (isAdmin.value) {
+    allLoading.value = true
+    fetchAllInstances()
+    adminPoll = setInterval(fetchAllInstances, 10_000)
+  }
+})
+
+onUnmounted(() => {
+  if (adminPoll) clearInterval(adminPoll)
+})
+
+const showNewSandbox = ref(false)
+const showExtend = ref(false)
+const showSnapshot = ref(false)
+const showConfirmDelete = ref(false)
+const selectedSandbox = ref<Sandbox | null>(null)
+
+const hasActive = computed(() => activeSandboxes.value.length > 0)
+const hasRecent = computed(() => recentSandboxes.value.length > 0)
+
+const isSelectedActive = computed(() => {
+  const s = selectedSandbox.value?.status
+  return s === 'running' || s === 'starting'
+})
+
+function getImageName(imageId: string): string {
+  const image = images.value.find((i) => i.id === imageId)
+  return image?.title || image?.name || '—'
+}
+
+function getImageTag(imageId: string): string | undefined {
+  return images.value.find((i) => i.id === imageId)?.tag
+}
+
+function handleOpen(sandbox: Sandbox) {
+  if (!isSandboxReadyForOpen(sandbox)) return
+  if (sandbox.url) window.open(sandbox.url, '_blank')
+}
+
+function getLiveHealth(sandbox: Sandbox) {
+  return healthBySandboxId.value[sandbox.id]
+}
+
+function isSandboxOffline(sandbox: Sandbox): boolean {
+  const health = getLiveHealth(sandbox)
+  return sandbox.status === 'running' && health?.status === 'offline'
+}
+
+function isSandboxReadyForOpen(sandbox: Sandbox): boolean {
+  const health = getLiveHealth(sandbox)
+  if (sandbox.status !== 'running') return false
+  if (!health) return true
+  return health.ready
+}
+
+function getOpenTooltip(sandbox: Sandbox): string {
+  if (isSandboxReadyForOpen(sandbox)) return 'Öffnen'
+  if (isSandboxOffline(sandbox)) return 'Sandbox ist laut Health-Check aktuell offline'
+  return 'Wird erreichbar, sobald die Sandbox bereit ist'
+}
+
+function handleExtend(sandbox: Sandbox) {
+  selectedSandbox.value = sandbox
+  showExtend.value = true
+}
+
+function handleSnapshot(sandbox: Sandbox) {
+  selectedSandbox.value = sandbox
+  showSnapshot.value = true
+}
+
+function handleDelete(sandbox: Sandbox) {
+  selectedSandbox.value = sandbox
+  showConfirmDelete.value = true
+}
+
+async function handleCreateSandbox(
+  payload: { imageId: string; ttlMinutes: number },
+  done: (success: boolean) => void,
+) {
+  try {
+    await createSandbox(payload)
+    toast.success('Sandbox wird gestartet')
+    refresh()
+    done(true)
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Fehler beim Starten der Sandbox'))
+    done(false)
+  }
+}
+
+async function handleCreateSnapshot(
+  payload: {
+    name: string
+    tag: string
+    title: string
+    description: string
+    isPublic: boolean
+    thumbnailFile?: File
+  },
+  done: (success: boolean) => void,
+) {
+  if (!selectedSandbox.value) return
+  try {
+    const image = await snapshotSandbox(selectedSandbox.value.id, payload)
+
+    if (payload.thumbnailFile) {
+      await uploadThumbnail(image.id, payload.thumbnailFile)
+    }
+
+    toast.success('Snapshot wurde erstellt')
+    done(true)
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Fehler beim Erstellen des Snapshots'))
+    done(false)
+  }
+}
+
+async function handleConfirmDelete() {
+  if (!selectedSandbox.value) return
+  try {
+    await deleteSandbox(selectedSandbox.value.id)
+    toast.success('Sandbox wurde beendet')
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Fehler beim Beenden'))
+  }
+}
+</script>
+
+<template>
+  <div>
+    <PageHeader title="Sandboxes" subtitle="Deine aktiven und kürzlich beendeten Sandboxes.">
+      <template #actions>
+        <Button @click="showNewSandbox = true">
+          <Plus class="mr-1 h-4 w-4" />
+          Neue Sandbox
+        </Button>
+      </template>
+    </PageHeader>
+
+    <div class="space-y-8">
+      <section>
+        <h3 class="text-muted-foreground mb-3 text-sm font-medium">Aktive Sandboxes</h3>
+        <div class="rounded-md border">
+          <Table class="table-fixed">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[15%]">Status</TableHead>
+                <TableHead class="w-[35%]">Vorlage</TableHead>
+                <TableHead class="w-[25%]">Verbleibend</TableHead>
+                <TableHead class="w-[25%] text-right">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-if="loading">
+                <TableRow v-for="i in 2" :key="i" class="h-13">
+                  <TableCell>
+                    <Skeleton class="h-5 w-14 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-20" />
+                  </TableCell>
+                  <TableCell class="text-right">
+                    <div class="flex items-center justify-end gap-1">
+                      <Skeleton class="h-7 w-7" />
+                      <Skeleton class="h-7 w-7" />
+                      <Skeleton class="h-7 w-7" />
+                      <Skeleton class="h-7 w-7" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableEmpty v-else-if="!hasActive" :colspan="4"> Keine aktiven Sandboxes </TableEmpty>
+              <TableRow v-for="sandbox in activeSandboxes" :key="sandbox.id" class="h-13">
+                <TableCell>
+                  <div class="flex items-center gap-2">
+                    <StatusBadge :status="sandbox.status" />
+                    <Badge v-if="isSandboxOffline(sandbox)" variant="destructive" class="text-xs">
+                      Offline
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div class="flex items-center gap-2">
+                    <span class="truncate text-sm font-medium">{{
+                      getImageName(sandbox.imageId)
+                    }}</span>
+                    <Badge v-if="getImageTag(sandbox.imageId)" variant="secondary" class="text-xs">
+                      {{ getImageTag(sandbox.imageId) }}
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <TtlChip :expires-at="sandbox.expiresAt" :created-at="sandbox.createdAt" />
+                </TableCell>
+                <TableCell class="text-right">
+                  <TooltipProvider>
+                    <div class="flex items-center justify-end gap-1">
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            :disabled="!isSandboxReadyForOpen(sandbox)"
+                            @click="handleOpen(sandbox)"
+                          >
+                            <ExternalLink class="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{{ getOpenTooltip(sandbox) }}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button variant="ghost" size="icon-sm" @click="handleExtend(sandbox)">
+                            <Clock class="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Verlängern</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button variant="ghost" size="icon-sm" @click="handleSnapshot(sandbox)">
+                            <Camera class="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Snapshot erstellen</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            class="text-destructive hover:text-destructive"
+                            @click="handleDelete(sandbox)"
+                          >
+                            <Square class="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Beenden</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      <section v-if="hasRecent || loading">
+        <h3 class="text-muted-foreground mb-3 text-sm font-medium">Zuletzt beendet</h3>
+        <div class="rounded-md border">
+          <Table class="table-fixed">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[15%]">Status</TableHead>
+                <TableHead class="w-[40%]">Vorlage</TableHead>
+                <TableHead class="w-[25%]">Beendet</TableHead>
+                <TableHead class="w-[20%] text-right">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-if="loading">
+                <TableRow v-for="i in 2" :key="i" class="h-13">
+                  <TableCell>
+                    <Skeleton class="h-5 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-24" />
+                  </TableCell>
+                  <TableCell class="text-right">
+                    <Skeleton class="ml-auto h-7 w-7" />
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableRow v-for="sandbox in recentSandboxes" :key="sandbox.id" class="h-13">
+                <TableCell>
+                  <StatusBadge :status="sandbox.status" />
+                </TableCell>
+                <TableCell>
+                  <div class="flex items-center gap-2">
+                    <span class="truncate text-sm font-medium">{{
+                      getImageName(sandbox.imageId)
+                    }}</span>
+                    <Badge v-if="getImageTag(sandbox.imageId)" variant="secondary" class="text-xs">
+                      {{ getImageTag(sandbox.imageId) }}
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell class="text-muted-foreground">
+                  {{ formatDateTime(sandbox.updatedAt) }}
+                </TableCell>
+                <TableCell class="text-right">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger as-child>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          class="text-destructive hover:text-destructive"
+                          @click="handleDelete(sandbox)"
+                        >
+                          <Trash2 class="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Löschen</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      <section v-if="isAdmin">
+        <h3 class="text-muted-foreground mb-3 text-sm font-medium">Alle Instanzen</h3>
+        <div class="mb-4 flex items-center gap-3">
+          <Select v-model="adminStatusFilter">
+            <SelectTrigger class="w-40">
+              <SelectValue placeholder="Alle Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Status</SelectItem>
+              <SelectItem value="active">Aktiv</SelectItem>
+              <SelectItem value="inactive">Abgelaufen</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div class="rounded-md border">
+          <Table class="table-fixed">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[15%]">Status</TableHead>
+                <TableHead class="w-[30%]">Vorlage</TableHead>
+                <TableHead class="w-[20%]">Gestartet</TableHead>
+                <TableHead class="w-[20%]">Läuft ab</TableHead>
+                <TableHead class="w-[15%] text-right">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-if="allLoading">
+                <TableRow v-for="i in 3" :key="i" class="h-13">
+                  <TableCell>
+                    <Skeleton class="h-5 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-24" />
+                  </TableCell>
+                  <TableCell class="text-right">
+                    <div class="flex items-center justify-end gap-1">
+                      <Skeleton class="h-7 w-7" />
+                      <Skeleton class="h-7 w-7" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableEmpty v-else-if="filteredAllSandboxes.length === 0" :colspan="5">
+                Keine Instanzen gefunden
+              </TableEmpty>
+              <TableRow v-for="sandbox in filteredAllSandboxes" :key="sandbox.id" class="h-13">
+                <TableCell>
+                  <StatusBadge :status="sandbox.status" />
+                </TableCell>
+                <TableCell class="font-medium">{{ getImageName(sandbox.imageId) }}</TableCell>
+                <TableCell class="text-muted-foreground">{{
+                  formatDateTime(sandbox.createdAt)
+                }}</TableCell>
+                <TableCell class="text-muted-foreground">
+                  {{ sandbox.expiresAt ? formatDateTime(sandbox.expiresAt) : '—' }}
+                </TableCell>
+                <TableCell class="text-right">
+                  <TooltipProvider>
+                    <div class="flex items-center justify-end gap-1">
+                      <Tooltip v-if="sandbox.status === 'running' || sandbox.status === 'starting'">
+                        <TooltipTrigger as-child>
+                          <Button variant="ghost" size="icon-sm" @click="handleExtend(sandbox)">
+                            <Clock class="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Verlängern</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            class="text-destructive hover:text-destructive"
+                            @click="handleAdminDelete(sandbox)"
+                          >
+                            <Square class="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Beenden</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+    </div>
+
+    <NewSandboxDialog
+      v-model:open="showNewSandbox"
+      :images="images"
+      @submit="handleCreateSandbox"
+    />
+
+    <ExtendTtlDialog
+      v-model:open="showExtend"
+      :sandbox-id="selectedSandbox?.id ?? ''"
+      :sandbox-name="selectedSandbox?.containerName ?? ''"
+    />
+
+    <SnapshotDialog
+      v-model:open="showSnapshot"
+      :sandbox-name="selectedSandbox?.containerName ?? ''"
+      @submit="handleCreateSnapshot"
+    />
+
+    <ConfirmDialog
+      v-model:open="showConfirmDelete"
+      :title="isSelectedActive ? 'Sandbox beenden' : 'Aus Verlauf entfernen'"
+      :description="
+        isSelectedActive
+          ? `Bist du sicher, dass du ${selectedSandbox?.containerName ?? 'diese Sandbox'} beenden möchtest? Diese Aktion kann nicht rückgängig gemacht werden.`
+          : `Bist du sicher, dass du ${selectedSandbox?.containerName ?? 'diese Sandbox'} endgültig aus dem Verlauf entfernen möchtest?`
+      "
+      :confirm-label="isSelectedActive ? 'Beenden' : 'Entfernen'"
+      @confirm="handleConfirmDelete"
+    />
+  </div>
+</template>

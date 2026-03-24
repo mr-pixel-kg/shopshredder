@@ -1,0 +1,240 @@
+tasks:
+  setup:
+    desc: Copy example configs and install git hooks
+    run:
+      - cmd: go tool lefthook install
+        
+  dev:
+    desc: Start all dev servers
+    run:
+      - task: docker:infra
+        silent: true
+      - parallel:
+          - task: api:dev
+            label: api
+          - task: web:dev
+            label: web
+        mode: tabs
+
+  api:dev:
+    desc: Start API dev server
+    run:
+      - cmd: |
+          if [ ! -f api/config.yml ]; then
+            cp api/config.example.yml api/config.yml
+            echo "Created api/config.yml from example. Edit it with your settings."
+          fi
+      - cmd: cd api && go run ./cmd/api
+
+  web:dev:
+    desc: Start web dev server
+    run:
+      - cmd: cd web && pnpm install && pnpm dev
+
+  docker:up:
+    desc: Start full stack
+    run:
+      - cmd: docker compose up -d
+
+  docker:infra:
+    desc: Start infrastructure only
+    run:
+      - cmd: docker compose up -d database
+
+  docker:down:
+    desc: Stop containers
+    run:
+      - cmd: docker compose down
+
+  docker:destroy:
+    desc: Stop containers and delete volumes
+    run:
+      - prompt: confirm
+        type: confirm
+        message: "This will stop all services and DELETE all data volumes. Continue?"
+        default: false
+      - cmd: docker compose down -v
+
+  docker:logs:
+    desc: Follow container logs
+    run:
+      - cmd: docker compose logs -f
+        silent: true
+
+  docker:status:
+    desc: Show container status
+    run:
+      - cmd: docker compose ps
+        silent: true
+
+  docker:build:
+    desc: Build images
+    run:
+      - cmd: docker compose build
+
+  db:migrate:
+    desc: Apply all pending Goose migrations
+    run:
+      - cmd: |
+          cd api
+          go run ./cmd/migrate up
+
+  db:migrate:status:
+    desc: Show Goose migration status
+    run:
+      - cmd: |
+          cd api
+          go run ./cmd/migrate status
+
+  db:migrate:create:
+    desc: Create a new sequential Goose SQL migration
+    run:
+      - prompt: name
+        type: input
+        message: "Migration name (e.g. add_user_index):"
+      - cmd: |
+          cd api
+          go run ./cmd/migrate create "${name}"
+
+  db:migrate:fresh:
+    desc: Drop the public schema and re-run Goose migrations
+    run:
+      - prompt: confirm
+        type: confirm
+        message: "This will DROP all tables and re-run migrations. All data will be lost. Continue?"
+        default: false
+      - cmd: |
+          cd api
+          go run ./cmd/migrate fresh
+
+  db:psql:
+    desc: Open interactive psql shell
+    run:
+      - cmd: docker compose exec database psql -U mrpix_sandbox -d mrpix_sandbox
+
+  db:status:
+    desc: Show database tables and row counts
+    run:
+      - cmd: |
+          docker compose exec -T database psql -U mrpix_sandbox -d mrpix_sandbox -c "
+            SELECT schemaname, tablename
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename;
+          "
+
+  api:swagger:
+    desc: Generate Swagger/OpenAPI docs from code annotations
+    run:
+      - cmd: cd api && go generate ./cmd/api
+
+  lint:
+    desc: Run all linters
+    run:
+      - parallel:
+          - task: web:lint
+            label: web
+          - task: api:lint
+            label: api
+
+  format:
+    desc: Format all code
+    run:
+      - parallel:
+          - task: web:format
+            label: web
+          - task: api:format
+            label: api
+
+  format:check:
+    desc: Check formatting without fixing
+    run:
+      - parallel:
+          - task: web:format:check
+            label: web
+          - task: api:format:check
+            label: api
+
+  typecheck:
+    desc: Run type checking
+    run:
+      - cmd: cd web && pnpm typecheck
+
+  check:
+    desc: Run all checks (same as pre-commit)
+    run:
+      - parallel:
+          - task: web:format
+            label: web:format
+          - task: api:format
+            label: api:format
+      - parallel:
+          - task: web:lint
+            label: web:lint
+          - task: api:lint
+            label: api:lint
+          - task: typecheck
+            label: typecheck
+
+  web:lint:
+    desc: Lint and auto-fix web/ code
+    run:
+      - cmd: cd web && pnpm lint:fix
+
+  web:format:
+    desc: Format web/ code
+    run:
+      - cmd: cd web && pnpm format
+
+  web:format:check:
+    desc: Check web/ formatting
+    run:
+      - cmd: cd web && pnpm format:check
+
+  api:lint:
+    desc: Lint api/ code
+    run:
+      - cmd: cd api && go tool golangci-lint run --fix ./...
+
+  api:format:
+    desc: Format api/ code
+    run:
+      - cmd: cd api && go tool gofumpt -w .
+
+  api:format:check:
+    desc: Check api/ formatting
+    run:
+      - cmd: "cd api && test -z \"$(go tool gofumpt -l .)\""
+
+  api:vet:
+    desc: Run go vet on api/
+    run:
+      - cmd: cd api && go vet ./...
+
+  docker:purge-dockware:
+    desc: Fully purge all dockware images, containers, build cache, and layers
+    run:
+      - prompt: confirm
+        type: confirm
+        message: "This will stop and remove ALL dockware containers, images, build cache, and layers. Continue?"
+        default: false
+      - cmd: |
+          docker ps -a --filter "ancestor=dockware" --format '{{.ID}}' | xargs -r docker rm -f 2>/dev/null || true
+          for img in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^dockware/'); do
+            docker ps -a --filter "ancestor=$img" --format '{{.ID}}' | xargs -r docker rm -f 2>/dev/null || true
+          done
+
+          docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep '^dockware/' | awk '{print $2}' | sort -u | xargs -r docker rmi -f 2>/dev/null || true
+
+          docker image prune -f 2>/dev/null || true
+
+          docker builder prune -a -f 2>/dev/null || true
+
+          REMAINING=$(docker images | grep 'dockware' | wc -l | tr -d ' ')
+          if [ "$REMAINING" -gt 0 ]; then
+            echo "WARNING: $REMAINING dockware image(s) still found, force removing..."
+            docker images | grep 'dockware' | awk '{print $3}' | sort -u | xargs -r docker rmi -f 2>/dev/null || true
+          fi
+
+          echo ""
+          echo "Done. All dockware images have been purged. Next run will pull fresh images."
