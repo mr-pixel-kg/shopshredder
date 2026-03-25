@@ -11,6 +11,7 @@ import type {
   Sandbox,
   SandboxHealthEvent,
   SandboxStatus,
+  UpdateSandboxRequest,
 } from '@/types'
 
 export const useSandboxesStore = defineStore('sandboxes', () => {
@@ -185,6 +186,13 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     return sandbox
   }
 
+  async function updateSandbox(id: string, req: UpdateSandboxRequest): Promise<Sandbox> {
+    const updated = await sandboxesApi.update(id, req)
+    const idx = sandboxes.value.findIndex((s) => s.id === id)
+    if (idx !== -1) sandboxes.value[idx] = updated
+    return updated
+  }
+
   async function extendTTL(id: string, ttlMinutes: number): Promise<Sandbox> {
     const updated = await sandboxesApi.extendTTL(id, ttlMinutes)
     const idx = sandboxes.value.findIndex((s) => s.id === id)
@@ -219,6 +227,7 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     fetchGuestSandboxes,
     createSandbox,
     createPublicDemo,
+    updateSandbox,
     extendTTL,
     deleteSandbox,
     removeSandboxFromList,

@@ -118,6 +118,10 @@ function getImageName(imageId: string): string {
   return image?.title || image?.name || '—'
 }
 
+function getSandboxDisplayName(sandbox: Sandbox): string {
+  return sandbox.displayName || getImageName(sandbox.imageId)
+}
+
 function getImageTag(imageId: string): string | undefined {
   return images.value.find((i) => i.id === imageId)?.tag
 }
@@ -165,7 +169,12 @@ function handleDelete(sandbox: Sandbox) {
 }
 
 async function handleCreateSandbox(
-  payload: { imageId: string; ttlMinutes: number; metadata?: Record<string, string> },
+  payload: {
+    imageId: string
+    ttlMinutes: number
+    displayName?: string
+    metadata?: Record<string, string>
+  },
   done: (success: boolean) => void,
 ) {
   try {
@@ -236,10 +245,11 @@ async function handleConfirmDelete() {
           <Table class="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead class="w-[15%]">Status</TableHead>
-                <TableHead class="w-[35%]">Vorlage</TableHead>
-                <TableHead class="w-[25%]">Verbleibend</TableHead>
-                <TableHead class="w-[25%] text-right">Aktionen</TableHead>
+                <TableHead class="w-[12%]">Status</TableHead>
+                <TableHead class="w-[22%]">Name</TableHead>
+                <TableHead class="w-[22%]">Vorlage</TableHead>
+                <TableHead class="w-[22%]">Verbleibend</TableHead>
+                <TableHead class="w-[22%] text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,6 +257,9 @@ async function handleConfirmDelete() {
                 <TableRow v-for="i in 2" :key="i" class="h-13">
                   <TableCell>
                     <Skeleton class="h-5 w-14 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-24" />
                   </TableCell>
                   <TableCell>
                     <Skeleton class="h-4 w-28" />
@@ -264,7 +277,7 @@ async function handleConfirmDelete() {
                   </TableCell>
                 </TableRow>
               </template>
-              <TableEmpty v-else-if="!hasActive" :colspan="4"> Keine aktiven Sandboxes </TableEmpty>
+              <TableEmpty v-else-if="!hasActive" :colspan="5"> Keine aktiven Sandboxes </TableEmpty>
               <TableRow v-for="sandbox in activeSandboxes" :key="sandbox.id" class="h-13">
                 <TableCell>
                   <div class="flex items-center gap-2">
@@ -273,6 +286,11 @@ async function handleConfirmDelete() {
                       Offline
                     </Badge>
                   </div>
+                </TableCell>
+                <TableCell>
+                  <span class="text-muted-foreground truncate text-sm">{{
+                    sandbox.displayName || '—'
+                  }}</span>
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center gap-2">
@@ -347,10 +365,11 @@ async function handleConfirmDelete() {
           <Table class="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead class="w-[15%]">Status</TableHead>
-                <TableHead class="w-[40%]">Vorlage</TableHead>
-                <TableHead class="w-[25%]">Beendet</TableHead>
-                <TableHead class="w-[20%] text-right">Aktionen</TableHead>
+                <TableHead class="w-[12%]">Status</TableHead>
+                <TableHead class="w-[20%]">Name</TableHead>
+                <TableHead class="w-[28%]">Vorlage</TableHead>
+                <TableHead class="w-[22%]">Beendet</TableHead>
+                <TableHead class="w-[18%] text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -358,6 +377,9 @@ async function handleConfirmDelete() {
                 <TableRow v-for="i in 2" :key="i" class="h-13">
                   <TableCell>
                     <Skeleton class="h-5 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-24" />
                   </TableCell>
                   <TableCell>
                     <Skeleton class="h-4 w-28" />
@@ -373,6 +395,11 @@ async function handleConfirmDelete() {
               <TableRow v-for="sandbox in recentSandboxes" :key="sandbox.id" class="h-13">
                 <TableCell>
                   <StatusBadge :status="sandbox.status" />
+                </TableCell>
+                <TableCell>
+                  <span class="text-muted-foreground truncate text-sm">{{
+                    sandbox.displayName || '—'
+                  }}</span>
                 </TableCell>
                 <TableCell>
                   <div class="flex items-center gap-2">
@@ -428,11 +455,12 @@ async function handleConfirmDelete() {
           <Table class="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead class="w-[15%]">Status</TableHead>
-                <TableHead class="w-[30%]">Vorlage</TableHead>
-                <TableHead class="w-[20%]">Gestartet</TableHead>
-                <TableHead class="w-[20%]">Läuft ab</TableHead>
-                <TableHead class="w-[15%] text-right">Aktionen</TableHead>
+                <TableHead class="w-[10%]">Status</TableHead>
+                <TableHead class="w-[18%]">Name</TableHead>
+                <TableHead class="w-[22%]">Vorlage</TableHead>
+                <TableHead class="w-[18%]">Gestartet</TableHead>
+                <TableHead class="w-[18%]">Läuft ab</TableHead>
+                <TableHead class="w-[14%] text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -440,6 +468,9 @@ async function handleConfirmDelete() {
                 <TableRow v-for="i in 3" :key="i" class="h-13">
                   <TableCell>
                     <Skeleton class="h-5 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-24" />
                   </TableCell>
                   <TableCell>
                     <Skeleton class="h-4 w-28" />
@@ -458,12 +489,17 @@ async function handleConfirmDelete() {
                   </TableCell>
                 </TableRow>
               </template>
-              <TableEmpty v-else-if="filteredAllSandboxes.length === 0" :colspan="5">
+              <TableEmpty v-else-if="filteredAllSandboxes.length === 0" :colspan="6">
                 Keine Instanzen gefunden
               </TableEmpty>
               <TableRow v-for="sandbox in filteredAllSandboxes" :key="sandbox.id" class="h-13">
                 <TableCell>
                   <StatusBadge :status="sandbox.status" />
+                </TableCell>
+                <TableCell>
+                  <span class="text-muted-foreground truncate text-sm">{{
+                    sandbox.displayName || '—'
+                  }}</span>
                 </TableCell>
                 <TableCell class="font-medium">{{ getImageName(sandbox.imageId) }}</TableCell>
                 <TableCell class="text-muted-foreground">{{
@@ -515,12 +551,12 @@ async function handleConfirmDelete() {
     <ExtendTtlDialog
       v-model:open="showExtend"
       :sandbox-id="selectedSandbox?.id ?? ''"
-      :sandbox-name="selectedSandbox?.containerName ?? ''"
+      :sandbox-name="selectedSandbox ? getSandboxDisplayName(selectedSandbox) : ''"
     />
 
     <SnapshotDialog
       v-model:open="showSnapshot"
-      :sandbox-name="selectedSandbox?.containerName ?? ''"
+      :sandbox-name="selectedSandbox ? getSandboxDisplayName(selectedSandbox) : ''"
       :source-image="selectedSandbox ? images.find((i) => i.id === selectedSandbox!.imageId) : null"
       :source-sandbox="selectedSandbox"
       @submit="handleCreateSnapshot"
@@ -531,8 +567,8 @@ async function handleConfirmDelete() {
       :title="isSelectedActive ? 'Sandbox beenden' : 'Aus Verlauf entfernen'"
       :description="
         isSelectedActive
-          ? `Bist du sicher, dass du ${selectedSandbox?.containerName ?? 'diese Sandbox'} beenden möchtest? Diese Aktion kann nicht rückgängig gemacht werden.`
-          : `Bist du sicher, dass du ${selectedSandbox?.containerName ?? 'diese Sandbox'} endgültig aus dem Verlauf entfernen möchtest?`
+          ? `Bist du sicher, dass du ${selectedSandbox ? getSandboxDisplayName(selectedSandbox) : 'diese Sandbox'} beenden möchtest? Diese Aktion kann nicht rückgängig gemacht werden.`
+          : `Bist du sicher, dass du ${selectedSandbox ? getSandboxDisplayName(selectedSandbox) : 'diese Sandbox'} endgültig aus dem Verlauf entfernen möchtest?`
       "
       :confirm-label="isSelectedActive ? 'Beenden' : 'Entfernen'"
       @confirm="handleConfirmDelete"

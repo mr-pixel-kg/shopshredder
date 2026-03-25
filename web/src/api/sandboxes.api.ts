@@ -1,6 +1,12 @@
 import { apiClient } from './client'
 
-import type { CreateSandboxRequest, CreateSnapshotRequest, Image, Sandbox } from '@/types'
+import type {
+  CreateSandboxRequest,
+  CreateSnapshotRequest,
+  Image,
+  Sandbox,
+  UpdateSandboxRequest,
+} from '@/types'
 
 export const sandboxesApi = {
   async list(): Promise<Sandbox[]> {
@@ -30,6 +36,11 @@ export const sandboxesApi = {
 
   async createPublicDemo(req: CreateSandboxRequest): Promise<Sandbox> {
     const { data } = await apiClient.post<Sandbox>('/api/public/demos', req)
+    return data
+  },
+
+  async update(id: string, req: UpdateSandboxRequest): Promise<Sandbox> {
+    const { data } = await apiClient.patch<Sandbox>(`/api/sandboxes/${id}`, req)
     return data
   },
 

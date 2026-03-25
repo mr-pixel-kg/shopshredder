@@ -64,6 +64,7 @@ export interface Sandbox extends BaseModel {
   imageId: string
   createdByUserId?: string
   guestSessionId?: string
+  displayName: string
   status: SandboxStatus
   containerId: string
   containerName: string
@@ -112,7 +113,12 @@ export interface RegisterRequest {
 export interface CreateSandboxRequest {
   imageId: string
   ttlMinutes?: number
+  displayName?: string
   metadata?: Record<string, string>
+}
+
+export interface UpdateSandboxRequest {
+  displayName?: string
 }
 
 export interface CreateImageRequest {
