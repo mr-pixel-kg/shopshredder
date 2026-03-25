@@ -16,6 +16,23 @@ export interface ManagedUser extends User {
 
 export type ImageStatus = 'pulling' | 'ready' | 'failed'
 
+export type MetadataType = 'field' | 'setting' | 'info' | 'action'
+
+export interface MetadataItem {
+  key: string
+  label: string
+  type: MetadataType
+  value?: string
+  input?: string
+  required?: boolean
+  options?: string[]
+  variant?: string
+  show?: 'sandbox' | 'template' | 'both'
+  condition?: 'ready' | 'always'
+  icon?: string
+  size?: 'default' | 'icon'
+}
+
 export interface Image extends BaseModel {
   id: string
   name: string
@@ -26,6 +43,8 @@ export interface Image extends BaseModel {
   isPublic: boolean
   status: ImageStatus
   error?: string
+  metadata?: MetadataItem[]
+  registryRef?: string
   createdByUserId?: string
 }
 
@@ -51,6 +70,7 @@ export interface Sandbox extends BaseModel {
   url: string
   port?: number
   clientIp: string
+  metadata?: MetadataItem[]
   expiresAt?: string
   lastSeenAt?: string
 }
@@ -92,6 +112,7 @@ export interface RegisterRequest {
 export interface CreateSandboxRequest {
   imageId: string
   ttlMinutes?: number
+  metadata?: Record<string, string>
 }
 
 export interface CreateImageRequest {
@@ -100,12 +121,14 @@ export interface CreateImageRequest {
   title?: string
   description?: string
   isPublic: boolean
+  metadata?: MetadataItem[]
 }
 
 export interface UpdateImageRequest {
   title?: string | null
   description?: string | null
   isPublic: boolean
+  metadata?: MetadataItem[]
 }
 
 export interface AddWhitelistRequest {

@@ -20,6 +20,7 @@ type Config struct {
 	Docker       DockerConfig
 	Storage      StorageConfig
 	Guard        GuardConfig
+	RegistryPath string
 }
 
 type LogLevel string
@@ -187,6 +188,7 @@ func MustLoad() Config {
 			MaxPublicDemosPerIP: v.GetInt("guard.max_sandboxes_per_ip"),
 			MaxActivePerUser:    v.GetInt("guard.max_sandboxes_per_user"),
 		},
+		RegistryPath: v.GetString("registry_path"),
 	}
 
 	if cfg.Logging.Level == "" {
@@ -264,6 +266,9 @@ func MustLoad() Config {
 	}
 	if cfg.Storage.ThumbnailDir == "" {
 		cfg.Storage.ThumbnailDir = "storage/thumbnails"
+	}
+	if cfg.RegistryPath == "" {
+		cfg.RegistryPath = "registry.yml"
 	}
 
 	// Defaults are applied after reading YAML so partially filled config files

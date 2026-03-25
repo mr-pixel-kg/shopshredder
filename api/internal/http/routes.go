@@ -2,10 +2,12 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 
+	"github.com/docker/docker/client"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/config"
@@ -14,6 +16,7 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/handlers"
 	authmw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -52,14 +55,28 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	authService := services.NewAuthService(userRepo, sessionRepo, passwordService, tokenService, cfg.Registration)
 	userService := services.NewUserService(userRepo, passwordService)
 	guestService := services.NewGuestSessionService(sessionRepo, tokenService)
-	dockerClient, err := docker.NewClient(cfg.Sandbox, cfg.Docker)
+	reg, err := registry.Load(cfg.RegistryPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load image registry: %w", err)
 	}
+	resolver, err := registry.NewResolver(reg)
+	if err != nil {
+		return nil, fmt.Errorf("compile image registry: %w", err)
+	}
+	// FIXME NewClientWithOpts ide says: Potential resource leak: ensure the resource is closed on all execution paths
+	sdkClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, fmt.Errorf("create docker client: %w", err)
+	}
+	if _, err := sdkClient.Ping(context.Background()); err != nil {
+		return nil, fmt.Errorf("docker daemon not reachable: %w", err)
+	}
+	dockerClient := docker.NewClient(sdkClient, cfg.Sandbox, cfg.Docker)
+	executor := &registry.Executor{Client: sdkClient}
 	pullTracker := docker.NewPullTracker()
 	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir)
-	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient)
-	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo)
+	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor)
+	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo, imageRepo, resolver)
 
 	// Sandbox expiration is handled inside the same process on purpose to keep
 	// deployment simple for the single-service architecture.
@@ -69,9 +86,11 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 
 	imageService.ReconcileOnStartup(context.Background())
 	authHandler := handlers.NewAuthHandler(authService, auditService)
-	imageHandler := handlers.NewImageHandler(imageService, auditService)
+	imageHandler := handlers.NewImageHandler(imageService, auditService, resolver)
 	sandboxHandler := handlers.NewSandboxHandler(
 		sandboxService,
+		imageService,
+		resolver,
 		sandboxHealthService,
 		authService,
 		guestService,
@@ -92,6 +111,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	public.Use(authmw.EnsureGuestSession(guestService, cfg.Auth.GuestCookieName))
 
 	api.GET("/images/:id/progress", imageHandler.PullProgress)
+	api.GET("/registry/lookup", imageHandler.RegistryLookup)
 	api.GET("/sandboxes/:id/health", sandboxHandler.Health)
 
 	private.GET("/images/pulls", imageHandler.ListPulls)

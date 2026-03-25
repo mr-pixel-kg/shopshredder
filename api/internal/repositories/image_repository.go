@@ -58,3 +58,19 @@ func (r *ImageRepository) UpdateStatus(id uuid.UUID, status string, errMsg *stri
 		"error":  errMsg,
 	}).Error
 }
+
+func (r *ImageRepository) ResolveFullName(id uuid.UUID) string {
+	var img models.Image
+	if err := r.db.First(&img, "id = ?", id).Error; err != nil {
+		return ""
+	}
+	return img.FullName()
+}
+
+func (r *ImageRepository) ResolveRegistryName(id uuid.UUID) string {
+	var img models.Image
+	if err := r.db.First(&img, "id = ?", id).Error; err != nil {
+		return ""
+	}
+	return img.RegistryName()
+}
