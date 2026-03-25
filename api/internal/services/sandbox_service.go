@@ -74,7 +74,15 @@ type CreateSandboxInput struct {
 	GuestSessionID *uuid.UUID
 	ClientIP       string
 	TTL            *time.Duration
+	DisplayName    *string
 	Metadata       map[string]string
+}
+
+type UpdateSandboxInput struct {
+	SandboxID   uuid.UUID
+	UserID      *uuid.UUID
+	DisplayName *string
+	ClientIP    string
 }
 
 func (s *SandboxService) ListActive() ([]models.Sandbox, error) {
@@ -94,6 +102,31 @@ func (s *SandboxService) FindByID(id uuid.UUID) (*models.Sandbox, error) {
 	if err != nil {
 		return nil, ErrSandboxNotFound
 	}
+	return sandbox, nil
+}
+
+func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbox, error) {
+	sandbox, err := s.repo.FindByID(input.SandboxID)
+	if err != nil {
+		return nil, ErrSandboxNotFound
+	}
+
+	if input.UserID == nil || sandbox.CreatedByUserID == nil || *sandbox.CreatedByUserID != *input.UserID {
+		return nil, ErrSandboxAccessDenied
+	}
+
+	if input.DisplayName != nil {
+		sandbox.DisplayName = *input.DisplayName
+	}
+
+	if err := s.repo.Update(sandbox); err != nil {
+		return nil, err
+	}
+
+	_ = s.audit.Log(input.UserID, "sandbox.updated", input.ClientIP, map[string]any{
+		"sandboxId": sandbox.ID.String(),
+	})
+
 	return sandbox, nil
 }
 
@@ -191,11 +224,16 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	}
 
 	fieldsJSON, _ := json.Marshal(input.Metadata)
+	displayName := ""
+	if input.DisplayName != nil {
+		displayName = *input.DisplayName
+	}
 	sandbox := &models.Sandbox{
 		ID:              sandboxID,
 		ImageID:         image.ID,
 		CreatedByUserID: input.UserID,
 		GuestSessionID:  input.GuestSessionID,
+		DisplayName:     displayName,
 		Status:          models.SandboxStatusStarting,
 		ContainerID:     container.ID,
 		ContainerName:   container.Name,
