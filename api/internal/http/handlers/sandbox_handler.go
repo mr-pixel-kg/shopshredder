@@ -14,9 +14,7 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
 	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
-	"gorm.io/datatypes"
 )
 
 type SandboxHandler struct {
@@ -475,52 +473,6 @@ func mapSandboxError(c echo.Context, err error) error {
 	default:
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_ERROR", "Sandbox operation failed").WithCause(err))
 	}
-}
-
-func (h *SandboxHandler) enrichSandboxMetadata(sandboxes []models.Sandbox) {
-	imageCache := make(map[uuid.UUID][]registry.MetadataItem)
-
-	for idx := range sandboxes {
-		sb := &sandboxes[idx]
-		imgMeta, ok := imageCache[sb.ImageID]
-		if !ok {
-			img, err := h.images.FindByID(sb.ImageID)
-			if err != nil {
-				slog.Warn("enrich sandbox metadata: image not found", "image_id", sb.ImageID)
-				imageCache[sb.ImageID] = nil
-			} else {
-				reg := h.resolver.ResolveMetadata(img.RegistryName())
-				imgMeta = mergeRegistryAndDB(reg, img.Metadata)
-				imageCache[sb.ImageID] = imgMeta
-			}
-		}
-
-		if imgMeta == nil {
-			continue
-		}
-
-		var values map[string]string
-		if len(sb.Metadata) > 0 {
-			_ = json.Unmarshal(sb.Metadata, &values)
-		}
-
-		enriched := make([]registry.MetadataItem, len(imgMeta))
-		copy(enriched, imgMeta)
-		for j := range enriched {
-			if v, exists := values[enriched[j].Key]; exists {
-				enriched[j].Value = v
-			}
-		}
-
-		data, _ := json.Marshal(enriched)
-		sb.Metadata = datatypes.JSON(data)
-	}
-}
-
-func (h *SandboxHandler) enrichSandbox(sandbox *models.Sandbox) {
-	sl := []models.Sandbox{*sandbox}
-	h.enrichSandboxMetadata(sl)
-	*sandbox = sl[0]
 }
 
 func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.Sandbox) error {

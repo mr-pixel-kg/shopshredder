@@ -348,7 +348,7 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 
 	for _, sb := range sandboxes {
 		if sb.Status == models.SandboxStatusStarting || sb.Status == models.SandboxStatusRunning {
-			if err := s.docker.DeleteContainer(ctx, sb.ContainerID, img.FullName()); err != nil {
+			if err := s.docker.DeleteContainer(ctx, sb.ContainerID); err != nil {
 				slog.Warn("failed to delete sandbox container during image deletion", "component", "image", "container_id", sb.ContainerID, "error", err.Error())
 			}
 		}

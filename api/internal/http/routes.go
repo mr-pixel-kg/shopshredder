@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/docker/docker/client"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/config"
@@ -61,13 +62,19 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile image registry: %w", err)
 	}
-	dockerClient, err := docker.NewClient(cfg.Sandbox, cfg.Docker, resolver)
+	// FIXME NewClientWithOpts ide says: Potential resource leak: ensure the resource is closed on all execution paths
+	sdkClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create docker client: %w", err)
 	}
+	if _, err := sdkClient.Ping(context.Background()); err != nil {
+		return nil, fmt.Errorf("docker daemon not reachable: %w", err)
+	}
+	dockerClient := docker.NewClient(sdkClient, cfg.Sandbox, cfg.Docker)
+	executor := &registry.Executor{Client: sdkClient}
 	pullTracker := docker.NewPullTracker()
 	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir)
-	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient)
+	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor)
 	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo, imageRepo, resolver)
 
 	// Sandbox expiration is handled inside the same process on purpose to keep
