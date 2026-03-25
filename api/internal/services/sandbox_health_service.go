@@ -208,6 +208,10 @@ func (s *SandboxHealthService) getHealthConfig(sandbox *models.Sandbox) *registr
 		return hc
 	}
 
+	if s.imgRepo == nil {
+		return nil
+	}
+
 	img, err := s.imgRepo.FindByID(sandbox.ImageID)
 	if err == nil && s.resolver != nil {
 		hc = s.resolver.ResolveHealthCheck(img.RegistryName())
