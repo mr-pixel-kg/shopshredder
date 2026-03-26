@@ -59,6 +59,7 @@ function getImageForSandbox(sandbox: Sandbox): Image | undefined {
 }
 
 function getImageTitle(sandbox: Sandbox): string {
+  if (sandbox.displayName) return sandbox.displayName
   const image = getImageForSandbox(sandbox)
   return image?.title || image?.name || sandbox.containerName
 }

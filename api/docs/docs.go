@@ -1515,6 +1515,75 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update display name of a sandbox owned by the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sandboxes"
+                ],
+                "summary": "Update sandbox details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Sandbox ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateSandboxRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Sandbox"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/sandboxes/{id}/health": {
@@ -1857,6 +1926,10 @@ const docTemplate = `{
                 "imageId"
             ],
             "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "My Test Shop"
+                },
                 "imageId": {
                     "type": "string",
                     "format": "uuid",
@@ -2106,6 +2179,15 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.UpdateSandboxRequest": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "My Test Shop"
+                }
+            }
+        },
         "dto.UpdateUserRequest": {
             "type": "object",
             "properties": {
@@ -2208,6 +2290,10 @@ const docTemplate = `{
                     "type": "string",
                     "format": "uuid",
                     "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
+                },
+                "displayName": {
+                    "type": "string",
+                    "example": "My Test Shop"
                 },
                 "expiresAt": {
                     "type": "string",

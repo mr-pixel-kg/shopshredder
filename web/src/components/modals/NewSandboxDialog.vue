@@ -28,12 +28,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   submit: [
-    payload: { imageId: string; ttlMinutes: number; metadata?: Record<string, string> },
+    payload: {
+      imageId: string
+      ttlMinutes: number
+      displayName?: string
+      metadata?: Record<string, string>
+    },
     done: (success: boolean) => void,
   ]
 }>()
 
 const selectedImageId = ref<string>('')
+const displayName = ref('')
 const ttlMinutes = ref('120')
 const submitting = ref(false)
 const metadataValues = ref<Record<string, string>>({})
@@ -60,6 +66,7 @@ watch(
   (open) => {
     if (open) {
       selectedImageId.value = props.preselectedImageId || props.images[0]?.id || ''
+      displayName.value = ''
       ttlMinutes.value = '120'
       submitting.value = false
       metadataValues.value = {}
@@ -84,9 +91,15 @@ function handleSubmit() {
   const metadata =
     Object.keys(metadataValues.value).length > 0 ? { ...metadataValues.value } : undefined
 
+  const trimmedName = displayName.value.trim()
   emit(
     'submit',
-    { imageId: selectedImageId.value, ttlMinutes: Number(ttlMinutes.value), metadata },
+    {
+      imageId: selectedImageId.value,
+      ttlMinutes: Number(ttlMinutes.value),
+      displayName: trimmedName || undefined,
+      metadata,
+    },
     (success: boolean) => {
       submitting.value = false
       if (success) {
@@ -138,6 +151,16 @@ function handleSubmit() {
               <Badge variant="secondary" class="mt-2">
                 {{ selectedImage.name }}:{{ selectedImage.tag }}
               </Badge>
+            </div>
+
+            <div class="grid gap-1.5">
+              <Label for="sandbox-display-name">Name (optional)</Label>
+              <Input
+                id="sandbox-display-name"
+                v-model="displayName"
+                placeholder="z.B. Checkout-Test"
+                :disabled="submitting"
+              />
             </div>
 
             <div>

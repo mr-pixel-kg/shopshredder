@@ -42,6 +42,7 @@ export function useSandboxes(mode: 'mine' | 'all' = 'mine') {
     refresh: fetch,
     createSandbox: store.createSandbox,
     createPublicDemo: store.createPublicDemo,
+    updateSandbox: store.updateSandbox,
     extendTTL: store.extendTTL,
     deleteSandbox: store.deleteSandbox,
     removeSandboxFromList: store.removeSandboxFromList,

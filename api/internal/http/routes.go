@@ -136,6 +136,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	private.GET("/sandboxes/:id", sandboxHandler.Get)
 	private.POST("/sandboxes", sandboxHandler.CreatePrivateSandbox)
 	private.DELETE("/sandboxes/:id", sandboxHandler.Delete)
+	private.PATCH("/sandboxes/:id", sandboxHandler.Update)
 	private.PATCH("/sandboxes/:id/ttl", sandboxHandler.ExtendTTL)
 	private.POST("/sandboxes/:id/snapshot", sandboxHandler.Snapshot)
 	private.GET("/audit-logs", auditHandler.List)

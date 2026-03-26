@@ -273,11 +273,12 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 		"ttl_minutes", input.TTLMinutes,
 	)...)
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
-		ImageID:  imageID,
-		UserID:   &auth.UserID,
-		ClientIP: c.RealIP(),
-		TTL:      ttl,
-		Metadata: input.Metadata,
+		ImageID:     imageID,
+		UserID:      &auth.UserID,
+		ClientIP:    c.RealIP(),
+		TTL:         ttl,
+		DisplayName: input.DisplayName,
+		Metadata:    input.Metadata,
 	})
 	if err != nil {
 		return mapSandboxError(c, err)
@@ -293,6 +294,52 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 	)...)
 	h.enrichSandbox(sandbox)
 	return c.JSON(201, sandbox)
+}
+
+// Update godoc
+// @Summary      Update sandbox details
+// @Description  Update display name of a sandbox owned by the authenticated user
+// @Tags         Sandboxes
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "Sandbox ID" format(uuid)
+// @Param        body body dto.UpdateSandboxRequest true "Update payload"
+// @Success      200 {object} models.Sandbox
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      401 {object} dto.ErrorResponse
+// @Failure      403 {object} dto.ErrorResponse
+// @Failure      404 {object} dto.ErrorResponse
+// @Router       /api/sandboxes/{id} [patch]
+func (h *SandboxHandler) Update(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid sandbox id"))
+	}
+
+	var input dto.UpdateSandboxRequest
+	if err := c.Bind(&input); err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid request body"))
+	}
+
+	auth := mw.MustAuth(c)
+	sandbox, err := h.sandboxes.UpdateSandbox(services.UpdateSandboxInput{
+		SandboxID:   id,
+		UserID:      &auth.UserID,
+		DisplayName: input.DisplayName,
+		ClientIP:    c.RealIP(),
+	})
+	if err != nil {
+		return mapSandboxError(c, err)
+	}
+
+	slog.Info("sandbox updated", logging.RequestFields(c,
+		"component", "sandbox",
+		"user_id", auth.UserID.String(),
+		"sandbox_id", id.String(),
+	)...)
+	h.enrichSandbox(sandbox)
+	return c.JSON(200, sandbox)
 }
 
 // ExtendTTL godoc
