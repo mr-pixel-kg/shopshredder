@@ -126,6 +126,10 @@ function getImageTag(imageId: string): string | undefined {
   return images.value.find((i) => i.id === imageId)?.tag
 }
 
+function getSandboxOwnerLabel(sandbox: Sandbox): string {
+  return sandbox.owner?.email ?? 'Gast'
+}
+
 function handleOpen(sandbox: Sandbox) {
   if (!isSandboxReadyForOpen(sandbox)) return
   if (sandbox.url) window.open(sandbox.url, '_blank')
@@ -456,10 +460,11 @@ async function handleConfirmDelete() {
             <TableHeader>
               <TableRow>
                 <TableHead class="w-[10%]">Status</TableHead>
-                <TableHead class="w-[18%]">Name</TableHead>
-                <TableHead class="w-[22%]">Vorlage</TableHead>
-                <TableHead class="w-[18%]">Gestartet</TableHead>
-                <TableHead class="w-[18%]">Läuft ab</TableHead>
+                <TableHead class="w-[16%]">Name</TableHead>
+                <TableHead class="w-[18%]">Vorlage</TableHead>
+                <TableHead class="w-[18%]">Besitzer</TableHead>
+                <TableHead class="w-[14%]">Gestartet</TableHead>
+                <TableHead class="w-[14%]">Läuft ab</TableHead>
                 <TableHead class="w-[14%] text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -471,6 +476,9 @@ async function handleConfirmDelete() {
                   </TableCell>
                   <TableCell>
                     <Skeleton class="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton class="h-4 w-28" />
                   </TableCell>
                   <TableCell>
                     <Skeleton class="h-4 w-28" />
@@ -489,7 +497,7 @@ async function handleConfirmDelete() {
                   </TableCell>
                 </TableRow>
               </template>
-              <TableEmpty v-else-if="filteredAllSandboxes.length === 0" :colspan="6">
+              <TableEmpty v-else-if="filteredAllSandboxes.length === 0" :colspan="7">
                 Keine Instanzen gefunden
               </TableEmpty>
               <TableRow v-for="sandbox in filteredAllSandboxes" :key="sandbox.id" class="h-13">
@@ -502,6 +510,9 @@ async function handleConfirmDelete() {
                   }}</span>
                 </TableCell>
                 <TableCell class="font-medium">{{ getImageName(sandbox.imageId) }}</TableCell>
+                <TableCell class="text-muted-foreground text-sm">
+                  {{ getSandboxOwnerLabel(sandbox) }}
+                </TableCell>
                 <TableCell class="text-muted-foreground">{{
                   formatDateTime(sandbox.createdAt)
                 }}</TableCell>
