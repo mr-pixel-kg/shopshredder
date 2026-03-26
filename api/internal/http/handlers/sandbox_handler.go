@@ -537,7 +537,7 @@ func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.S
 			return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
 		}
 
-		if sandbox.CreatedByUserID != nil && *sandbox.CreatedByUserID == user.ID {
+		if sandbox.OwnerID != nil && *sandbox.OwnerID == user.ID {
 			return nil
 		}
 

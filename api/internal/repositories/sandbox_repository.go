@@ -52,7 +52,7 @@ func (r *SandboxRepository) ListAllActive() ([]models.Sandbox, error) {
 func (r *SandboxRepository) ListActiveByUser(userID uuid.UUID) ([]models.Sandbox, error) {
 	var sandboxes []models.Sandbox
 	err := r.db.
-		Where("created_by_user_id = ?", userID).
+		Where("owner_id = ?", userID).
 		Where("status IN ?", []models.SandboxStatus{models.SandboxStatusStarting, models.SandboxStatusRunning}).
 		Order("created_at desc").
 		Find(&sandboxes).Error
@@ -62,7 +62,7 @@ func (r *SandboxRepository) ListActiveByUser(userID uuid.UUID) ([]models.Sandbox
 func (r *SandboxRepository) ListAllByUser(userID uuid.UUID) ([]models.Sandbox, error) {
 	var sandboxes []models.Sandbox
 	err := r.db.
-		Where("created_by_user_id = ?", userID).
+		Where("owner_id = ?", userID).
 		Order("created_at desc").
 		Find(&sandboxes).Error
 	return sandboxes, err
@@ -90,7 +90,7 @@ func (r *SandboxRepository) ListAllByGuestSession(sessionID uuid.UUID) ([]models
 func (r *SandboxRepository) CountActiveByUser(userID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.Model(&models.Sandbox{}).
-		Where("created_by_user_id = ?", userID).
+		Where("owner_id = ?", userID).
 		Where("status IN ?", []models.SandboxStatus{models.SandboxStatusStarting, models.SandboxStatusRunning}).
 		Count(&count).Error
 	return count, err
@@ -100,7 +100,7 @@ func (r *SandboxRepository) CountActiveByIP(ip string) (int64, error) {
 	var count int64
 	err := r.db.Model(&models.Sandbox{}).
 		Where("client_ip = ?", ip).
-		Where("created_by_user_id IS NULL").
+		Where("owner_id IS NULL").
 		Where("status IN ?", []models.SandboxStatus{models.SandboxStatusStarting, models.SandboxStatusRunning}).
 		Count(&count).Error
 	return count, err

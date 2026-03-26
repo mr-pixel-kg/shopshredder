@@ -2212,7 +2212,7 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-03-20T10:15:00Z"
                 },
-                "createdByUserId": {
+                "ownerId": {
                     "type": "string",
                     "format": "uuid",
                     "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
@@ -2286,7 +2286,7 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-03-20T10:15:00Z"
                 },
-                "createdByUserId": {
+                "ownerId": {
                     "type": "string",
                     "format": "uuid",
                     "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"

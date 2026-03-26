@@ -45,7 +45,7 @@ export interface Image extends BaseModel {
   error?: string
   metadata?: MetadataItem[]
   registryRef?: string
-  createdByUserId?: string
+  ownerId?: string
 }
 
 export interface PendingPull {
@@ -62,7 +62,7 @@ export type SandboxStatus = 'starting' | 'running' | 'stopped' | 'expired' | 'de
 export interface Sandbox extends BaseModel {
   id: string
   imageId: string
-  createdByUserId?: string
+  ownerId?: string
   guestSessionId?: string
   displayName: string
   status: SandboxStatus

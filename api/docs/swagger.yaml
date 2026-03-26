@@ -283,7 +283,7 @@ definitions:
       createdAt:
         example: "2026-03-20T10:15:00Z"
         type: string
-      createdByUserId:
+      ownerId:
         example: 5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2
         format: uuid
         type: string
@@ -338,7 +338,7 @@ definitions:
       createdAt:
         example: "2026-03-20T10:15:00Z"
         type: string
-      createdByUserId:
+      ownerId:
         example: 5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2
         format: uuid
         type: string
