@@ -140,29 +140,60 @@ const sandboxActionsMap = computed(() => {
   return map
 })
 
+function metadataToField(item: MetadataItem, sandbox?: Sandbox) {
+  return {
+    label: item.label,
+    value: item.value || '',
+    secret: item.input === 'password',
+    icon: item.icon,
+    loading: sandbox ? isDisabledByCondition(item, sandbox) : false,
+  }
+}
+
 const sandboxMetadataMap = computed(() => {
   const map: Record<string, MetadataGroup[]> = {}
   for (const sandbox of activeSandboxes.value) {
     const meta = getSandboxMetadata(sandbox)
-    const displayItems = meta.filter(
-      (m) => (m.type === 'field' || m.type === 'setting' || m.type === 'info') && showOnSandbox(m),
+    const groups: MetadataGroup[] = []
+
+    const configItems = meta.filter(
+      (m) => (m.type === 'field' || m.type === 'setting') && showOnSandbox(m),
     )
-    if (displayItems.length === 0) continue
-
-    const fields = displayItems.map((item) => ({
-      label: item.label,
-      value: item.value || '',
-      secret: item.input === 'password',
-      icon: item.icon,
-      loading: isDisabledByCondition(item, sandbox),
-    }))
-
-    if (fields.length > 0) {
-      map[sandbox.id] = [{ title: 'Konfiguration', fields }]
+    if (configItems.length > 0) {
+      groups.push({
+        title: 'Konfiguration',
+        fields: configItems.map((m) => metadataToField(m, sandbox)),
+      })
     }
+
+    const infoItems = meta.filter((m) => m.type === 'info' && showOnSandbox(m))
+    if (infoItems.length > 0) {
+      groups.push({ title: 'Details', fields: infoItems.map((m) => metadataToField(m, sandbox)) })
+    }
+
+    if (groups.length > 0) map[sandbox.id] = groups
   }
   return map
 })
+
+function getPresetMetadata(image: Image): MetadataGroup[] {
+  const meta = image.metadata ?? []
+  const groups: MetadataGroup[] = []
+
+  const configItems = meta.filter(
+    (m) => (m.type === 'field' || m.type === 'setting') && showOnTemplate(m),
+  )
+  if (configItems.length > 0) {
+    groups.push({ title: 'Konfiguration', fields: configItems.map((m) => metadataToField(m)) })
+  }
+
+  const infoItems = meta.filter((m) => m.type === 'info' && showOnTemplate(m))
+  if (infoItems.length > 0) {
+    groups.push({ title: 'Details', fields: infoItems.map((m) => metadataToField(m)) })
+  }
+
+  return groups
+}
 
 function getPresetActions(image: Image): CardAction[] {
   const actions: CardAction[] = []
@@ -280,7 +311,12 @@ async function handleDemo(imageId: string) {
       <section>
         <h3 class="text-muted-foreground mb-3 text-sm font-medium">Vorlagen</h3>
         <CardGridSkeleton v-if="imagesLoading" :count="6" />
-        <PresetGrid v-else :images="images" :get-actions="getPresetActions" />
+        <PresetGrid
+          v-else
+          :images="images"
+          :get-actions="getPresetActions"
+          :get-metadata="getPresetMetadata"
+        />
       </section>
     </div>
   </div>
