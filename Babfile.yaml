@@ -7,8 +7,9 @@ tasks:
   dev:
     desc: Start all dev servers
     run:
-      - task: docker:infra
+      - cmd: docker compose up -d --wait database
         silent: true
+      - task: db:migrate
       - parallel:
           - task: api:dev
             label: api

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"strings"
 	"time"
@@ -18,6 +19,8 @@ import (
 
 type SandboxHandler struct {
 	sandboxes       *services.SandboxService
+	images          *services.ImageService
+	resolver        RegistryResolver
 	health          *services.SandboxHealthService
 	auth            *services.AuthService
 	guest           *services.GuestSessionService
@@ -26,6 +29,8 @@ type SandboxHandler struct {
 
 func NewSandboxHandler(
 	sandboxes *services.SandboxService,
+	images *services.ImageService,
+	resolver RegistryResolver,
 	health *services.SandboxHealthService,
 	auth *services.AuthService,
 	guest *services.GuestSessionService,
@@ -33,6 +38,8 @@ func NewSandboxHandler(
 ) *SandboxHandler {
 	return &SandboxHandler{
 		sandboxes:       sandboxes,
+		images:          images,
+		resolver:        resolver,
 		health:          health,
 		auth:            auth,
 		guest:           guest,
@@ -46,7 +53,7 @@ func NewSandboxHandler(
 // @Tags         Sandboxes
 // @Security     BearerAuth
 // @Produce      json
-// @Success      200 {array} models.Sandbox
+// @Success      200 {array} dto.SandboxResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
 // @Router       /api/sandboxes [get]
@@ -56,8 +63,9 @@ func (h *SandboxHandler) List(c echo.Context) error {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load sandboxes").WithCause(err))
 	}
 	auth := mw.MustAuth(c)
+	h.enrichSandboxMetadata(sandboxes)
 	slog.Debug("listed all sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	return c.JSON(200, sandboxes)
+	return c.JSON(200, toSandboxResponses(sandboxes))
 }
 
 // ListMine godoc
@@ -66,7 +74,7 @@ func (h *SandboxHandler) List(c echo.Context) error {
 // @Tags         Sandboxes
 // @Security     BearerAuth
 // @Produce      json
-// @Success      200 {array} models.Sandbox
+// @Success      200 {array} dto.SandboxResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
 // @Router       /api/me/sandboxes [get]
@@ -76,8 +84,9 @@ func (h *SandboxHandler) ListMine(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load own sandboxes").WithCause(err))
 	}
+	h.enrichSandboxMetadata(sandboxes)
 	slog.Debug("listed user sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	return c.JSON(200, sandboxes)
+	return c.JSON(200, toSandboxResponses(sandboxes))
 }
 
 // ListGuest godoc
@@ -85,7 +94,7 @@ func (h *SandboxHandler) ListMine(c echo.Context) error {
 // @Description  Returns sandboxes for the current guest session (cookie-based)
 // @Tags         Public
 // @Produce      json
-// @Success      200 {array} models.Sandbox
+// @Success      200 {array} dto.SandboxResponse
 // @Failure      500 {object} dto.ErrorResponse
 // @Router       /api/public/sandboxes [get]
 func (h *SandboxHandler) ListGuest(c echo.Context) error {
@@ -94,8 +103,9 @@ func (h *SandboxHandler) ListGuest(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load guest sandboxes").WithCause(err))
 	}
+	h.enrichSandboxMetadata(sandboxes)
 	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "guest_session_id", guest.SessionID.String(), "count", len(sandboxes))...)
-	return c.JSON(200, sandboxes)
+	return c.JSON(200, toSandboxResponses(sandboxes))
 }
 
 // Get godoc
@@ -105,7 +115,7 @@ func (h *SandboxHandler) ListGuest(c echo.Context) error {
 // @Security     BearerAuth
 // @Produce      json
 // @Param        id path string true "Sandbox ID" format(uuid)
-// @Success      200 {object} models.Sandbox
+// @Success      200 {object} dto.SandboxResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
@@ -120,8 +130,9 @@ func (h *SandboxHandler) Get(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.NotFound("SANDBOX_NOT_FOUND", "Sandbox not found").WithCause(err))
 	}
+	h.enrichSandbox(sandbox)
 	slog.Debug("sandbox loaded", logging.RequestFields(c, "component", "sandbox", "sandbox_id", sandbox.ID.String(), "status", sandbox.Status)...)
-	return c.JSON(200, sandbox)
+	return c.JSON(200, toSandboxResponse(sandbox))
 }
 
 // Health godoc
@@ -204,6 +215,7 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 		ImageID:        imageID,
 		GuestSessionID: &guest.SessionID,
 		ClientIP:       c.RealIP(),
+		Metadata:       input.Metadata,
 	})
 	if err != nil {
 		return mapSandboxError(c, err)
@@ -217,6 +229,7 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 		"image_id", sandbox.ImageID.String(),
 		"expires_at", sandbox.ExpiresAt,
 	)...)
+	h.enrichSandbox(sandbox)
 	return c.JSON(201, sandbox)
 }
 
@@ -260,10 +273,12 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 		"ttl_minutes", input.TTLMinutes,
 	)...)
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
-		ImageID:  imageID,
-		UserID:   &auth.UserID,
-		ClientIP: c.RealIP(),
-		TTL:      ttl,
+		ImageID:     imageID,
+		UserID:      &auth.UserID,
+		ClientIP:    c.RealIP(),
+		TTL:         ttl,
+		DisplayName: input.DisplayName,
+		Metadata:    input.Metadata,
 	})
 	if err != nil {
 		return mapSandboxError(c, err)
@@ -277,7 +292,54 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 		"image_id", sandbox.ImageID.String(),
 		"expires_at", sandbox.ExpiresAt,
 	)...)
+	h.enrichSandbox(sandbox)
 	return c.JSON(201, sandbox)
+}
+
+// Update godoc
+// @Summary      Update sandbox details
+// @Description  Update display name of a sandbox owned by the authenticated user
+// @Tags         Sandboxes
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "Sandbox ID" format(uuid)
+// @Param        body body dto.UpdateSandboxRequest true "Update payload"
+// @Success      200 {object} models.Sandbox
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      401 {object} dto.ErrorResponse
+// @Failure      403 {object} dto.ErrorResponse
+// @Failure      404 {object} dto.ErrorResponse
+// @Router       /api/sandboxes/{id} [patch]
+func (h *SandboxHandler) Update(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid sandbox id"))
+	}
+
+	var input dto.UpdateSandboxRequest
+	if err := c.Bind(&input); err != nil {
+		return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid request body"))
+	}
+
+	auth := mw.MustAuth(c)
+	sandbox, err := h.sandboxes.UpdateSandbox(services.UpdateSandboxInput{
+		SandboxID:   id,
+		UserID:      &auth.UserID,
+		DisplayName: input.DisplayName,
+		ClientIP:    c.RealIP(),
+	})
+	if err != nil {
+		return mapSandboxError(c, err)
+	}
+
+	slog.Info("sandbox updated", logging.RequestFields(c,
+		"component", "sandbox",
+		"user_id", auth.UserID.String(),
+		"sandbox_id", id.String(),
+	)...)
+	h.enrichSandbox(sandbox)
+	return c.JSON(200, sandbox)
 }
 
 // ExtendTTL godoc
@@ -421,6 +483,7 @@ func (h *SandboxHandler) Snapshot(c echo.Context) error {
 		"tag", input.Tag,
 		"is_public", input.IsPublic,
 	)...)
+	metadataJSON, _ := json.Marshal(input.Metadata)
 	image, err := h.sandboxes.CreateSnapshot(c.Request().Context(), services.CreateSnapshotInput{
 		SandboxID:   id,
 		Name:        input.Name,
@@ -430,6 +493,7 @@ func (h *SandboxHandler) Snapshot(c echo.Context) error {
 		IsPublic:    input.IsPublic,
 		ClientIP:    c.RealIP(),
 		UserID:      &auth.UserID,
+		Metadata:    metadataJSON,
 	})
 	if err != nil {
 		return mapSandboxError(c, err)
@@ -473,7 +537,7 @@ func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.S
 			return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
 		}
 
-		if sandbox.CreatedByUserID != nil && *sandbox.CreatedByUserID == user.ID {
+		if sandbox.OwnerID != nil && *sandbox.OwnerID == user.ID {
 			return nil
 		}
 

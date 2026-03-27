@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
 	"github.com/manuel/shopware-testenv-platform/api/internal/models"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
+	"gorm.io/datatypes"
 )
 
 const (
@@ -125,18 +127,22 @@ func (s *ImageService) CreateForUser(
 	title *string,
 	description *string,
 	isPublic bool,
+	metadata json.RawMessage,
+	registryRef *string,
 ) (*models.Image, error) {
 	fullName := name + ":" + tag
 
 	img := &models.Image{
-		ID:              uuid.New(),
-		Name:            name,
-		Tag:             tag,
-		Title:           title,
-		Description:     description,
-		IsPublic:        isPublic,
-		Status:          models.ImageStatusPulling,
-		CreatedByUserID: userID,
+		ID:          uuid.New(),
+		Name:        name,
+		Tag:         tag,
+		Title:       title,
+		Description: description,
+		IsPublic:    isPublic,
+		Status:      models.ImageStatusPulling,
+		OwnerID:     userID,
+		Metadata:    guardJSON(metadata, []byte("[]")),
+		RegistryRef: registryRef,
 	}
 
 	if err := s.repo.Create(img); err != nil {
@@ -219,7 +225,7 @@ func (s *ImageService) WatchPullProgress(imageID string) (<-chan docker.PullProg
 	return s.tracker.Watch(imageID)
 }
 
-func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic bool) (*models.Image, error) {
+func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic bool, metadata json.RawMessage) (*models.Image, error) {
 	image, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -228,6 +234,9 @@ func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic
 	image.Title = title
 	image.Description = description
 	image.IsPublic = isPublic
+	if metadata != nil {
+		image.Metadata = datatypes.JSON(metadata)
+	}
 	if err := s.repo.Update(image); err != nil {
 		return nil, err
 	}
@@ -360,6 +369,13 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.repo.Delete(id)
+}
+
+func guardJSON(data []byte, fallback []byte) datatypes.JSON {
+	if data == nil || string(data) == "null" {
+		return datatypes.JSON(fallback)
+	}
+	return datatypes.JSON(data)
 }
 
 func (s *ImageService) attachThumbnailURLs(images []models.Image) []models.Image {

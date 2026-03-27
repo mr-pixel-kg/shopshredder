@@ -9,6 +9,422 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/api/admin/users": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return all users, including pending invited users",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.User"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create an active user or invite a pending user when no password is provided",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Create user",
+                "parameters": [
+                    {
+                        "description": "User payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return a single user by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a user's email, role, and optionally password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Update user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "User payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a user by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Delete user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/whitelist": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return all pending (whitelisted but not yet registered) users",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List whitelisted emails",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.User"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a pending user row so the email can register in whitelist mode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Add email to whitelist",
+                "parameters": [
+                    {
+                        "description": "Email to whitelist",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.AddWhitelistRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/whitelist/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a pending user row (only works for users that have not yet registered)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Remove email from whitelist",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Pending user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/audit-logs": {
             "get": {
                 "security": [
@@ -41,7 +457,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.AuditLog"
+                                "$ref": "#/definitions/dto.AuditLogResponse"
                             }
                         }
                     },
@@ -207,7 +623,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Image"
+                                "$ref": "#/definitions/dto.ImageResponse"
                             }
                         }
                     },
@@ -645,7 +1061,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Sandbox"
+                                "$ref": "#/definitions/dto.SandboxResponse"
                             }
                         }
                     },
@@ -738,7 +1154,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Image"
+                                "$ref": "#/definitions/dto.ImageResponse"
                             }
                         }
                     },
@@ -767,7 +1183,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Sandbox"
+                                "$ref": "#/definitions/dto.SandboxResponse"
                             }
                         }
                     },
@@ -828,6 +1244,56 @@
                 }
             }
         },
+        "/api/registry/lookup": {
+            "get": {
+                "description": "Return registry-defined metadata for an image by name or ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Images"
+                ],
+                "summary": "Lookup registry metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Image name (e.g. dockware/dev:6.6.9.0)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Image ID",
+                        "name": "id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/registry.MetadataItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/sandboxes": {
             "get": {
                 "security": [
@@ -849,7 +1315,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Sandbox"
+                                "$ref": "#/definitions/dto.SandboxResponse"
                             }
                         }
                     },
@@ -964,7 +1430,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Sandbox"
+                            "$ref": "#/definitions/dto.SandboxResponse"
                         }
                     },
                     "400": {
@@ -1038,6 +1504,75 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update display name of a sandbox owned by the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sandboxes"
+                ],
+                "summary": "Update sandbox details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Sandbox ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateSandboxRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Sandbox"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1269,6 +1804,55 @@
         }
     },
     "definitions": {
+        "dto.AddWhitelistRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "role"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane.doe@example.com"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
+                    "example": "user"
+                }
+            }
+        },
+        "dto.AuditLogResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "example": "sandbox.created"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:15:00Z"
+                },
+                "details": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf"
+                },
+                "ipAddress": {
+                    "type": "string",
+                    "example": "203.0.113.25"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.UserSummary"
+                }
+            }
+        },
         "dto.AuthLoginResponse": {
             "type": "object",
             "properties": {
@@ -1296,6 +1880,12 @@
                     "type": "boolean",
                     "example": true
                 },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/registry.MetadataItem"
+                    }
+                },
                 "name": {
                     "type": "string",
                     "example": "dockware/dev"
@@ -1316,10 +1906,20 @@
                 "imageId"
             ],
             "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "My Test Shop"
+                },
                 "imageId": {
                     "type": "string",
                     "format": "uuid",
                     "example": "8ae13ed9-cfb1-4941-a248-bc74b9fb6a24"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "ttlMinutes": {
                     "type": "integer",
@@ -1342,6 +1942,12 @@
                     "type": "boolean",
                     "example": true
                 },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/registry.MetadataItem"
+                    }
+                },
                 "name": {
                     "type": "string",
                     "example": "dockware/dev"
@@ -1353,6 +1959,23 @@
                 "title": {
                     "type": "string",
                     "example": "Shopware 6.6 Demo"
+                }
+            }
+        },
+        "dto.CreateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane.doe@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "Sup3rS3cret!"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
                 }
             }
         },
@@ -1408,6 +2031,69 @@
                 "status": {
                     "type": "string",
                     "example": "pulling"
+                }
+            }
+        },
+        "dto.ImageResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:15:00Z"
+                },
+                "deletedAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Prepared image for sales demos and internal QA."
+                },
+                "error": {
+                    "type": "string",
+                    "example": "pull access denied"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "8ae13ed9-cfb1-4941-a248-bc74b9fb6a24"
+                },
+                "isPublic": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "metadata": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "dockware/dev"
+                },
+                "owner": {
+                    "$ref": "#/definitions/dto.UserSummary"
+                },
+                "registryRef": {
+                    "type": "string",
+                    "example": "dockware/dev"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ready"
+                },
+                "tag": {
+                    "type": "string",
+                    "example": "6.6.9.0"
+                },
+                "thumbnailUrl": {
+                    "type": "string",
+                    "example": "https://cdn.example.com/images/shopware-demo.png"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Shopware Demo Image"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:20:00Z"
                 }
             }
         },
@@ -1516,6 +2202,91 @@
                 }
             }
         },
+        "dto.SandboxResponse": {
+            "type": "object",
+            "properties": {
+                "clientIp": {
+                    "type": "string",
+                    "example": "203.0.113.25"
+                },
+                "containerId": {
+                    "type": "string",
+                    "example": "1a2b3c4d5e6f7g8h9i0j"
+                },
+                "containerName": {
+                    "type": "string",
+                    "example": "sandbox-0b443c82"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:15:00Z"
+                },
+                "deletedAt": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string",
+                    "example": "My Test Shop"
+                },
+                "expiresAt": {
+                    "type": "string",
+                    "example": "2026-03-20T12:00:00Z"
+                },
+                "guestSessionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "db7fcb92-c2ff-4c20-9ac2-5a2504ab6326"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "0b443c82-d8a3-49a7-b59a-26ce327c7341"
+                },
+                "imageId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "8ae13ed9-cfb1-4941-a248-bc74b9fb6a24"
+                },
+                "lastSeenAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:45:00Z"
+                },
+                "metadata": {
+                    "type": "string"
+                },
+                "owner": {
+                    "$ref": "#/definitions/dto.UserSummary"
+                },
+                "port": {
+                    "type": "integer",
+                    "example": 8080
+                },
+                "status": {
+                    "enum": [
+                        "starting",
+                        "running",
+                        "stopped",
+                        "expired",
+                        "deleted",
+                        "failed"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SandboxStatus"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "example": "2026-03-20T10:20:00Z"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "https://sandbox-0b443c82.demo.shopshredder.de"
+                }
+            }
+        },
         "dto.UpdateImageRequest": {
             "type": "object",
             "properties": {
@@ -1525,35 +2296,51 @@
                 "isPublic": {
                     "type": "boolean"
                 },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/registry.MetadataItem"
+                    }
+                },
                 "title": {
                     "type": "string"
                 }
             }
         },
-        "models.AuditLog": {
+        "dto.UpdateSandboxRequest": {
             "type": "object",
             "properties": {
-                "action": {
+                "displayName": {
                     "type": "string",
-                    "example": "sandbox.created"
-                },
-                "createdAt": {
+                    "example": "My Test Shop"
+                }
+            }
+        },
+        "dto.UpdateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
                     "type": "string",
-                    "example": "2026-03-20T10:15:00Z"
+                    "example": "jane.doe@example.com"
                 },
-                "details": {
-                    "type": "object"
+                "password": {
+                    "type": "string",
+                    "example": "N3wSup3rS3cret!"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "dto.UserSummary": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane.doe@example.com"
                 },
                 "id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "example": "4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf"
-                },
-                "ipAddress": {
-                    "type": "string",
-                    "example": "203.0.113.25"
-                },
-                "userId": {
                     "type": "string",
                     "format": "uuid",
                     "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
@@ -1566,11 +2353,6 @@
                 "createdAt": {
                     "type": "string",
                     "example": "2026-03-20T10:15:00Z"
-                },
-                "createdByUserId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
                 },
                 "description": {
                     "type": "string",
@@ -1589,7 +2371,19 @@
                     "type": "boolean",
                     "example": true
                 },
+                "metadata": {
+                    "type": "string"
+                },
                 "name": {
+                    "type": "string",
+                    "example": "dockware/dev"
+                },
+                "ownerId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
+                },
+                "registryRef": {
                     "type": "string",
                     "example": "dockware/dev"
                 },
@@ -1634,10 +2428,9 @@
                     "type": "string",
                     "example": "2026-03-20T10:15:00Z"
                 },
-                "createdByUserId": {
+                "displayName": {
                     "type": "string",
-                    "format": "uuid",
-                    "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
+                    "example": "My Test Shop"
                 },
                 "expiresAt": {
                     "type": "string",
@@ -1661,6 +2454,14 @@
                 "lastSeenAt": {
                     "type": "string",
                     "example": "2026-03-20T10:45:00Z"
+                },
+                "metadata": {
+                    "type": "string"
+                },
+                "ownerId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
                 },
                 "port": {
                     "type": "integer",
@@ -1727,9 +2528,57 @@
                     "format": "uuid",
                     "example": "5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"
                 },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                },
                 "updatedAt": {
                     "type": "string",
                     "example": "2026-03-20T10:20:00Z"
+                }
+            }
+        },
+        "registry.MetadataItem": {
+            "type": "object",
+            "properties": {
+                "condition": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "input": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "show": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                },
+                "variant": {
+                    "type": "string"
                 }
             }
         }

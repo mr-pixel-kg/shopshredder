@@ -7,9 +7,36 @@ interface BaseModel {
 export interface User extends BaseModel {
   id: string
   email: string
+  role: string
+}
+
+export interface ManagedUser extends User {
+  pending: boolean
+}
+
+export interface UserSummary {
+  id: string
+  email: string
 }
 
 export type ImageStatus = 'pulling' | 'ready' | 'failed'
+
+export type MetadataType = 'field' | 'setting' | 'info' | 'action'
+
+export interface MetadataItem {
+  key: string
+  label: string
+  type: MetadataType
+  value?: string
+  input?: string
+  required?: boolean
+  options?: string[]
+  variant?: string
+  show?: 'sandbox' | 'template' | 'both'
+  condition?: 'ready' | 'always'
+  icon?: string
+  size?: 'default' | 'icon'
+}
 
 export interface Image extends BaseModel {
   id: string
@@ -21,7 +48,9 @@ export interface Image extends BaseModel {
   isPublic: boolean
   status: ImageStatus
   error?: string
-  createdByUserId?: string
+  metadata?: MetadataItem[]
+  registryRef?: string
+  owner?: UserSummary | null
 }
 
 export interface PendingPull {
@@ -38,14 +67,16 @@ export type SandboxStatus = 'starting' | 'running' | 'stopped' | 'expired' | 'de
 export interface Sandbox extends BaseModel {
   id: string
   imageId: string
-  createdByUserId?: string
+  owner?: UserSummary | null
   guestSessionId?: string
+  displayName: string
   status: SandboxStatus
   containerId: string
   containerName: string
   url: string
   port?: number
   clientIp: string
+  metadata?: MetadataItem[]
   expiresAt?: string
   lastSeenAt?: string
 }
@@ -64,7 +95,10 @@ export interface SandboxHealthEvent {
 
 export interface AuditLog {
   id: string
-  userId?: string
+  user?: {
+    id: string
+    email: string
+  } | null
   action: string
   ipAddress: string
   details: Record<string, unknown> | unknown[]
@@ -84,6 +118,12 @@ export interface RegisterRequest {
 export interface CreateSandboxRequest {
   imageId: string
   ttlMinutes?: number
+  displayName?: string
+  metadata?: Record<string, string>
+}
+
+export interface UpdateSandboxRequest {
+  displayName?: string
 }
 
 export interface CreateImageRequest {
@@ -92,12 +132,31 @@ export interface CreateImageRequest {
   title?: string
   description?: string
   isPublic: boolean
+  metadata?: MetadataItem[]
 }
 
 export interface UpdateImageRequest {
   title?: string | null
   description?: string | null
   isPublic: boolean
+  metadata?: MetadataItem[]
+}
+
+export interface AddWhitelistRequest {
+  email: string
+  role: 'admin' | 'user'
+}
+
+export interface CreateUserRequest {
+  email: string
+  role: 'admin' | 'user'
+  password?: string
+}
+
+export interface UpdateUserRequest {
+  email: string
+  role: 'admin' | 'user'
+  password?: string
 }
 
 export type CreateSnapshotRequest = CreateImageRequest

@@ -18,10 +18,13 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/config"
 )
 
-type SandboxCreateRequest struct {
+type ContainerCreateRequest struct {
 	ImageName     string
 	ContainerName string
 	Hostname      string
+	Env           []string
+	Labels        map[string]string
+	InternalPort  int
 }
 
 type SandboxContainer struct {
@@ -41,7 +44,7 @@ type Client interface {
 	EnsureImage(ctx context.Context, imageName string) error
 	PullImage(ctx context.Context, imageName string) (io.ReadCloser, error)
 	RemoveImage(ctx context.Context, imageName string) error
-	CreateContainer(ctx context.Context, request SandboxCreateRequest) (*SandboxContainer, error)
+	CreateContainer(ctx context.Context, request ContainerCreateRequest) (*SandboxContainer, error)
 	DeleteContainer(ctx context.Context, containerID string) error
 	CommitContainer(ctx context.Context, containerID, targetImage string) error
 	SubscribeSandboxEvents(ctx context.Context) (<-chan SandboxContainerEvent, <-chan error)
@@ -53,21 +56,12 @@ type DockerClient struct {
 	dockerCfg  config.DockerConfig
 }
 
-func NewClient(sandboxCfg config.SandboxConfig, dockerCfg config.DockerConfig) (*DockerClient, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := cli.Ping(context.Background()); err != nil {
-		return nil, fmt.Errorf("docker daemon not reachable: %w", err)
-	}
-
+func NewClient(sdkClient *client.Client, sandboxCfg config.SandboxConfig, dockerCfg config.DockerConfig) *DockerClient {
 	return &DockerClient{
-		client:     cli,
+		client:     sdkClient,
 		sandboxCfg: sandboxCfg,
 		dockerCfg:  dockerCfg,
-	}, nil
+	}
 }
 
 func (c *DockerClient) ImageExists(ctx context.Context, imageName string) bool {
@@ -120,40 +114,28 @@ func (c *DockerClient) RemoveImage(ctx context.Context, imageName string) error 
 	return nil
 }
 
-func (c *DockerClient) CreateContainer(ctx context.Context, request SandboxCreateRequest) (*SandboxContainer, error) {
-	if err := c.EnsureImage(ctx, request.ImageName); err != nil {
-		return nil, err
-	}
-
+func (c *DockerClient) CreateContainer(ctx context.Context, request ContainerCreateRequest) (*SandboxContainer, error) {
 	if c.dockerCfg.Mode == config.DockerModePort {
 		return c.createPortContainer(ctx, request)
 	}
 	return c.createTraefikContainer(ctx, request)
 }
 
-func (c *DockerClient) createPortContainer(ctx context.Context, request SandboxCreateRequest) (*SandboxContainer, error) {
-	hostPort, err := findFreePort()
-	if err != nil {
-		return nil, fmt.Errorf("find free port: %w", err)
-	}
-
-	internalPort := nat.Port(strconv.Itoa(c.sandboxCfg.InternalPort) + "/tcp")
-	shopDomain := fmt.Sprintf("localhost:%d", hostPort)
+func (c *DockerClient) createPortContainer(ctx context.Context, request ContainerCreateRequest) (*SandboxContainer, error) {
+	internalPort := nat.Port(strconv.Itoa(request.InternalPort) + "/tcp")
 
 	containerConfig := &container.Config{
-		Image: request.ImageName,
-		Labels: map[string]string{
-			"sandbox_container": "true",
-		},
+		Image:  request.ImageName,
+		Labels: request.Labels,
 		ExposedPorts: nat.PortSet{
 			internalPort: struct{}{},
 		},
-		Env: []string{
-			"TRUSTED_PROXIES=" + c.dockerCfg.TrustedProxies,
-			"SHOP_DOMAIN=" + shopDomain,
-			"APP_URL=http://" + shopDomain,
-		},
+		Env: request.Env,
 	}
+
+	// extract host port from the host (format: "localhost:prt")
+	_, hostPortStr, _ := net.SplitHostPort(request.Hostname)
+	hostPort, _ := strconv.Atoi(hostPortStr)
 
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
@@ -172,40 +154,24 @@ func (c *DockerClient) createPortContainer(ctx context.Context, request SandboxC
 		return nil, fmt.Errorf("start container %s: %w", resp.ID, err)
 	}
 
+	scheme := c.scheme()
 	return &SandboxContainer{
 		ID:   resp.ID,
 		Name: request.ContainerName,
-		URL:  "http://" + shopDomain,
+		URL:  scheme + "://" + request.Hostname,
 		Port: &hostPort,
 	}, nil
 }
 
-func findFreePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		_ = l.Close()
-	}()
-	return l.Addr().(*net.TCPAddr).Port, nil
-}
-
-func (c *DockerClient) createTraefikContainer(ctx context.Context, request SandboxCreateRequest) (*SandboxContainer, error) {
+func (c *DockerClient) createTraefikContainer(ctx context.Context, request ContainerCreateRequest) (*SandboxContainer, error) {
 	containerConfig := &container.Config{
 		Image:  request.ImageName,
-		Labels: c.buildTraefikLabels(request.ContainerName, request.Hostname),
-		Env: []string{
-			"TRUSTED_PROXIES=" + c.dockerCfg.TrustedProxies,
-			"SHOP_DOMAIN=" + request.Hostname,
-			"APP_URL=https://" + request.Hostname,
-		},
+		Labels: request.Labels,
+		Env:    request.Env,
 	}
 
 	var networkingConfig *network.NetworkingConfig
 	if c.dockerCfg.Network != "" {
-		// The sandbox container must join the same network Traefik is watching so
-		// host-based routing can resolve it immediately.
 		networkingConfig = &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				c.dockerCfg.Network: {},
@@ -222,17 +188,16 @@ func (c *DockerClient) createTraefikContainer(ctx context.Context, request Sandb
 		return nil, fmt.Errorf("start container %s: %w", resp.ID, err)
 	}
 
+	scheme := c.scheme()
 	return &SandboxContainer{
 		ID:   resp.ID,
 		Name: request.ContainerName,
-		URL:  "https://" + request.Hostname,
+		URL:  scheme + "://" + request.Hostname,
 	}, nil
 }
 
 func (c *DockerClient) DeleteContainer(ctx context.Context, containerID string) error {
 	timeout := 0
-	// Force removal is intentional because expired demo sandboxes should not
-	// block cleanup on graceful shutdown behaviour.
 	if err := c.client.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &timeout}); err != nil && !errdefs.IsNotFound(err) {
 		return fmt.Errorf("stop container %s: %w", containerID, err)
 	}
@@ -314,32 +279,50 @@ func (c *DockerClient) SubscribeSandboxEvents(ctx context.Context) (<-chan Sandb
 	return out, errOut
 }
 
-func (c *DockerClient) buildTraefikLabels(containerName, hostname string) map[string]string {
-	// Build all dynamic router/service labels from config so every sandbox uses
-	// the same Traefik conventions.
+func (c *DockerClient) scheme() string {
+	if c.dockerCfg.Mode == config.DockerModeTraefik && c.dockerCfg.TraefikCertResolver != "" {
+		return "https"
+	}
+	return "http"
+}
+
+// FindFreePort finds an available tcp port
+func FindFreePort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		_ = l.Close()
+	}()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// BuildTraefikLabels builds the treafik routing labels
+func BuildTraefikLabels(containerName, hostname string, internalPort int, dockerCfg config.DockerConfig) map[string]string {
 	labels := map[string]string{
 		"sandbox_container": "true",
-		"traefik.enable":    strconv.FormatBool(c.dockerCfg.TraefikEnable),
+		"traefik.enable":    strconv.FormatBool(dockerCfg.TraefikEnable),
 	}
 
-	if c.dockerCfg.Network != "" {
-		labels["traefik.docker.network"] = c.dockerCfg.Network
+	if dockerCfg.Network != "" {
+		labels["traefik.docker.network"] = dockerCfg.Network
 	}
 
 	routerPrefix := "traefik.http.routers." + containerName
 	servicePrefix := "traefik.http.services." + containerName
 	labels[routerPrefix+".rule"] = fmt.Sprintf("Host(`%s`)", hostname)
-	labels[servicePrefix+".loadbalancer.server.port"] = strconv.Itoa(c.sandboxCfg.InternalPort)
+	labels[servicePrefix+".loadbalancer.server.port"] = strconv.Itoa(internalPort)
 
-	if c.dockerCfg.TraefikEntrypoints != "" {
-		labels[routerPrefix+".entrypoints"] = c.dockerCfg.TraefikEntrypoints
+	if dockerCfg.TraefikEntrypoints != "" {
+		labels[routerPrefix+".entrypoints"] = dockerCfg.TraefikEntrypoints
 	}
-	if c.dockerCfg.TraefikCertResolver != "" {
+	if dockerCfg.TraefikCertResolver != "" {
 		labels[routerPrefix+".tls"] = "true"
-		labels[routerPrefix+".tls.certresolver"] = c.dockerCfg.TraefikCertResolver
+		labels[routerPrefix+".tls.certresolver"] = dockerCfg.TraefikCertResolver
 	}
-	if c.dockerCfg.TraefikMiddlewares != "" {
-		labels[routerPrefix+".middlewares"] = c.dockerCfg.TraefikMiddlewares
+	if dockerCfg.TraefikMiddlewares != "" {
+		labels[routerPrefix+".middlewares"] = dockerCfg.TraefikMiddlewares
 	}
 
 	return labels

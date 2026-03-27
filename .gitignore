@@ -18,6 +18,10 @@ dist-ssr/
 *.sw?
 
 api/config.local.yml
+api/.gocache/
+api/.gomodcache/
+api/api
 web/src/vite-env.d.ts
+web/.vite/
 lefthook-local.yml
 /api/storage/

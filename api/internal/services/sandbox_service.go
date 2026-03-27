@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/manuel/shopware-testenv-platform/api/internal/config"
 	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
 	"github.com/manuel/shopware-testenv-platform/api/internal/models"
+	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -33,6 +36,8 @@ type SandboxService struct {
 	eventRepo *repositories.SandboxEventRepository
 	audit     *AuditService
 	docker    docker.Client
+	resolver  *registry.Resolver
+	executor  *registry.Executor
 }
 
 func NewSandboxService(
@@ -45,6 +50,8 @@ func NewSandboxService(
 	eventRepo *repositories.SandboxEventRepository,
 	audit *AuditService,
 	dockerClient docker.Client,
+	resolver *registry.Resolver,
+	executor *registry.Executor,
 ) *SandboxService {
 	return &SandboxService{
 		cfg:       cfg,
@@ -56,6 +63,8 @@ func NewSandboxService(
 		eventRepo: eventRepo,
 		audit:     audit,
 		docker:    dockerClient,
+		resolver:  resolver,
+		executor:  executor,
 	}
 }
 
@@ -65,6 +74,15 @@ type CreateSandboxInput struct {
 	GuestSessionID *uuid.UUID
 	ClientIP       string
 	TTL            *time.Duration
+	DisplayName    *string
+	Metadata       map[string]string
+}
+
+type UpdateSandboxInput struct {
+	SandboxID   uuid.UUID
+	UserID      *uuid.UUID
+	DisplayName *string
+	ClientIP    string
 }
 
 func (s *SandboxService) ListActive() ([]models.Sandbox, error) {
@@ -84,6 +102,31 @@ func (s *SandboxService) FindByID(id uuid.UUID) (*models.Sandbox, error) {
 	if err != nil {
 		return nil, ErrSandboxNotFound
 	}
+	return sandbox, nil
+}
+
+func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbox, error) {
+	sandbox, err := s.repo.FindByID(input.SandboxID)
+	if err != nil {
+		return nil, ErrSandboxNotFound
+	}
+
+	if input.UserID == nil || sandbox.OwnerID == nil || *sandbox.OwnerID != *input.UserID {
+		return nil, ErrSandboxAccessDenied
+	}
+
+	if input.DisplayName != nil {
+		sandbox.DisplayName = *input.DisplayName
+	}
+
+	if err := s.repo.Update(sandbox); err != nil {
+		return nil, err
+	}
+
+	_ = s.audit.Log(input.UserID, "sandbox.updated", input.ClientIP, map[string]any{
+		"sandboxId": sandbox.ID.String(),
+	})
+
 	return sandbox, nil
 }
 
@@ -121,33 +164,84 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 		ttl = s.cfg.MaxTTL
 	}
 
+	expiresAt := time.Now().UTC().Add(ttl)
+
+	// builds registry Configuration: env vars, labels, lifecycle hooks etc.
 	var hostname string
-	if s.dockerCfg.Mode == config.DockerModeTraefik {
+	var hostPort int
+	if s.dockerCfg.Mode == config.DockerModePort {
+		hostPort, err = docker.FindFreePort()
+		if err != nil {
+			return nil, fmt.Errorf("find free port: %w", err)
+		}
+		hostname = fmt.Sprintf("localhost:%d", hostPort)
+	} else {
 		hostname = fmt.Sprintf("%s%s", containerName, s.cfg.HostSuffix)
 	}
 
-	container, err := s.docker.CreateContainer(ctx, docker.SandboxCreateRequest{
+	tmplCtx := s.buildTemplateContext(
+		image.FullName(), containerName, hostname,
+		sandboxID.String(), ttl.String(), expiresAt.Format(time.RFC3339),
+		input.ClientIP, strconv.Itoa(hostPort), input.Metadata,
+	)
+
+	registryRef := image.RegistryName()
+	resolved, err := s.resolver.Resolve(registryRef, tmplCtx)
+	if err != nil {
+		return nil, fmt.Errorf("resolve registry for %s: %w", image.FullName(), err)
+	}
+
+	internalPort := s.cfg.InternalPort
+	if resolved.InternalPort > 0 {
+		internalPort = resolved.InternalPort
+	}
+
+	// build labels: sandbox marker + resolved labels + traefik labels.
+	labels := map[string]string{"sandbox_container": "true"}
+	for k, v := range resolved.Labels {
+		labels[k] = v
+	}
+	if s.dockerCfg.Mode == config.DockerModeTraefik {
+		for k, v := range docker.BuildTraefikLabels(containerName, hostname, internalPort, s.dockerCfg) {
+			labels[k] = v
+		}
+	}
+
+	container, err := s.docker.CreateContainer(ctx, docker.ContainerCreateRequest{
 		ImageName:     image.FullName(),
 		ContainerName: containerName,
 		Hostname:      hostname,
+		Env:           resolved.Env,
+		Labels:        labels,
+		InternalPort:  internalPort,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	expiresAt := time.Now().UTC().Add(ttl)
+	if len(resolved.PostStart) > 0 {
+		go s.executor.RunPostStart(context.Background(), container.ID, resolved.PostStart)
+	}
+
+	fieldsJSON, _ := json.Marshal(input.Metadata)
+	displayName := ""
+	if input.DisplayName != nil {
+		displayName = *input.DisplayName
+	}
 	sandbox := &models.Sandbox{
-		ID:              sandboxID,
-		ImageID:         image.ID,
-		CreatedByUserID: input.UserID,
-		GuestSessionID:  input.GuestSessionID,
-		Status:          models.SandboxStatusStarting,
-		ContainerID:     container.ID,
-		ContainerName:   container.Name,
-		URL:             container.URL,
-		Port:            container.Port,
-		ClientIP:        input.ClientIP,
-		ExpiresAt:       &expiresAt,
+		ID:             sandboxID,
+		ImageID:        image.ID,
+		OwnerID:        input.UserID,
+		GuestSessionID: input.GuestSessionID,
+		DisplayName:    displayName,
+		Status:         models.SandboxStatusStarting,
+		ContainerID:    container.ID,
+		ContainerName:  container.Name,
+		URL:            container.URL,
+		Port:           container.Port,
+		ClientIP:       input.ClientIP,
+		Metadata:       datatypes.JSON(fieldsJSON),
+		ExpiresAt:      &expiresAt,
 	}
 
 	if err := s.repo.Create(sandbox); err != nil {
@@ -221,7 +315,8 @@ func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, clientIP stri
 	isActive := sandbox.Status == models.SandboxStatusRunning || sandbox.Status == models.SandboxStatusStarting
 
 	if isActive {
-		// Soft delete: stop container, mark as deleted, keep in history.
+		s.runPreStop(ctx, sandbox.ContainerID, sandbox.ImageID)
+
 		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
 			return err
 		}
@@ -270,6 +365,7 @@ type CreateSnapshotInput struct {
 	IsPublic    bool
 	ClientIP    string
 	UserID      *uuid.UUID
+	Metadata    json.RawMessage
 }
 
 func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapshotInput) (*models.Image, error) {
@@ -288,6 +384,12 @@ func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapsho
 		return nil, err
 	}
 
+	var registryRef *string
+	if sourceImage, srcErr := s.imageRepo.FindByID(sandbox.ImageID); srcErr == nil {
+		ref := sourceImage.RegistryName()
+		registryRef = &ref
+	}
+
 	image, err := s.images.CreateForUser(
 		ctx,
 		input.UserID,
@@ -296,6 +398,8 @@ func (s *SandboxService) CreateSnapshot(ctx context.Context, input CreateSnapsho
 		input.Title,
 		input.Description,
 		input.IsPublic,
+		input.Metadata,
+		registryRef,
 	)
 	if err != nil {
 		return nil, err
@@ -382,6 +486,8 @@ func (s *SandboxService) CleanupExpired(ctx context.Context) error {
 	// Expiration is database-driven so a process restart does not lose the
 	// deletion schedule for previously created sandboxes.
 	for _, sandbox := range expired {
+		s.runPreStop(ctx, sandbox.ContainerID, sandbox.ImageID)
+
 		if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
 			slog.Error("delete expired container failed",
 				"component", "cleanup",
@@ -533,8 +639,74 @@ func (s *SandboxService) addEvent(sandboxID uuid.UUID, eventType string, metadat
 }
 
 func sandboxActorType(sandbox *models.Sandbox) string {
-	if sandbox.CreatedByUserID != nil {
+	if sandbox.OwnerID != nil {
 		return "user"
 	}
 	return "guest"
+}
+
+// runPreStop resolves and executes pre stop lifecycle hooks for a container.
+func (s *SandboxService) runPreStop(ctx context.Context, containerID string, imageID uuid.UUID) {
+	registryName := s.imageRepo.ResolveRegistryName(imageID)
+	if registryName == "" {
+		return
+	}
+
+	resolved, err := s.resolver.Resolve(registryName, registry.TemplateContext{ImageName: registryName})
+	if err != nil {
+		slog.Warn("pre-stop resolve failed, skipping", "container_id", containerID, "image", registryName, "error", err)
+		return
+	}
+
+	if len(resolved.PreStop) > 0 {
+		preStopCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		s.executor.RunPreStop(preStopCtx, containerID, resolved.PreStop)
+	}
+}
+
+// buildTemplateContext creates the registry template context for resolving environment variables, labels, and lifecycle commands
+func (s *SandboxService) buildTemplateContext(
+	imageName, containerName, hostname, sandboxID, ttl, expiresAt, clientIP, port string,
+	metadata map[string]string,
+) registry.TemplateContext {
+	imageRepo, imageTag := splitImageRef(imageName)
+	scheme := s.scheme()
+	return registry.TemplateContext{
+		Hostname:       hostname,
+		URL:            scheme + "://" + hostname,
+		Scheme:         scheme,
+		Port:           port,
+		ContainerName:  containerName,
+		TrustedProxies: s.dockerCfg.TrustedProxies,
+		DockerMode:     string(s.dockerCfg.Mode),
+		Network:        s.dockerCfg.Network,
+		InternalPort:   strconv.Itoa(s.cfg.InternalPort),
+		ImageName:      imageName,
+		ImageRepo:      imageRepo,
+		ImageTag:       imageTag,
+		SandboxID:      sandboxID,
+		HostSuffix:     s.cfg.HostSuffix,
+		TTL:            ttl,
+		ExpiresAt:      expiresAt,
+		ClientIP:       clientIP,
+		Meta:           metadata,
+	}
+}
+
+func (s *SandboxService) scheme() string {
+	if s.dockerCfg.Mode == config.DockerModeTraefik && s.dockerCfg.TraefikCertResolver != "" {
+		return "https"
+	}
+	return "http"
+}
+
+func splitImageRef(ref string) (string, string) {
+	if strings.Contains(ref, "@") {
+		return ref, ""
+	}
+	if i := strings.LastIndex(ref, ":"); i > strings.LastIndex(ref, "/") && i >= 0 {
+		return ref[:i], ref[i+1:]
+	}
+	return ref, ""
 }
