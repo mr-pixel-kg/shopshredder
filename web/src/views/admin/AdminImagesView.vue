@@ -27,8 +27,16 @@ import { getApiErrorMessage } from '@/utils/error'
 
 import type { Image, MetadataItem } from '@/types'
 
-const { images, pendingPulls, loading, createImage, updateImage, uploadThumbnail, deleteImage } =
-  useImages('all')
+const {
+  images,
+  pendingPulls,
+  loading,
+  createImage,
+  updateImage,
+  uploadThumbnail,
+  deleteImage,
+  busyIds,
+} = useImages('all')
 
 const showAddImage = ref(false)
 const showEditDrawer = ref(false)
@@ -77,17 +85,24 @@ async function handleCreateImage(
   }
 }
 
-async function handleConfirmDelete() {
-  if (!selectedImageId.value) return
+async function handleConfirmDelete(done: (success: boolean) => void) {
+  if (!selectedImageId.value) return done(false)
+  const id = selectedImageId.value
+  busyIds.value.add(id)
   try {
-    await deleteImage(selectedImageId.value)
+    await deleteImage(id)
     toast.success('Vorlage wurde gelöscht')
+    done(true)
   } catch (e) {
     toast.error(getApiErrorMessage(e, 'Fehler beim Löschen'))
+    done(false)
+  } finally {
+    busyIds.value.delete(id)
   }
 }
 
 async function handleToggleVisibility(image: Image) {
+  busyIds.value.add(image.id)
   try {
     await updateImage(image.id, {
       title: image.title ?? null,
@@ -97,6 +112,8 @@ async function handleToggleVisibility(image: Image) {
     toast.success(image.isPublic ? 'Vorlage ist jetzt privat' : 'Vorlage ist jetzt öffentlich')
   } catch (e) {
     toast.error(getApiErrorMessage(e, 'Fehler beim Ändern der Sichtbarkeit'))
+  } finally {
+    busyIds.value.delete(image.id)
   }
 }
 
@@ -207,6 +224,7 @@ function getOwnerLabel(image: Image): string {
             <TableCell>
               <Switch
                 :model-value="image.isPublic"
+                :disabled="busyIds.has(image.id)"
                 @update:model-value="handleToggleVisibility(image)"
               />
             </TableCell>
@@ -215,7 +233,12 @@ function getOwnerLabel(image: Image): string {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon-sm" @click="requestEdit(image)">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        :disabled="busyIds.has(image.id)"
+                        @click="requestEdit(image)"
+                      >
                         <Pencil class="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -229,6 +252,7 @@ function getOwnerLabel(image: Image): string {
                         variant="ghost"
                         size="icon-sm"
                         class="text-destructive hover:text-destructive"
+                        :disabled="busyIds.has(image.id)"
                         @click="requestDelete(image.id)"
                       >
                         <Trash2 class="h-4 w-4" />

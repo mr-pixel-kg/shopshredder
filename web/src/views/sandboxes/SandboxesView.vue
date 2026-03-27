@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { Camera, Clock, ExternalLink, Plus, Square, Trash2 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { sandboxesApi } from '@/api'
 import ConfirmDialog from '@/components/modals/ConfirmDialog.vue'
 import ExtendTtlDialog from '@/components/modals/ExtendTtlDialog.vue'
 import NewSandboxDialog from '@/components/modals/NewSandboxDialog.vue'
@@ -48,55 +47,36 @@ const {
   healthBySandboxId,
   recentSandboxes,
   loading,
+  busyIds,
   createSandbox,
   deleteSandbox,
+  extendTTL,
   snapshotSandbox,
   refresh,
+  allSandboxes,
+  allLoading,
+  startAdminPolling,
 } = useSandboxes()
 const { images, uploadThumbnail } = useImages()
 
-const allSandboxes = ref<Sandbox[]>([])
-const allLoading = ref(false)
+onMounted(() => {
+  if (isAdmin.value) {
+    startAdminPolling()
+  }
+})
+
 const adminStatusFilter = ref<string>('all')
 
 const filteredAllSandboxes = computed(() => {
-  if (adminStatusFilter.value === 'all') return allSandboxes.value
+  const all = allSandboxes.value
+  if (adminStatusFilter.value === 'all') return all
   const activeStatuses: SandboxStatus[] = ['running', 'starting']
   const inactiveStatuses: SandboxStatus[] = ['stopped', 'expired', 'deleted', 'failed']
   if (adminStatusFilter.value === 'active')
-    return allSandboxes.value.filter((s) => activeStatuses.includes(s.status))
+    return all.filter((s) => activeStatuses.includes(s.status))
   if (adminStatusFilter.value === 'inactive')
-    return allSandboxes.value.filter((s) => inactiveStatuses.includes(s.status))
-  return allSandboxes.value
-})
-
-async function fetchAllInstances() {
-  try {
-    allSandboxes.value = await sandboxesApi.list()
-  } catch (e) {
-    toast.error(getApiErrorMessage(e, 'Fehler beim Laden der Instanzen'))
-  } finally {
-    allLoading.value = false
-  }
-}
-
-async function handleAdminDelete(sandbox: Sandbox) {
-  selectedSandbox.value = sandbox
-  showConfirmDelete.value = true
-}
-
-let adminPoll: ReturnType<typeof setInterval> | null = null
-
-onMounted(() => {
-  if (isAdmin.value) {
-    allLoading.value = true
-    fetchAllInstances()
-    adminPoll = setInterval(fetchAllInstances, 10_000)
-  }
-})
-
-onUnmounted(() => {
-  if (adminPoll) clearInterval(adminPoll)
+    return all.filter((s) => inactiveStatuses.includes(s.status))
+  return all
 })
 
 const showNewSandbox = ref(false)
@@ -172,6 +152,20 @@ function handleDelete(sandbox: Sandbox) {
   showConfirmDelete.value = true
 }
 
+async function handleExtendTtl(
+  payload: { sandboxId: string; ttlMinutes: number },
+  done: (success: boolean) => void,
+) {
+  try {
+    await extendTTL(payload.sandboxId, payload.ttlMinutes)
+    toast.success('Laufzeit wurde verlängert')
+    done(true)
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Fehler beim Verlängern der Laufzeit'))
+    done(false)
+  }
+}
+
 async function handleCreateSandbox(
   payload: {
     imageId: string
@@ -220,13 +214,19 @@ async function handleCreateSnapshot(
   }
 }
 
-async function handleConfirmDelete() {
-  if (!selectedSandbox.value) return
+async function handleConfirmDelete(done: (success: boolean) => void) {
+  if (!selectedSandbox.value) return done(false)
+  const id = selectedSandbox.value.id
+  busyIds.value.add(id)
   try {
-    await deleteSandbox(selectedSandbox.value.id)
+    await deleteSandbox(id)
     toast.success('Sandbox wurde beendet')
+    done(true)
   } catch (e) {
     toast.error(getApiErrorMessage(e, 'Fehler beim Beenden'))
+    done(false)
+  } finally {
+    busyIds.value.delete(id)
   }
 }
 </script>
@@ -317,7 +317,7 @@ async function handleConfirmDelete() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            :disabled="!isSandboxReadyForOpen(sandbox)"
+                            :disabled="!isSandboxReadyForOpen(sandbox) || busyIds.has(sandbox.id)"
                             @click="handleOpen(sandbox)"
                           >
                             <ExternalLink class="h-4 w-4" />
@@ -327,7 +327,12 @@ async function handleConfirmDelete() {
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger as-child>
-                          <Button variant="ghost" size="icon-sm" @click="handleExtend(sandbox)">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            :disabled="busyIds.has(sandbox.id)"
+                            @click="handleExtend(sandbox)"
+                          >
                             <Clock class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -335,7 +340,12 @@ async function handleConfirmDelete() {
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger as-child>
-                          <Button variant="ghost" size="icon-sm" @click="handleSnapshot(sandbox)">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            :disabled="busyIds.has(sandbox.id)"
+                            @click="handleSnapshot(sandbox)"
+                          >
                             <Camera class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -347,6 +357,7 @@ async function handleConfirmDelete() {
                             variant="ghost"
                             size="icon-sm"
                             class="text-destructive hover:text-destructive"
+                            :disabled="busyIds.has(sandbox.id)"
                             @click="handleDelete(sandbox)"
                           >
                             <Square class="h-4 w-4" />
@@ -426,6 +437,7 @@ async function handleConfirmDelete() {
                           variant="ghost"
                           size="icon-sm"
                           class="text-destructive hover:text-destructive"
+                          :disabled="busyIds.has(sandbox.id)"
                           @click="handleDelete(sandbox)"
                         >
                           <Trash2 class="h-4 w-4" />
@@ -524,7 +536,12 @@ async function handleConfirmDelete() {
                     <div class="flex items-center justify-end gap-1">
                       <Tooltip v-if="sandbox.status === 'running' || sandbox.status === 'starting'">
                         <TooltipTrigger as-child>
-                          <Button variant="ghost" size="icon-sm" @click="handleExtend(sandbox)">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            :disabled="busyIds.has(sandbox.id)"
+                            @click="handleExtend(sandbox)"
+                          >
                             <Clock class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -536,7 +553,8 @@ async function handleConfirmDelete() {
                             variant="ghost"
                             size="icon-sm"
                             class="text-destructive hover:text-destructive"
-                            @click="handleAdminDelete(sandbox)"
+                            :disabled="busyIds.has(sandbox.id)"
+                            @click="handleDelete(sandbox)"
                           >
                             <Square class="h-4 w-4" />
                           </Button>
@@ -563,6 +581,7 @@ async function handleConfirmDelete() {
       v-model:open="showExtend"
       :sandbox-id="selectedSandbox?.id ?? ''"
       :sandbox-name="selectedSandbox ? getSandboxDisplayName(selectedSandbox) : ''"
+      @submit="handleExtendTtl"
     />
 
     <SnapshotDialog
