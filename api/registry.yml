@@ -51,8 +51,8 @@ images:
         timeout: 30s
         retries: 3
         retry_delay: 5s
-      - command: [ "bash", "-c", "cd /var/www/html && grep -q '^APP_ENV=' \".env\" && sed -i \"s/^APP_ENV=.*/APP_ENV={{.Meta.app_env}}/\" \".env\" || echo \"APP_ENV={{.Meta.app_env}}\" >> \".env\"" ]
-        delay: 10s
+      - command: [ "bash", "-c", "printf 'APP_ENV={{.Meta.app_env}}\\nAPP_URL={{.URL}}\\n' > /var/www/html/.env.local" ]
+        delay: 20s
         timeout: 30s
         retries: 2
         retry_delay: 3s
