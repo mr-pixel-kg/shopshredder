@@ -37,7 +37,8 @@ func EnsureGuestSession(guestService *services.GuestSessionService, cookieName s
 					Value:    token,
 					Path:     "/",
 					HttpOnly: true,
-					SameSite: http.SameSiteLaxMode,
+					Secure:   true,
+					SameSite: http.SameSiteNoneMode,
 				})
 				slog.Info("guest session created or refreshed", logging.RequestFields(c, "component", "guest", "guest_session_id", sessionID.String())...)
 			} else {
