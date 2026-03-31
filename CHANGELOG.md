@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.2.0] - 2026-03-31
+### Added
+- Sandboxes with unlimited lifetime
+
+### Changed
+- Improved user interface and user experience
+
+### Fixed
+- Sandbox not visible in Gallery when not logged in (Guest-Mode) [#58](https://github.com/mr-pixel-kg/shopware-sandbox-plattform/issues/58)
+- APP_URL not set correctly [#59](https://github.com/mr-pixel-kg/shopware-sandbox-plattform/issues/59)
+
 ## [1.1.0] - 2026-03-27
 ### Added
 - User management
