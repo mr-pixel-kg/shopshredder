@@ -73,7 +73,7 @@ const {
   allLoading,
   startAdminPolling,
 } = useSandboxes()
-const { images, uploadThumbnail, trackPendingImage } = useImages()
+const { images, uploadThumbnail, trackPendingImage } = useImages('all')
 
 onMounted(() => {
   if (isAdmin.value) {
