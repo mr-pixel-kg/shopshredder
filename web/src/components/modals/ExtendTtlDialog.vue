@@ -34,6 +34,8 @@ const options = [
   { value: '60', label: '+1 Std' },
   { value: '120', label: '+2 Std' },
   { value: '240', label: '+4 Std' },
+  { value: '1440', label: '+24 Std' },
+  { value: 'unlimited', label: 'Unbegrenzt' },
 ]
 
 function handleSubmit() {
@@ -41,7 +43,10 @@ function handleSubmit() {
   submitting.value = true
   emit(
     'submit',
-    { sandboxId: props.sandboxId, ttlMinutes: Number(ttlMinutes.value) },
+    {
+      sandboxId: props.sandboxId,
+      ttlMinutes: ttlMinutes.value === 'unlimited' ? 0 : Number(ttlMinutes.value),
+    },
     (success: boolean) => {
       submitting.value = false
       if (success) {
