@@ -63,6 +63,16 @@ const readOnlyItems = computed(() =>
   imageMeta.value.filter((m) => m.type === 'setting' || m.type === 'info'),
 )
 
+function populateMetadataDefaults() {
+  const defaults: Record<string, string> = {}
+  for (const item of imageMeta.value) {
+    if (item.type === 'field' || item.type === 'setting') {
+      defaults[item.key] = item.value ?? ''
+    }
+  }
+  metadataValues.value = defaults
+}
+
 watch(
   () => props.open,
   (open) => {
@@ -71,20 +81,12 @@ watch(
       displayName.value = ''
       ttlMinutes.value = '120'
       submitting.value = false
-      metadataValues.value = {}
+      populateMetadataDefaults()
     }
   },
 )
 
-watch(selectedImageId, () => {
-  const defaults: Record<string, string> = {}
-  for (const item of imageMeta.value) {
-    if (item.type === 'field' || item.type === 'setting') {
-      defaults[item.key] = item.value ?? ''
-    }
-  }
-  metadataValues.value = defaults
-})
+watch(selectedImageId, populateMetadataDefaults)
 
 function handleSubmit() {
   if (!selectedImageId.value) return
