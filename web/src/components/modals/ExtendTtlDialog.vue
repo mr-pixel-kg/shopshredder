@@ -69,7 +69,7 @@ function handleSubmit() {
       </DialogHeader>
       <div class="grid gap-2 overflow-hidden py-4">
         <Label>Laufzeit</Label>
-        <div class="overflow-x-auto" style="scrollbar-width: none">
+        <div class="overflow-x-auto">
           <ToggleGroup v-model="ttlMinutes" type="single" variant="outline" class="w-max">
             <ToggleGroupItem v-for="opt in options" :key="opt.value" :value="opt.value">
               {{ opt.label }}

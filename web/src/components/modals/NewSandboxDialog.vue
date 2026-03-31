@@ -169,7 +169,7 @@ function handleSubmit() {
 
             <div class="grid gap-2 overflow-hidden">
               <Label>Laufzeit</Label>
-              <div class="overflow-x-auto" style="scrollbar-width: none">
+              <div class="overflow-x-auto">
                 <ToggleGroup
                   v-model="ttlMinutes"
                   type="single"
