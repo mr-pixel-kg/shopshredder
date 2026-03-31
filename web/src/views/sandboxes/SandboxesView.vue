@@ -17,6 +17,7 @@ import ConfirmDialog from '@/components/modals/ConfirmDialog.vue'
 import EditSandboxDialog from '@/components/modals/EditSandboxDialog.vue'
 import ExtendTtlDialog from '@/components/modals/ExtendTtlDialog.vue'
 import NewSandboxDialog from '@/components/modals/NewSandboxDialog.vue'
+import { SandboxDetailDialog } from '@/components/modals/sandbox-detail'
 import SnapshotDialog from '@/components/modals/SnapshotDialog.vue'
 import TtlChip from '@/components/sandboxes/TtlChip.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -60,6 +61,7 @@ const { isAdmin } = storeToRefs(authStore)
 
 const {
   activeSandboxes,
+  healthBySandboxId,
   recentSandboxes,
   allSandboxes,
   loading,
@@ -87,6 +89,7 @@ const filteredAllSandboxes = computed(() => {
 })
 
 const showNewSandbox = ref(false)
+const showDetail = ref(false)
 const showEdit = ref(false)
 const showExtend = ref(false)
 const showSnapshot = ref(false)
@@ -118,8 +121,34 @@ function getSandboxOwnerLabel(sandbox: Sandbox): string {
   return sandbox.owner?.email ?? 'Gast'
 }
 
+function getLiveHealth(sandbox: Sandbox) {
+  return healthBySandboxId.value[sandbox.id]
+}
+
+function isSandboxReadyForOpen(sandbox: Sandbox): boolean {
+  const health = getLiveHealth(sandbox)
+  if (sandbox.status !== 'running') return false
+  if (!health) return true
+  return health.ready
+}
+
+function getSelectedImage() {
+  if (!selectedSandbox.value) return undefined
+  return images.value.find((i) => i.id === selectedSandbox.value!.imageId)
+}
+
+function getSelectedHealth() {
+  if (!selectedSandbox.value) return undefined
+  return getLiveHealth(selectedSandbox.value)
+}
+
+function handleRowClick(sandbox: Sandbox) {
+  selectedSandbox.value = sandbox
+  showDetail.value = true
+}
+
 function handleOpen(sandbox: Sandbox) {
-  if (sandbox.status !== 'running') return
+  if (!isSandboxReadyForOpen(sandbox)) return
   if (sandbox.url) window.open(sandbox.url, '_blank')
 }
 
@@ -270,7 +299,12 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                 </TableRow>
               </template>
               <TableEmpty v-else-if="!hasActive" :colspan="5">Keine aktiven Sandboxes</TableEmpty>
-              <TableRow v-for="sandbox in activeSandboxes" :key="sandbox.id" class="h-13">
+              <TableRow
+                v-for="sandbox in activeSandboxes"
+                :key="sandbox.id"
+                class="h-13 cursor-pointer"
+                @click="handleRowClick(sandbox)"
+              >
                 <TableCell>
                   <StatusBadge :status="sandbox.status" :state-reason="sandbox.stateReason" />
                 </TableCell>
@@ -292,7 +326,7 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                 <TableCell>
                   <TtlChip :expires-at="sandbox.expiresAt" :created-at="sandbox.createdAt" />
                 </TableCell>
-                <TableCell class="text-right">
+                <TableCell class="text-right" @click.stop>
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                       <Button variant="ghost" size="icon-sm" :disabled="busyIds.has(sandbox.id)">
@@ -356,7 +390,12 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                   <TableCell class="text-right"><Skeleton class="ml-auto h-7 w-7" /></TableCell>
                 </TableRow>
               </template>
-              <TableRow v-for="sandbox in recentSandboxes" :key="sandbox.id" class="h-13">
+              <TableRow
+                v-for="sandbox in recentSandboxes"
+                :key="sandbox.id"
+                class="h-13 cursor-pointer"
+                @click="handleRowClick(sandbox)"
+              >
                 <TableCell>
                   <StatusBadge :status="sandbox.status" :state-reason="sandbox.stateReason" />
                 </TableCell>
@@ -378,7 +417,7 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                 <TableCell class="text-muted-foreground">
                   {{ formatDateTime(sandbox.updatedAt) }}
                 </TableCell>
-                <TableCell class="text-right">
+                <TableCell class="text-right" @click.stop>
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                       <Button variant="ghost" size="icon-sm" :disabled="busyIds.has(sandbox.id)">
@@ -441,7 +480,12 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
               <TableEmpty v-else-if="filteredAllSandboxes.length === 0" :colspan="7">
                 Keine Instanzen gefunden
               </TableEmpty>
-              <TableRow v-for="sandbox in filteredAllSandboxes" :key="sandbox.id" class="h-13">
+              <TableRow
+                v-for="sandbox in filteredAllSandboxes"
+                :key="sandbox.id"
+                class="h-13 cursor-pointer"
+                @click="handleRowClick(sandbox)"
+              >
                 <TableCell>
                   <StatusBadge :status="sandbox.status" :state-reason="sandbox.stateReason" />
                 </TableCell>
@@ -460,7 +504,7 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                 <TableCell class="text-muted-foreground">
                   {{ sandbox.expiresAt ? formatDateTime(sandbox.expiresAt) : '—' }}
                 </TableCell>
-                <TableCell class="text-right">
+                <TableCell class="text-right" @click.stop>
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                       <Button variant="ghost" size="icon-sm" :disabled="busyIds.has(sandbox.id)">
@@ -501,6 +545,13 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
         </div>
       </section>
     </div>
+
+    <SandboxDetailDialog
+      v-model:open="showDetail"
+      :sandbox="selectedSandbox"
+      :health="getSelectedHealth()"
+      :image="getSelectedImage()"
+    />
 
     <NewSandboxDialog
       v-model:open="showNewSandbox"
