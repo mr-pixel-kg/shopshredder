@@ -74,7 +74,7 @@ func (s *AuditService) Log(input AuditLogInput) error {
 		ResourceType: resourceType,
 		ResourceID:   input.ResourceID,
 		Details:      datatypes.JSON(payload),
-		CreatedAt:    time.Now().UTC(),
+		Timestamp:    time.Now().UTC(),
 	})
 }
 

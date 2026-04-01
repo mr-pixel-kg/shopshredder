@@ -54,14 +54,14 @@ func (r *AuditLogRepository) List(options AuditLogListOptions) ([]models.AuditLo
 		query = query.Where("client_token = ?", *options.ClientToken)
 	}
 	if options.From != nil {
-		query = query.Where("created_at >= ?", *options.From)
+		query = query.Where("timestamp >= ?", *options.From)
 	}
 	if options.To != nil {
-		query = query.Where("created_at <= ?", *options.To)
+		query = query.Where("timestamp <= ?", *options.To)
 	}
 
 	err := query.
-		Order("created_at desc").
+		Order("timestamp desc").
 		Limit(options.Limit).
 		Offset(options.Offset).
 		Find(&logs).Error

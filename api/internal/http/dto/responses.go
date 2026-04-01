@@ -38,7 +38,7 @@ type AuditLogResponse struct {
 	ResourceType *string        `json:"resourceType,omitempty" example:"sandbox"`
 	ResourceID   *uuid.UUID     `json:"resourceId,omitempty" format:"uuid" example:"5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"`
 	Details      datatypes.JSON `json:"details" swaggertype:"object"`
-	CreatedAt    time.Time      `json:"createdAt" example:"2026-03-20T10:15:00Z"`
+	Timestamp    time.Time      `json:"timestamp" example:"2026-03-20T10:15:00Z"`
 }
 
 type ImageResponse struct {

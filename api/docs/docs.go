@@ -2034,10 +2034,6 @@ const docTemplate = `{
                     "format": "uuid",
                     "example": "4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf"
                 },
-                "createdAt": {
-                    "type": "string",
-                    "example": "2026-03-20T10:15:00Z"
-                },
                 "details": {
                     "type": "object"
                 },
@@ -2058,6 +2054,10 @@ const docTemplate = `{
                 "resourceType": {
                     "type": "string",
                     "example": "sandbox"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-03-20T10:15:00Z"
                 },
                 "user": {
                     "$ref": "#/definitions/dto.UserSummary"

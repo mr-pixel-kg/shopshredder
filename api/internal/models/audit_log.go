@@ -18,7 +18,7 @@ type AuditLog struct {
 	ResourceType *string        `gorm:"size:64;index" json:"resourceType" example:"sandbox"`
 	ResourceID   *uuid.UUID     `gorm:"type:uuid;index" json:"resourceId" format:"uuid" example:"5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"`
 	Details      datatypes.JSON `gorm:"type:jsonb" json:"details" swaggertype:"object"`
-	CreatedAt    time.Time      `gorm:"not null;index" json:"createdAt" example:"2026-03-20T10:15:00Z"`
+	Timestamp    time.Time      `gorm:"column:timestamp;not null;index" json:"timestamp" example:"2026-03-20T10:15:00Z"`
 }
 
 func (AuditLog) TableName() string {

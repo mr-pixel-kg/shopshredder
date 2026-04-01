@@ -115,7 +115,7 @@ export interface AuditLog {
   resourceType?: string | null
   resourceId?: string | null
   details: Record<string, unknown> | unknown[]
-  createdAt: string
+  timestamp: string
 }
 
 export interface LoginRequest {

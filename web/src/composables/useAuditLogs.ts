@@ -35,7 +35,7 @@ export function useAuditLogs() {
         '30d': 30 * 24 * 60 * 60 * 1000,
       }
       const cutoff = now - (periodMs[periodFilter.value] ?? periodMs['7d'])
-      logs = logs.filter((l) => new Date(l.createdAt).getTime() >= cutoff)
+      logs = logs.filter((l) => new Date(l.timestamp).getTime() >= cutoff)
     }
 
     return logs
@@ -84,7 +84,7 @@ export function useAuditLogs() {
       'Client-Token',
     ]
     const rows = filteredLogs.value.map((l) => [
-      l.createdAt,
+      l.timestamp,
       l.user?.email ?? l.user?.id ?? '',
       l.action,
       l.resourceType ?? '',

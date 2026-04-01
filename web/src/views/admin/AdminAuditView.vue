@@ -198,7 +198,7 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
           </TableEmpty>
           <TableRow v-for="log in logs" :key="log.id" class="h-13">
             <TableCell class="text-muted-foreground whitespace-nowrap">
-              {{ formatDateTime(log.createdAt) }}
+              {{ formatDateTime(log.timestamp) }}
             </TableCell>
             <TableCell>{{ log.user?.email ?? log.user?.id ?? '—' }}</TableCell>
             <TableCell>

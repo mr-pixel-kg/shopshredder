@@ -70,7 +70,7 @@ func (h *AuditHandler) List(c echo.Context) error {
 			ResourceType: logEntry.ResourceType,
 			ResourceID:   logEntry.ResourceID,
 			Details:      logEntry.Details,
-			CreatedAt:    logEntry.CreatedAt,
+			Timestamp:    logEntry.Timestamp,
 		})
 	}
 

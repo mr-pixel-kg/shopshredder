@@ -29,7 +29,7 @@ Aktuelle Felder:
 - `resourceType`
 - `resourceId`
 - `details`
-- `createdAt`
+- `timestamp`
 
 Wichtige Eigenschaften:
 
@@ -45,6 +45,8 @@ Wichtige Eigenschaften:
   Das ist vor allem fuer globale Auth-Aktionen wie Login/Logout sinnvoll.
 
 Die Migration fuer die neuen Audit-Felder liegt in [api/internal/database/migrations/000010_audit_log_actor_and_resource.sql](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/database/migrations/000010_audit_log_actor_and_resource.sql).
+
+Die Umbenennung von `created_at` auf `timestamp` liegt in [api/internal/database/migrations/000011_audit_logs_timestamp.sql](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/database/migrations/000011_audit_logs_timestamp.sql).
 
 ## Zentrale Contracts
 

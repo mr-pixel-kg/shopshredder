@@ -24,9 +24,6 @@ definitions:
         example: 4d0dbf0d-1034-42ef-8b6d-7eb3ceef99cf
         format: uuid
         type: string
-      createdAt:
-        example: "2026-03-20T10:15:00Z"
-        type: string
       details:
         type: object
       id:
@@ -42,6 +39,9 @@ definitions:
         type: string
       resourceType:
         example: sandbox
+        type: string
+      timestamp:
+        example: "2026-03-20T10:15:00Z"
         type: string
       user:
         $ref: '#/definitions/dto.UserSummary'
