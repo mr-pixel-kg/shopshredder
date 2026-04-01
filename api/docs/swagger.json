@@ -2051,6 +2051,7 @@
                 },
                 "ttlMinutes": {
                     "type": "integer",
+                    "minimum": 0,
                     "example": 120
                 }
             }
@@ -2092,6 +2093,10 @@
         },
         "dto.CreateUserRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "role"
+            ],
             "properties": {
                 "email": {
                     "type": "string",
@@ -2099,10 +2104,15 @@
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 8,
                     "example": "Sup3rS3cret!"
                 },
                 "role": {
                     "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
                     "example": "user"
                 }
             }
@@ -2136,6 +2146,7 @@
             "properties": {
                 "ttlMinutes": {
                     "type": "integer",
+                    "minimum": 0,
                     "example": 60
                 }
             }
@@ -2497,6 +2508,10 @@
         },
         "dto.UpdateUserRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "role"
+            ],
             "properties": {
                 "email": {
                     "type": "string",
@@ -2504,10 +2519,15 @@
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 8,
                     "example": "N3wSup3rS3cret!"
                 },
                 "role": {
                     "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
                     "example": "admin"
                 }
             }
