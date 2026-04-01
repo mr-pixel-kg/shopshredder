@@ -83,6 +83,7 @@ definitions:
         type: object
       ttlMinutes:
         example: 120
+        minimum: 0
         type: integer
     required:
     - imageId
@@ -119,10 +120,17 @@ definitions:
         type: string
       password:
         example: Sup3rS3cret!
+        minLength: 8
         type: string
       role:
+        enum:
+        - admin
+        - user
         example: user
         type: string
+    required:
+    - email
+    - role
     type: object
   dto.ErrorDetail:
     properties:
@@ -144,6 +152,7 @@ definitions:
     properties:
       ttlMinutes:
         example: 60
+        minimum: 0
         type: integer
     type: object
   dto.HealthResponse:
@@ -388,10 +397,17 @@ definitions:
         type: string
       password:
         example: N3wSup3rS3cret!
+        minLength: 8
         type: string
       role:
+        enum:
+        - admin
+        - user
         example: admin
         type: string
+    required:
+    - email
+    - role
     type: object
   dto.UserSummary:
     properties:

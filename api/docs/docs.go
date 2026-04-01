@@ -2057,6 +2057,7 @@ const docTemplate = `{
                 },
                 "ttlMinutes": {
                     "type": "integer",
+                    "minimum": 0,
                     "example": 120
                 }
             }
@@ -2098,6 +2099,10 @@ const docTemplate = `{
         },
         "dto.CreateUserRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "role"
+            ],
             "properties": {
                 "email": {
                     "type": "string",
@@ -2105,10 +2110,15 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 8,
                     "example": "Sup3rS3cret!"
                 },
                 "role": {
                     "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
                     "example": "user"
                 }
             }
@@ -2142,6 +2152,7 @@ const docTemplate = `{
             "properties": {
                 "ttlMinutes": {
                     "type": "integer",
+                    "minimum": 0,
                     "example": 60
                 }
             }
@@ -2475,6 +2486,10 @@ const docTemplate = `{
         },
         "dto.UpdateUserRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "role"
+            ],
             "properties": {
                 "email": {
                     "type": "string",
@@ -2482,10 +2497,15 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 8,
                     "example": "N3wSup3rS3cret!"
                 },
                 "role": {
                     "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
                     "example": "admin"
                 }
             }
