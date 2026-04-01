@@ -20,6 +20,8 @@ services:
       SERVER_APP_URL: ${SERVER_APP_URL:-https://${API_DOMAIN}}
       SANDBOX_URL_PREFIX: ${SANDBOX_URL_PREFIX:-sandbox-}
       SANDBOX_URL_SUFFIX: ${SANDBOX_URL_SUFFIX:-.zion.mr-pixel.de}
+      SSH_ENABLED: ${SSH_ENABLED:-true}
+      SSH_PORT: ${SSH_PORT:-2222}
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       - api_storage:/app/storage
