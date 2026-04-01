@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight, Download } from 'lucide-vue-next'
+import { ref } from 'vue'
 
+import AuditLogDetailDrawer from '@/components/modals/AuditLogDetailDrawer.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,6 +26,8 @@ import {
 import { useAuditLogs } from '@/composables/useAuditLogs'
 import { formatDateTime } from '@/utils/formatters'
 
+import type { AuditLog } from '@/types'
+
 const {
   logs,
   meta,
@@ -37,6 +41,9 @@ const {
   availableActions,
   exportCsv,
 } = useAuditLogs()
+
+const showDetailDrawer = ref(false)
+const selectedLog = ref<AuditLog | null>(null)
 
 function actionBadgeConfig(action: string): { label: string; class: string } {
   const map: Record<string, { label: string; class: string }> = {
@@ -122,6 +129,11 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
     .map(([k, v]) => `${k}: ${v}`)
     .join(', ')
 }
+
+function openDetails(log: AuditLog) {
+  selectedLog.value = log
+  showDetailDrawer.value = true
+}
 </script>
 
 <template>
@@ -200,7 +212,15 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
           <TableEmpty v-else-if="logs.length === 0" :colspan="6">
             Keine Einträge gefunden
           </TableEmpty>
-          <TableRow v-for="log in logs" :key="log.id" class="h-13">
+          <TableRow
+            v-for="log in logs"
+            :key="log.id"
+            class="hover:bg-muted/40 focus-within:bg-muted/40 h-13 cursor-pointer transition-colors"
+            tabindex="0"
+            @click="openDetails(log)"
+            @keydown.enter.prevent="openDetails(log)"
+            @keydown.space.prevent="openDetails(log)"
+          >
             <TableCell class="text-muted-foreground whitespace-nowrap">
               {{ formatDateTime(log.timestamp) }}
             </TableCell>
@@ -237,5 +257,7 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
         </Button>
       </div>
     </div>
+
+    <AuditLogDetailDrawer v-model:open="showDetailDrawer" :log="selectedLog" />
   </div>
 </template>
