@@ -5,7 +5,8 @@ logging:
 server:
   port: 8080
   app_url: ""           # set via SERVER_APP_URL env
-  allowed_origins: []   # set via SERVER_ALLOWED_ORIGINS env (only one possible in env)
+  allowed_origins:
+    - "https://shopshredder.de"
 
 database:
   host: ""       # set via DATABASE_HOST env
