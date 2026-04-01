@@ -26,7 +26,7 @@ import { formatDateTime } from '@/utils/formatters'
 
 const {
   logs,
-  allLogs,
+  meta,
   loading,
   page,
   totalPages,
@@ -34,7 +34,7 @@ const {
   actionFilter,
   periodFilter,
   uniqueUsers,
-  uniqueActions,
+  availableActions,
   exportCsv,
 } = useAuditLogs()
 
@@ -152,7 +152,7 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Alle Aktionen</SelectItem>
-          <SelectItem v-for="a in uniqueActions" :key="a" :value="a">{{ a }}</SelectItem>
+          <SelectItem v-for="a in availableActions" :key="a" :value="a">{{ a }}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -167,7 +167,9 @@ function formatDetails(details: Record<string, unknown> | unknown[]): string {
         </SelectContent>
       </Select>
 
-      <span class="text-muted-foreground ml-auto text-sm"> {{ allLogs.length }} Einträge </span>
+      <span class="text-muted-foreground ml-auto text-sm">
+        {{ meta?.pagination.total ?? logs.length }} Einträge
+      </span>
     </div>
 
     <div class="rounded-md border">

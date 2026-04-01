@@ -1,11 +1,32 @@
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { auditApi } from '@/api'
 
 import type { AuditLog, AuditLogListMeta } from '@/types'
 
+const auditActions = [
+  'auth.logged_in',
+  'auth.logged_out',
+  'user.registered',
+  'user.created',
+  'user.updated',
+  'user.deleted',
+  'user.whitelisted',
+  'user.whitelist_removed',
+  'image.created',
+  'image.updated',
+  'image.deleted',
+  'image.thumbnail_uploaded',
+  'image.thumbnail_deleted',
+  'image.snapshot_created',
+  'sandbox.created',
+  'sandbox.updated',
+  'sandbox.ttl_updated',
+  'sandbox.deleted',
+] as const
+
 export function useAuditLogs() {
-  const allLogs = ref<AuditLog[]>([])
+  const logs = ref<AuditLog[]>([])
   const meta = ref<AuditLogListMeta | null>(null)
   const loading = ref(false)
   const initialized = ref(false)
@@ -17,54 +38,45 @@ export function useAuditLogs() {
   const page = ref(1)
   const pageSize = 20
 
-  const filteredLogs = computed(() => {
-    let logs = allLogs.value
-
-    if (userFilter.value && userFilter.value !== 'all') {
-      logs = logs.filter((l) => l.user?.id === userFilter.value)
-    }
-
-    if (actionFilter.value && actionFilter.value !== 'all') {
-      logs = logs.filter((l) => l.action === actionFilter.value)
-    }
-
-    if (periodFilter.value) {
-      const now = Date.now()
-      const periodMs: Record<string, number> = {
-        '24h': 24 * 60 * 60 * 1000,
-        '7d': 7 * 24 * 60 * 60 * 1000,
-        '30d': 30 * 24 * 60 * 60 * 1000,
-      }
-      const cutoff = now - (periodMs[periodFilter.value] ?? periodMs['7d'])
-      logs = logs.filter((l) => new Date(l.timestamp).getTime() >= cutoff)
-    }
-
-    return logs
-  })
-
-  const totalPages = computed(() => Math.max(1, Math.ceil(filteredLogs.value.length / pageSize)))
-
-  const paginatedLogs = computed(() => {
-    const start = (page.value - 1) * pageSize
-    return filteredLogs.value.slice(start, start + pageSize)
+  const totalPages = computed(() => {
+    const total = meta.value?.pagination.total ?? logs.value.length
+    return Math.max(1, Math.ceil(total / pageSize))
   })
 
   const uniqueUsers = computed(() => {
     const users = new Map<string, string>()
-    for (const log of allLogs.value) {
+    for (const log of logs.value) {
       if (log.user) users.set(log.user.id, log.user.email)
     }
     return [...users.entries()].map(([id, email]) => ({ id, email }))
   })
 
-  const uniqueActions = computed(() => [...new Set(allLogs.value.map((l) => l.action))])
+  const availableActions = computed(() => [...auditActions])
+
+  const queryParams = computed(() => {
+    const now = Date.now()
+    const periodMs: Record<string, number> = {
+      '24h': 24 * 60 * 60 * 1000,
+      '7d': 7 * 24 * 60 * 60 * 1000,
+      '30d': 30 * 24 * 60 * 60 * 1000,
+    }
+    const duration = periodMs[periodFilter.value] ?? periodMs['7d']
+
+    return {
+      limit: pageSize,
+      offset: (page.value - 1) * pageSize,
+      userId: userFilter.value !== 'all' ? userFilter.value : undefined,
+      action: actionFilter.value !== 'all' ? actionFilter.value : undefined,
+      from: new Date(now - duration).toISOString(),
+    }
+  })
 
   async function fetch() {
     if (!initialized.value) loading.value = true
     error.value = null
     try {
-      const response = await auditApi.list(500)
-      allLogs.value = response.data
+      const response = await auditApi.list(queryParams.value)
+      logs.value = response.data
       meta.value = response.meta
       initialized.value = true
     } catch (e: unknown) {
@@ -86,7 +98,7 @@ export function useAuditLogs() {
       'User-Agent',
       'Client-Token',
     ]
-    const rows = filteredLogs.value.map((l) => [
+    const rows = logs.value.map((l) => [
       l.timestamp,
       l.user?.email ?? l.user?.id ?? '',
       l.action,
@@ -107,13 +119,20 @@ export function useAuditLogs() {
     URL.revokeObjectURL(url)
   }
 
-  onMounted(() => {
-    void fetch()
+  watch([userFilter, actionFilter, periodFilter], () => {
+    page.value = 1
   })
 
+  watch(
+    queryParams,
+    () => {
+      void fetch()
+    },
+    { immediate: true },
+  )
+
   return {
-    logs: paginatedLogs,
-    allLogs: filteredLogs,
+    logs,
     meta,
     loading,
     error,
@@ -124,7 +143,7 @@ export function useAuditLogs() {
     actionFilter,
     periodFilter,
     uniqueUsers,
-    uniqueActions,
+    availableActions,
     refresh: fetch,
     exportCsv,
   }
