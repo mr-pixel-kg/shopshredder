@@ -356,25 +356,21 @@ func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, auditActor Au
 		return ErrSandboxNotFound
 	}
 
-	resourceType := auditcontracts.ResourceTypeSandbox
-	_ = s.audit.Log(AuditLogInput{
-		Actor:        auditActor,
-		Action:       auditcontracts.ActionSandboxDeleted,
-		ResourceType: &resourceType,
-		ResourceID:   &sandbox.ID,
-		Details:      map[string]any{},
-	})
-
 	if sandbox.Status.IsActive() {
 		_ = s.setStatus(sandbox, models.SandboxStatusStopping, strPtr("Container wird beendet"))
-		go s.deleteContainerAsync(sandbox.ID, sandbox.ContainerID, sandbox.ImageID)
+		go s.deleteContainerAsync(sandbox.ID, sandbox.ContainerID, sandbox.ImageID, auditActor)
 		return nil
 	}
 
-	return s.repo.DeleteByID(sandbox.ID)
+	if err := s.repo.DeleteByID(sandbox.ID); err != nil {
+		return err
+	}
+
+	s.logSandboxDeleted(sandbox.ID, auditActor)
+	return nil
 }
 
-func (s *SandboxService) deleteContainerAsync(sandboxID uuid.UUID, containerID string, imageID uuid.UUID) {
+func (s *SandboxService) deleteContainerAsync(sandboxID uuid.UUID, containerID string, imageID uuid.UUID, auditActor AuditActor) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -387,6 +383,7 @@ func (s *SandboxService) deleteContainerAsync(sandboxID uuid.UUID, containerID s
 
 	_ = s.setStatusByID(sandboxID, models.SandboxStatusDeleted, nil)
 	_ = s.addEvent(sandboxID, "deleted", map[string]any{})
+	s.logSandboxDeleted(sandboxID, auditActor)
 }
 
 func (s *SandboxService) DeleteForGuest(ctx context.Context, id uuid.UUID, guestSessionID uuid.UUID, auditActor AuditActor) error {
@@ -751,6 +748,17 @@ func (s *SandboxService) addEvent(sandboxID uuid.UUID, eventType string, metadat
 		EventType: eventType,
 		Metadata:  datatypes.JSON(payload),
 		CreatedAt: time.Now().UTC(),
+	})
+}
+
+func (s *SandboxService) logSandboxDeleted(sandboxID uuid.UUID, auditActor AuditActor) {
+	resourceType := auditcontracts.ResourceTypeSandbox
+	_ = s.audit.Log(AuditLogInput{
+		Actor:        auditActor,
+		Action:       auditcontracts.ActionSandboxDeleted,
+		ResourceType: &resourceType,
+		ResourceID:   &sandboxID,
+		Details:      map[string]any{},
 	})
 }
 
