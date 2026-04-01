@@ -19,6 +19,7 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	"github.com/manuel/shopware-testenv-platform/api/internal/sshproxy"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"gorm.io/gorm"
 )
@@ -85,6 +86,21 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 	sandboxService.StartDockerEventLoop(context.Background())
 	sandboxHealthService.StartMonitoringActive()
 
+	if cfg.SSH.Enabled {
+		sshServer := sshproxy.NewServer(
+			fmt.Sprintf(":%d", cfg.SSH.Port),
+			"",
+			cfg.Sandbox.URLPrefix,
+			sdkClient,
+			cfg.Docker.Network,
+		)
+		go func() {
+			if err := sshServer.ListenAndServe(); err != nil {
+				slog.Error("SSH proxy server failed", "error", err)
+			}
+		}()
+	}
+
 	imageService.ReconcileOnStartup(context.Background())
 	terminalService := services.NewTerminalService(cfg.Terminal, dockerClient, sandboxRepo)
 	terminalHandler := handlers.NewTerminalHandler(terminalService, authService, cfg.Server.AllowedOrigins)
@@ -99,6 +115,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 		authService,
 		guestService,
 		cfg.Auth.GuestCookieName,
+		cfg.SSH,
 	)
 	auditHandler := handlers.NewAuditHandler(auditService)
 	userHandler := handlers.NewUserHandler(userService, auditService)

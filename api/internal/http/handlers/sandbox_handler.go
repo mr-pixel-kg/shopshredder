@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
+	"github.com/manuel/shopware-testenv-platform/api/internal/config"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
@@ -24,6 +25,7 @@ type SandboxHandler struct {
 	auth            *services.AuthService
 	guest           *services.GuestSessionService
 	guestCookieName string
+	sshCfg          config.SSHConfig
 }
 
 func NewSandboxHandler(
@@ -34,6 +36,7 @@ func NewSandboxHandler(
 	auth *services.AuthService,
 	guest *services.GuestSessionService,
 	guestCookieName string,
+	sshCfg config.SSHConfig,
 ) *SandboxHandler {
 	return &SandboxHandler{
 		sandboxes:       sandboxes,
@@ -43,6 +46,7 @@ func NewSandboxHandler(
 		auth:            auth,
 		guest:           guest,
 		guestCookieName: guestCookieName,
+		sshCfg:          sshCfg,
 	}
 }
 
@@ -62,9 +66,10 @@ func (h *SandboxHandler) List(c echo.Context) error {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load sandboxes").WithCause(err))
 	}
 	auth := mw.MustAuth(c)
-	h.enrichSandboxMetadata(sandboxes)
 	slog.Debug("listed all sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	return c.JSON(200, toSandboxResponses(sandboxes))
+	resp := toSandboxResponses(sandboxes)
+	h.enrichSandboxes(sandboxes, resp)
+	return c.JSON(200, resp)
 }
 
 // ListMine godoc
@@ -83,9 +88,10 @@ func (h *SandboxHandler) ListMine(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load own sandboxes").WithCause(err))
 	}
-	h.enrichSandboxMetadata(sandboxes)
 	slog.Debug("listed user sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	return c.JSON(200, toSandboxResponses(sandboxes))
+	resp := toSandboxResponses(sandboxes)
+	h.enrichSandboxes(sandboxes, resp)
+	return c.JSON(200, resp)
 }
 
 // ListGuest godoc
@@ -102,9 +108,10 @@ func (h *SandboxHandler) ListGuest(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load guest sandboxes").WithCause(err))
 	}
-	h.enrichSandboxMetadata(sandboxes)
 	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "guest_session_id", guest.SessionID.String(), "count", len(sandboxes))...)
-	return c.JSON(200, toSandboxResponses(sandboxes))
+	resp := toSandboxResponses(sandboxes)
+	h.enrichSandboxes(sandboxes, resp)
+	return c.JSON(200, resp)
 }
 
 // Get godoc
@@ -129,9 +136,9 @@ func (h *SandboxHandler) Get(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.NotFound("SANDBOX_NOT_FOUND", "Sandbox not found").WithCause(err))
 	}
-	h.enrichSandbox(sandbox)
 	slog.Debug("sandbox loaded", logging.RequestFields(c, "component", "sandbox", "sandbox_id", sandbox.ID.String(), "status", sandbox.Status)...)
-	return c.JSON(200, toSandboxResponse(sandbox))
+	resp := h.enrichSandbox(sandbox)
+	return c.JSON(200, resp)
 }
 
 // Health godoc
