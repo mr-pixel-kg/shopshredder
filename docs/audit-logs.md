@@ -307,11 +307,20 @@ Frontend-Typen und Anzeige:
 - [web/src/composables/useAuditLogs.ts](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/web/src/composables/useAuditLogs.ts)
 - [web/src/views/admin/AdminAuditView.vue](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/web/src/views/admin/AdminAuditView.vue)
 
+Wichtig:
+
+- das Admin-UI nutzt die Filter und Pagination serverseitig ueber Query-Parameter
+- die Benutzer- und Action-Auswahl wird ueber einen separaten Facets-Endpoint stabil gehalten
+- der CSV-Export laedt alle aktuell gefilterten Seiten nach, nicht nur die gerade sichtbare Tabelle
+
 ## Audit-Log-API
 
-Aktueller Endpoint:
+Aktuelle Endpoints:
 
 - `GET /api/audit-logs`
+- `GET /api/audit-logs/facets`
+
+Beide Endpoints sind nur fuer Admins verfuegbar.
 
 Die Response ist jetzt im `data`/`meta`-Format aufgebaut:
 
@@ -327,11 +336,18 @@ Die Response ist jetzt im `data`/`meta`-Format aufgebaut:
     }
   ],
   "meta": {
-    "limit": 50,
-    "offset": 0,
-    "count": 50,
-    "total": 137,
-    "hasMore": true
+    "pagination": {
+      "limit": 50,
+      "offset": 0,
+      "count": 50,
+      "total": 137,
+      "hasMore": true
+    },
+    "filters": {
+      "resourceType": "sandbox",
+      "action": "sandbox.deleted",
+      "from": "2026-04-01T00:00:00Z"
+    }
   }
 }
 ```
@@ -359,6 +375,8 @@ Die Response ist jetzt im `data`/`meta`-Format aufgebaut:
 
 ### Meta-Felder
 
+Unter `meta.pagination`:
+
 - `limit`
   effektiv verwendetes Limit
 - `offset`
@@ -370,7 +388,7 @@ Die Response ist jetzt im `data`/`meta`-Format aufgebaut:
 - `hasMore`
   ob hinter dem aktuellen Fenster noch weitere Eintraege existieren
 
-Zusätzlich werden aktive Filter in `meta` zurueckgegeben:
+Unter `meta.filters` werden aktive Filter zurueckgegeben:
 
 - `userId`
 - `action`
@@ -385,6 +403,44 @@ Beispiel:
 ```text
 /api/audit-logs?resourceType=sandbox&action=sandbox.deleted&from=2026-04-01T00:00:00Z&limit=100
 ```
+
+## Audit-Log-Facets-API
+
+Der Endpoint `GET /api/audit-logs/facets` liefert stabile Werte fuer Filter-Controls im Frontend.
+
+Aktuelle Response:
+
+```json
+{
+  "users": [
+    {
+      "id": "…",
+      "email": "jane.doe@example.com"
+    }
+  ],
+  "actions": [
+    "auth.logged_in",
+    "sandbox.created",
+    "sandbox.deleted"
+  ]
+}
+```
+
+Aktuelle Query-Parameter:
+
+- `action`
+- `resourceType`
+- `resourceId`
+- `clientToken`
+- `from`
+- `to`
+
+Der Endpoint ist bewusst fuer Filter-Facets gedacht:
+
+- `users` werden passend zum aktuellen Zeitfenster und den uebergebenen Facet-Filtern geladen
+- `actions` kommen aus den zentral definierten Contracts und bleiben dadurch stabil
+
+Das vermeidet, dass Dropdowns im Admin-UI nur die Werte der gerade sichtbaren Seite anzeigen.
 
 ### Validierung
 
@@ -422,4 +478,10 @@ Das Datenmodell unterstuetzt jetzt gute spaetere Filter nach:
 - `userId`
 - Zeitraum
 
-Die List-API nutzt diese Moeglichkeiten aktuell noch nicht voll aus.
+Die List-API und die Facets-API nutzen diese Filter bereits.
+
+Moegliche spaetere Erweiterungen waeren:
+
+- Volltextsuche ueber `details`
+- serverseitige Facets fuer `resourceType`
+- serverseitige Facets fuer `clientToken`
