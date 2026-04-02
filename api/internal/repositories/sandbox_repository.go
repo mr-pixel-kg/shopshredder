@@ -70,10 +70,10 @@ func (r *SandboxRepository) ListAllByUser(userID uuid.UUID) ([]models.Sandbox, e
 	return sandboxes, err
 }
 
-func (r *SandboxRepository) ListAllByGuestSession(sessionID uuid.UUID) ([]models.Sandbox, error) {
+func (r *SandboxRepository) ListAllByClientID(clientID uuid.UUID) ([]models.Sandbox, error) {
 	var sandboxes []models.Sandbox
 	err := r.withOwner(r.db).
-		Where("guest_session_id = ?", sessionID).
+		Where("client_id = ?", clientID).
 		Order("created_at desc").
 		Find(&sandboxes).Error
 	return sandboxes, err

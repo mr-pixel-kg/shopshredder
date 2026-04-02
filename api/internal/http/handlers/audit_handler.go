@@ -37,7 +37,7 @@ func NewAuditHandler(audit *services.AuditService) *AuditHandler {
 // @Param        action query string false "Filter by action" example("sandbox.created")
 // @Param        resourceType query string false "Filter by resource type" example("sandbox")
 // @Param        resourceId query string false "Filter by resource ID" format(uuid)
-// @Param        clientToken query string false "Filter by client token" format(uuid)
+// @Param        clientId query string false "Filter by client ID" format(uuid)
 // @Param        from query string false "Filter from timestamp (inclusive)" format(date-time)
 // @Param        to query string false "Filter to timestamp (inclusive)" format(date-time)
 // @Success      200 {object} dto.AuditLogListResponse
@@ -66,7 +66,7 @@ func (h *AuditHandler) List(c echo.Context) error {
 			Action:       logEntry.Action,
 			IPAddress:    logEntry.IPAddress,
 			UserAgent:    logEntry.UserAgent,
-			ClientToken:  logEntry.ClientToken,
+			ClientID:     logEntry.ClientID,
 			ResourceType: logEntry.ResourceType,
 			ResourceID:   logEntry.ResourceID,
 			Details:      logEntry.Details,
@@ -89,7 +89,7 @@ func (h *AuditHandler) List(c echo.Context) error {
 				Action:       filters.Action,
 				ResourceType: filters.ResourceType,
 				ResourceID:   filters.ResourceID,
-				ClientToken:  filters.ClientToken,
+				ClientID:     filters.ClientID,
 				From:         filters.From,
 				To:           filters.To,
 			},
@@ -106,7 +106,7 @@ func (h *AuditHandler) List(c echo.Context) error {
 // @Param        action query string false "Filter users by action" example("sandbox.created")
 // @Param        resourceType query string false "Filter users by resource type" example("sandbox")
 // @Param        resourceId query string false "Filter users by resource ID" format(uuid)
-// @Param        clientToken query string false "Filter users by client token" format(uuid)
+// @Param        clientId query string false "Filter by client ID" format(uuid)
 // @Param        from query string false "Filter from timestamp (inclusive)" format(date-time)
 // @Param        to query string false "Filter to timestamp (inclusive)" format(date-time)
 // @Success      200 {object} dto.AuditLogFacetsResponse
@@ -169,7 +169,7 @@ func parseAuditLogListInput(c echo.Context) (services.AuditLogListInput, error) 
 	if err != nil {
 		return input, err
 	}
-	clientToken, err := parseOptionalUUIDQuery(c.QueryParam("clientToken"), "Invalid clientToken")
+	clientID, err := parseOptionalUUIDQuery(c.QueryParam("clientId"), "Invalid clientId")
 	if err != nil {
 		return input, err
 	}
@@ -187,7 +187,7 @@ func parseAuditLogListInput(c echo.Context) (services.AuditLogListInput, error) 
 
 	input.UserID = userID
 	input.ResourceID = resourceID
-	input.ClientToken = clientToken
+	input.ClientID = clientID
 	input.From = from
 	input.To = to
 
@@ -206,7 +206,7 @@ func parseAuditLogFacetInput(c echo.Context) (services.AuditLogFacetInput, error
 	if err != nil {
 		return services.AuditLogFacetInput{}, err
 	}
-	clientToken, err := parseOptionalUUIDQuery(c.QueryParam("clientToken"), "Invalid clientToken")
+	clientID, err := parseOptionalUUIDQuery(c.QueryParam("clientId"), "Invalid clientId")
 	if err != nil {
 		return services.AuditLogFacetInput{}, err
 	}
@@ -223,10 +223,10 @@ func parseAuditLogFacetInput(c echo.Context) (services.AuditLogFacetInput, error
 	}
 
 	input := services.AuditLogFacetInput{
-		ResourceID:  resourceID,
-		ClientToken: clientToken,
-		From:        from,
-		To:          to,
+		ResourceID: resourceID,
+		ClientID:   clientID,
+		From:       from,
+		To:         to,
 	}
 	if value := strings.TrimSpace(c.QueryParam("action")); value != "" {
 		input.Action = &value

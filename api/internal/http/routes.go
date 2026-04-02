@@ -67,13 +67,13 @@ func newEcho(cfg config.Config) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Validator = NewValidator()
-	e.Use(authmw.EnsureClientToken())
+	e.Use(authmw.EnsureClientID())
 	e.Use(echomw.Recover())
 	e.Use(echomw.RequestID())
 	e.Use(logging.EchoRequestLogger())
 	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
 		AllowOrigins:     cfg.Server.AllowedOrigins,
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Client-Token"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Client-Id"},
 		AllowCredentials: true,
 	}))
 	return e

@@ -70,14 +70,14 @@ func NewSandboxService(
 }
 
 type CreateSandboxInput struct {
-	ImageID        uuid.UUID
-	UserID         *uuid.UUID
-	GuestSessionID *uuid.UUID
-	ClientIP       string
-	TTLMinutes     *int
-	DisplayName    *string
-	Metadata       map[string]string
-	AuditActor     AuditActor
+	ImageID     uuid.UUID
+	UserID      *uuid.UUID
+	ClientID    *uuid.UUID
+	ClientIP    string
+	TTLMinutes  *int
+	DisplayName *string
+	Metadata    map[string]string
+	AuditActor  AuditActor
 }
 
 type UpdateSandboxInput struct {
@@ -100,8 +100,8 @@ func (s *SandboxService) ListByUser(userID uuid.UUID) ([]models.Sandbox, error) 
 	return s.repo.ListAllByUser(userID)
 }
 
-func (s *SandboxService) ListByGuestSession(sessionID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListAllByGuestSession(sessionID)
+func (s *SandboxService) ListByClientID(clientID uuid.UUID) ([]models.Sandbox, error) {
+	return s.repo.ListAllByClientID(clientID)
 }
 
 func (s *SandboxService) FindByID(id uuid.UUID) (*models.Sandbox, error) {
@@ -266,20 +266,20 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	}
 	startingReason := "Container wird gestartet"
 	sandbox := &models.Sandbox{
-		ID:             sandboxID,
-		ImageID:        image.ID,
-		OwnerID:        input.UserID,
-		GuestSessionID: input.GuestSessionID,
-		DisplayName:    displayName,
-		Status:         models.SandboxStatusStarting,
-		StateReason:    &startingReason,
-		ContainerID:    container.ID,
-		ContainerName:  container.Name,
-		URL:            container.URL,
-		Port:           container.Port,
-		ClientIP:       input.ClientIP,
-		Metadata:       datatypes.JSON(fieldsJSON),
-		ExpiresAt:      expiresAt,
+		ID:            sandboxID,
+		ImageID:       image.ID,
+		OwnerID:       input.UserID,
+		ClientID:      input.ClientID,
+		DisplayName:   displayName,
+		Status:        models.SandboxStatusStarting,
+		StateReason:   &startingReason,
+		ContainerID:   container.ID,
+		ContainerName: container.Name,
+		URL:           container.URL,
+		Port:          container.Port,
+		ClientIP:      input.ClientIP,
+		Metadata:      datatypes.JSON(fieldsJSON),
+		ExpiresAt:     expiresAt,
 	}
 
 	if err := s.repo.Create(sandbox); err != nil {
@@ -395,13 +395,13 @@ func (s *SandboxService) deleteContainerAsync(sandboxID uuid.UUID, containerID s
 	s.logSandboxDeleted(sandboxID, auditActor)
 }
 
-func (s *SandboxService) DeleteForGuest(ctx context.Context, id uuid.UUID, guestSessionID uuid.UUID, auditActor AuditActor) error {
+func (s *SandboxService) DeleteForGuest(ctx context.Context, id uuid.UUID, clientID uuid.UUID, auditActor AuditActor) error {
 	sandbox, err := s.repo.FindByID(id)
 	if err != nil {
 		return ErrSandboxNotFound
 	}
 
-	if sandbox.GuestSessionID == nil || *sandbox.GuestSessionID != guestSessionID {
+	if sandbox.ClientID == nil || *sandbox.ClientID != clientID {
 		return ErrSandboxAccessDenied
 	}
 

@@ -15,10 +15,10 @@ func TestParseAuditLogListInputDefaultsAndTrimsValues(t *testing.T) {
 
 	userID := uuid.New()
 	resourceID := uuid.New()
-	clientToken := uuid.New()
+	clientID := uuid.New()
 	req := httptest.NewRequest("GET", "/api/audit-logs?limit=25&offset=10&userId="+userID.String()+
 		"&action=%20sandbox.created%20&resourceType=%20sandbox%20&resourceId="+resourceID.String()+
-		"&clientToken="+clientToken.String()+"&from=2026-04-01T10:00:00Z&to=2026-04-01T12:00:00Z", nil)
+		"&clientId="+clientID.String()+"&from=2026-04-01T10:00:00Z&to=2026-04-01T12:00:00Z", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 
@@ -35,8 +35,8 @@ func TestParseAuditLogListInputDefaultsAndTrimsValues(t *testing.T) {
 	assert.Equal(t, "sandbox", *input.ResourceType)
 	require.NotNil(t, input.ResourceID)
 	assert.Equal(t, resourceID, *input.ResourceID)
-	require.NotNil(t, input.ClientToken)
-	assert.Equal(t, clientToken, *input.ClientToken)
+	require.NotNil(t, input.ClientID)
+	assert.Equal(t, clientID, *input.ClientID)
 	require.NotNil(t, input.From)
 	assert.Equal(t, "2026-04-01T10:00:00Z", input.From.Format("2006-01-02T15:04:05Z07:00"))
 	require.NotNil(t, input.To)
@@ -71,7 +71,7 @@ func TestParseAuditLogListInputRejectsInvalidValues(t *testing.T) {
 		{name: "invalid offset", query: "offset=-1", detail: "offset must be 0 or greater"},
 		{name: "invalid user id", query: "userId=not-a-uuid", detail: "Invalid userId"},
 		{name: "invalid resource id", query: "resourceId=not-a-uuid", detail: "Invalid resourceId"},
-		{name: "invalid client token", query: "clientToken=not-a-uuid", detail: "Invalid clientToken"},
+		{name: "invalid client id", query: "clientId=not-a-uuid", detail: "Invalid clientId"},
 		{name: "invalid from", query: "from=nope", detail: "Invalid from timestamp"},
 		{name: "invalid to", query: "to=nope", detail: "Invalid to timestamp"},
 		{name: "from after to", query: "from=2026-04-01T12:00:00Z&to=2026-04-01T10:00:00Z", detail: "from must be before or equal to to"},
@@ -98,9 +98,9 @@ func TestParseAuditLogFacetInputDefaultsAndTrimsValues(t *testing.T) {
 	t.Parallel()
 
 	resourceID := uuid.New()
-	clientToken := uuid.New()
+	clientID := uuid.New()
 	req := httptest.NewRequest("GET", "/api/audit-logs/facets?action=%20sandbox.created%20&resourceType=%20sandbox%20&resourceId="+resourceID.String()+
-		"&clientToken="+clientToken.String()+"&from=2026-04-01T10:00:00Z&to=2026-04-01T12:00:00Z", nil)
+		"&clientId="+clientID.String()+"&from=2026-04-01T10:00:00Z&to=2026-04-01T12:00:00Z", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 
@@ -113,6 +113,6 @@ func TestParseAuditLogFacetInputDefaultsAndTrimsValues(t *testing.T) {
 	assert.Equal(t, "sandbox", *input.ResourceType)
 	require.NotNil(t, input.ResourceID)
 	assert.Equal(t, resourceID, *input.ResourceID)
-	require.NotNil(t, input.ClientToken)
-	assert.Equal(t, clientToken, *input.ClientToken)
+	require.NotNil(t, input.ClientID)
+	assert.Equal(t, clientID, *input.ClientID)
 }

@@ -101,11 +101,11 @@ func (h *SandboxHandler) ListMine(c echo.Context) error {
 // @Router       /api/public/sandboxes [get]
 func (h *SandboxHandler) ListGuest(c echo.Context) error {
 	guest := mw.MustGuest(c)
-	sandboxes, err := h.sandboxes.ListByGuestSession(guest.SessionID)
+	sandboxes, err := h.sandboxes.ListByClientID(guest.SessionID)
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load guest sandboxes").WithCause(err))
 	}
-	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "guest_session_id", guest.SessionID.String(), "count", len(sandboxes))...)
+	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "client_id", guest.SessionID.String(), "count", len(sandboxes))...)
 	resp := h.enrichSandboxResponses(sandboxes)
 	return c.JSON(200, resp)
 }
@@ -210,15 +210,15 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 	guest := mw.MustGuest(c)
 	slog.Debug("public demo creation requested", logging.RequestFields(c,
 		"component", "sandbox",
-		"guest_session_id", guest.SessionID.String(),
+		"client_id", guest.SessionID.String(),
 		"image_id", imageID.String(),
 	)...)
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
-		ImageID:        imageID,
-		GuestSessionID: &guest.SessionID,
-		ClientIP:       c.RealIP(),
-		Metadata:       input.Metadata,
-		AuditActor:     newAuditActor(c, nil),
+		ImageID:    imageID,
+		ClientID:   &guest.SessionID,
+		ClientIP:   c.RealIP(),
+		Metadata:   input.Metadata,
+		AuditActor: newAuditActor(c, nil),
 	})
 	if err != nil {
 		return mapSandboxError(c, err)
@@ -227,7 +227,7 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 
 	slog.Info("public demo created", logging.RequestFields(c,
 		"component", "sandbox",
-		"guest_session_id", guest.SessionID.String(),
+		"client_id", guest.SessionID.String(),
 		"sandbox_id", sandbox.ID.String(),
 		"image_id", sandbox.ImageID.String(),
 		"expires_at", sandbox.ExpiresAt,
@@ -435,12 +435,12 @@ func (h *SandboxHandler) DeleteGuest(c echo.Context) error {
 	}
 
 	guest := mw.MustGuest(c)
-	slog.Debug("guest sandbox deletion requested", logging.RequestFields(c, "component", "sandbox", "guest_session_id", guest.SessionID.String(), "sandbox_id", id.String())...)
+	slog.Debug("guest sandbox deletion requested", logging.RequestFields(c, "component", "sandbox", "client_id", guest.SessionID.String(), "sandbox_id", id.String())...)
 	if err := h.sandboxes.DeleteForGuest(c.Request().Context(), id, guest.SessionID, newAuditActor(c, nil)); err != nil {
 		return mapSandboxError(c, err)
 	}
 
-	slog.Info("guest sandbox deleted", logging.RequestFields(c, "component", "sandbox", "guest_session_id", guest.SessionID.String(), "sandbox_id", id.String())...)
+	slog.Info("guest sandbox deleted", logging.RequestFields(c, "component", "sandbox", "client_id", guest.SessionID.String(), "sandbox_id", id.String())...)
 	return c.NoContent(204)
 }
 
@@ -578,7 +578,7 @@ func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.S
 		return responses.FromAppError(c, apperror.New(403, "SANDBOX_ACCESS_DENIED", "Sandbox access denied"))
 	}
 
-	if sandbox.GuestSessionID == nil {
+	if sandbox.ClientID == nil {
 		return responses.FromAppError(c, apperror.Unauthorized("Missing bearer token"))
 	}
 
@@ -592,7 +592,7 @@ func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.S
 		return responses.FromAppError(c, apperror.Unauthorized("Invalid guest session"))
 	}
 
-	if *sandbox.GuestSessionID != sessionID {
+	if *sandbox.ClientID != sessionID {
 		return responses.FromAppError(c, apperror.New(403, "SANDBOX_ACCESS_DENIED", "Sandbox access denied"))
 	}
 

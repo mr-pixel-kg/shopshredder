@@ -20,10 +20,10 @@ func newAuditLogInput(
 ) services.AuditLogInput {
 	return services.AuditLogInput{
 		Actor: services.AuditActor{
-			UserID:      userID,
-			IPAddress:   optionalString(strings.TrimSpace(c.RealIP())),
-			UserAgent:   optionalString(strings.TrimSpace(c.Request().UserAgent())),
-			ClientToken: mw.ClientToken(c),
+			UserID:    userID,
+			IPAddress: optionalString(strings.TrimSpace(c.RealIP())),
+			UserAgent: optionalString(strings.TrimSpace(c.Request().UserAgent())),
+			ClientID:  mw.ClientID(c),
 		},
 		Action:       action,
 		ResourceType: resourceType,

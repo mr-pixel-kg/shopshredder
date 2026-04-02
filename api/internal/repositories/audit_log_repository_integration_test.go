@@ -63,7 +63,7 @@ func TestAuditLogRepositoryListAppliesAllFilters(t *testing.T) {
 	user := createAuditTestUser(t, db)
 	otherUser := createAuditTestUser(t, db)
 	resourceID := uuid.New()
-	clientToken := uuid.New()
+	clientID := uuid.New()
 	now := time.Now().UTC()
 	resourceType := "sandbox"
 
@@ -72,7 +72,7 @@ func TestAuditLogRepositoryListAppliesAllFilters(t *testing.T) {
 		Action:       "sandbox.deleted",
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
-		ClientToken:  &clientToken,
+		ClientID:     &clientID,
 		Timestamp:    now.Add(-30 * time.Minute),
 	})
 	createAuditLogFixture(t, repo, auditLogFixture{
@@ -87,7 +87,7 @@ func TestAuditLogRepositoryListAppliesAllFilters(t *testing.T) {
 		Action:       "sandbox.deleted",
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
-		ClientToken:  &clientToken,
+		ClientID:     &clientID,
 		Timestamp:    now.Add(-29 * time.Minute),
 	})
 
@@ -100,7 +100,7 @@ func TestAuditLogRepositoryListAppliesAllFilters(t *testing.T) {
 		Action:       &action,
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
-		ClientToken:  &clientToken,
+		ClientID:     &clientID,
 		From:         &from,
 		To:           &to,
 	})
@@ -116,7 +116,7 @@ type auditLogFixture struct {
 	Action       string
 	ResourceType *string
 	ResourceID   *uuid.UUID
-	ClientToken  *uuid.UUID
+	ClientID     *uuid.UUID
 	Timestamp    time.Time
 }
 
@@ -129,7 +129,7 @@ func createAuditLogFixture(t *testing.T, repo *AuditLogRepository, fixture audit
 		Action:       fixture.Action,
 		ResourceType: fixture.ResourceType,
 		ResourceID:   fixture.ResourceID,
-		ClientToken:  fixture.ClientToken,
+		ClientID:     fixture.ClientID,
 		Details:      datatypes.JSON([]byte(`{}`)),
 		Timestamp:    fixture.Timestamp,
 	}

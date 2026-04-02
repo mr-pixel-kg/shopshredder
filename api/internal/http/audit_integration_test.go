@@ -42,7 +42,7 @@ func TestAuditLogsAdminCanListWithPaginationAndFilters(t *testing.T) {
 
 	adminToken := createAdminToken(t, db, router)
 	user := createAuditHTTPUser(t, db, "audit-http-user")
-	clientToken := uuid.New()
+	clientID := uuid.New()
 	resourceID := uuid.New()
 	now := time.Now().UTC()
 	resourceType := "sandbox"
@@ -53,7 +53,7 @@ func TestAuditLogsAdminCanListWithPaginationAndFilters(t *testing.T) {
 		UserID:       &user.ID,
 		Action:       "sandbox.created",
 		UserAgent:    strPtrHTTP("Mozilla/5.0"),
-		ClientToken:  &clientToken,
+		ClientID:     &clientID,
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
 		Details:      datatypes.JSON([]byte(`{"step":"created"}`)),
@@ -64,7 +64,7 @@ func TestAuditLogsAdminCanListWithPaginationAndFilters(t *testing.T) {
 		UserID:       &user.ID,
 		Action:       "sandbox.created",
 		UserAgent:    strPtrHTTP("Shopware-Test/1.0"),
-		ClientToken:  &clientToken,
+		ClientID:     &clientID,
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
 		Details:      datatypes.JSON([]byte(`{"step":"deleted"}`)),
@@ -80,9 +80,9 @@ func TestAuditLogsAdminCanListWithPaginationAndFilters(t *testing.T) {
 	})
 
 	target := fmt.Sprintf(
-		"/api/audit-logs?limit=1&offset=0&action=sandbox.created&resourceType=sandbox&resourceId=%s&clientToken=%s",
+		"/api/audit-logs?limit=1&offset=0&action=sandbox.created&resourceType=sandbox&resourceId=%s&clientId=%s",
 		resourceID.String(),
-		clientToken.String(),
+		clientID.String(),
 	)
 	rec := performJSONRequest(t, router, http.MethodGet, target, nil, "Bearer "+adminToken)
 
@@ -106,8 +106,8 @@ func TestAuditLogsAdminCanListWithPaginationAndFilters(t *testing.T) {
 	assert.Equal(t, "sandbox", *response.Meta.Filters.ResourceType)
 	require.NotNil(t, response.Meta.Filters.ResourceID)
 	assert.Equal(t, resourceID, *response.Meta.Filters.ResourceID)
-	require.NotNil(t, response.Meta.Filters.ClientToken)
-	assert.Equal(t, clientToken, *response.Meta.Filters.ClientToken)
+	require.NotNil(t, response.Meta.Filters.ClientID)
+	assert.Equal(t, clientID, *response.Meta.Filters.ClientID)
 }
 
 func TestAuditLogsRequireAdmin(t *testing.T) {
