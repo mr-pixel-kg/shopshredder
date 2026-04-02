@@ -89,3 +89,7 @@ images:
         variant: "default"
         condition: "ready"
         icon: "external-link"
+    health_check:
+      path: "/"
+      timeout: 5s
+      interval: 5s
