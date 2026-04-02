@@ -1,7 +1,7 @@
--- +migrate Up
-DROP TABLE IF EXISTS sessions;
+-- +goose Up
+DROP TABLE IF EXISTS sessions CASCADE;
 
--- +migrate Down
+-- +goose Down
 CREATE TABLE sessions (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id),
