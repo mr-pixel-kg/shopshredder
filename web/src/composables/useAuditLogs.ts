@@ -98,7 +98,7 @@ export function useAuditLogs() {
       'Details',
       'IP',
       'User-Agent',
-      'Client-Token',
+      'Client-ID',
     ]
     const rows = exportedLogs.map((l) => [
       l.timestamp,
@@ -109,7 +109,7 @@ export function useAuditLogs() {
       JSON.stringify(l.details),
       l.ipAddress ?? '',
       l.userAgent ?? '',
-      l.clientToken ?? '',
+      l.clientId ?? '',
     ])
     const csv = [headers, ...rows].map((r) => r.join(';')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })

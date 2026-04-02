@@ -14,16 +14,6 @@ export const sandboxesApi = {
     return data
   },
 
-  async listMine(): Promise<Sandbox[]> {
-    const { data } = await apiClient.get<Sandbox[]>('/api/me/sandboxes')
-    return data
-  },
-
-  async listGuest(): Promise<Sandbox[]> {
-    const { data } = await apiClient.get<Sandbox[]>('/api/public/sandboxes')
-    return data
-  },
-
   async get(id: string): Promise<Sandbox> {
     const { data } = await apiClient.get<Sandbox>(`/api/sandboxes/${id}`)
     return data
@@ -34,18 +24,8 @@ export const sandboxesApi = {
     return data
   },
 
-  async createPublicDemo(req: CreateSandboxRequest): Promise<Sandbox> {
-    const { data } = await apiClient.post<Sandbox>('/api/public/demos', req)
-    return data
-  },
-
   async update(id: string, req: UpdateSandboxRequest): Promise<Sandbox> {
     const { data } = await apiClient.patch<Sandbox>(`/api/sandboxes/${id}`, req)
-    return data
-  },
-
-  async extendTTL(id: string, ttlMinutes: number): Promise<Sandbox> {
-    const { data } = await apiClient.patch<Sandbox>(`/api/sandboxes/${id}/ttl`, { ttlMinutes })
     return data
   },
 
@@ -53,12 +33,24 @@ export const sandboxesApi = {
     await apiClient.delete(`/api/sandboxes/${id}`)
   },
 
-  async removeGuest(id: string): Promise<void> {
-    await apiClient.delete(`/api/public/sandboxes/${id}`)
+  async snapshot(id: string, req: CreateSnapshotRequest): Promise<Image> {
+    const { data } = await apiClient.post<Image>(`/api/sandboxes/${id}/snapshots`, req)
+    return data
   },
 
-  async snapshot(id: string, req: CreateSnapshotRequest): Promise<Image> {
-    const { data } = await apiClient.post<Image>(`/api/sandboxes/${id}/snapshot`, req)
+  async createDemo(req: CreateSandboxRequest): Promise<Sandbox> {
+    const { data } = await apiClient.post<Sandbox>('/api/demos', req)
     return data
+  },
+
+  async listDemos(clientId: string): Promise<Sandbox[]> {
+    const { data } = await apiClient.get<Sandbox[]>('/api/demos', {
+      params: { clientId },
+    })
+    return data
+  },
+
+  async removeDemo(id: string): Promise<void> {
+    await apiClient.delete(`/api/demos/${id}`)
   },
 }

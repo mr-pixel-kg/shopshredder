@@ -69,7 +69,6 @@ const {
   createSandbox,
   deleteSandbox,
   updateSandbox,
-  extendTTL,
   snapshotSandbox,
 } = useSandboxes()
 const { images, uploadThumbnail, trackPendingImage } = useImages('all')
@@ -196,7 +195,7 @@ async function handleExtendTtl(
   done: (success: boolean) => void,
 ) {
   try {
-    await extendTTL(payload.sandboxId, payload.ttlMinutes)
+    await updateSandbox(payload.sandboxId, { ttlMinutes: payload.ttlMinutes })
     toast.success('Laufzeit wurde verlängert')
     done(true)
   } catch (e) {

@@ -27,7 +27,7 @@ import { useAuthStore } from '@/stores/auth.store'
 import { getApiErrorMessage } from '@/utils/error'
 import { formatDateTime } from '@/utils/formatters'
 
-import type { ManagedUser } from '@/types'
+import type { User } from '@/types'
 
 const authStore = useAuthStore()
 const {
@@ -47,13 +47,13 @@ const showCreateUser = ref(false)
 const showEditDrawer = ref(false)
 const showConfirmDelete = ref(false)
 const selectedUserId = ref<string | null>(null)
-const selectedUser = ref<ManagedUser | null>(null)
+const selectedUser = ref<User | null>(null)
 const deleteMode = ref<'user' | 'invite'>('user')
 
-const totalManagedUsers = computed(() => activeUsers.value.length + invitedUsers.value.length)
+const totalUsers = computed(() => activeUsers.value.length + invitedUsers.value.length)
 const currentUserId = computed(() => authStore.user?.id ?? null)
 
-function requestEdit(user: ManagedUser) {
+function requestEdit(user: User) {
   selectedUser.value = user
   showEditDrawer.value = true
 }
@@ -157,7 +157,7 @@ async function handleDelete(done: (success: boolean) => void) {
           <TabsTrigger value="accounts">Konten ({{ activeUsers.length }})</TabsTrigger>
           <TabsTrigger value="invites">Einladungen ({{ invitedUsers.length }})</TabsTrigger>
         </TabsList>
-        <span class="text-muted-foreground text-sm">{{ totalManagedUsers }} Einträge gesamt</span>
+        <span class="text-muted-foreground text-sm">{{ totalUsers }} Einträge gesamt</span>
       </div>
 
       <TabsContent value="accounts">

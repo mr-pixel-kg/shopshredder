@@ -1,17 +1,13 @@
 interface BaseModel {
   createdAt: string
   updatedAt: string
-  deletedAt?: string
 }
 
 export interface User extends BaseModel {
   id: string
   email: string
   role: string
-}
-
-export interface ManagedUser extends User {
-  pending: boolean
+  isPending: boolean
 }
 
 export interface UserSummary {
@@ -84,7 +80,7 @@ export interface Sandbox extends BaseModel {
   id: string
   imageId: string
   owner?: UserSummary | null
-  guestSessionId?: string
+  clientId?: string
   displayName: string
   status: SandboxStatus
   stateReason?: string
@@ -120,7 +116,7 @@ export interface AuditLog {
   action: string
   ipAddress?: string | null
   userAgent?: string | null
-  clientToken?: string | null
+  clientId?: string | null
   resourceType?: string | null
   resourceId?: string | null
   details: Record<string, unknown> | unknown[]
@@ -140,7 +136,7 @@ export interface AuditLogListFilters {
   action?: string | null
   resourceType?: string | null
   resourceId?: string | null
-  clientToken?: string | null
+  clientId?: string | null
   from?: string | null
   to?: string | null
 }
@@ -179,6 +175,7 @@ export interface CreateSandboxRequest {
 
 export interface UpdateSandboxRequest {
   displayName?: string
+  ttlMinutes?: number
 }
 
 export interface CreateImageRequest {

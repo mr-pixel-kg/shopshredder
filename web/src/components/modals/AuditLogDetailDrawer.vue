@@ -174,9 +174,9 @@ function actionBadgeConfig(action: string): { label: string; class: string } {
             </div>
             <div class="grid gap-1">
               <span class="text-muted-foreground text-xs tracking-[0.18em] uppercase"
-                >Client-Token</span
+                >Client-ID</span
               >
-              <span class="font-mono text-xs break-all">{{ log.clientToken ?? '—' }}</span>
+              <span class="font-mono text-xs break-all">{{ log.clientId ?? '—' }}</span>
             </div>
             <div class="grid gap-1">
               <span class="text-muted-foreground text-xs tracking-[0.18em] uppercase"

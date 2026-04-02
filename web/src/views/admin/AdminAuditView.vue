@@ -239,7 +239,7 @@ function openDetails(log: AuditLog) {
             </TableCell>
             <TableCell class="text-muted-foreground font-mono text-xs">
               <div>{{ log.ipAddress ?? '—' }}</div>
-              <div v-if="log.clientToken" class="truncate">{{ log.clientToken }}</div>
+              <div v-if="log.clientId" class="truncate">{{ log.clientId }}</div>
             </TableCell>
           </TableRow>
         </TableBody>

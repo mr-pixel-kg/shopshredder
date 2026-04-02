@@ -24,7 +24,7 @@ const {
   activeSandboxes,
   loading: sandboxesLoading,
   busyIds,
-  createPublicDemo,
+  createDemo,
   createSandbox,
   deleteSandbox,
   refresh: refreshSandboxes,
@@ -216,7 +216,7 @@ async function handleStopSandbox(sandbox: Sandbox) {
   busyIds.value.add(sandbox.id)
   try {
     const animationPromise = shredderRefs.value[sandbox.id]?.shred() ?? Promise.resolve()
-    const apiPromise = deleteSandbox(sandbox.id, !authStore.isAuthenticated)
+    const apiPromise = deleteSandbox(sandbox.id)
     await Promise.all([animationPromise, apiPromise])
     toast.success('Sandbox wird gestoppt')
   } catch (e) {
@@ -247,7 +247,7 @@ async function handleDemo(imageId: string) {
     if (authStore.isAuthenticated) {
       await createSandbox({ imageId, metadata })
     } else {
-      await createPublicDemo({ imageId, metadata })
+      await createDemo({ imageId, metadata })
     }
     toast.success('Demo wird gestartet')
     refreshSandboxes()

@@ -9,7 +9,7 @@ export interface AuditLogListParams {
   action?: string
   resourceType?: string
   resourceId?: string
-  clientToken?: string
+  clientId?: string
   from?: string
   to?: string
 }
@@ -18,7 +18,7 @@ export interface AuditLogFacetParams {
   action?: string
   resourceType?: string
   resourceId?: string
-  clientToken?: string
+  clientId?: string
   from?: string
   to?: string
 }

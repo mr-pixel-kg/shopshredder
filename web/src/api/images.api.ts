@@ -10,7 +10,7 @@ import type {
 
 export const imagesApi = {
   async listPublic(): Promise<Image[]> {
-    const { data } = await apiClient.get<Image[]>('/api/public/images')
+    const { data } = await apiClient.get<Image[]>('/api/images/public')
     return data
   },
 
@@ -30,7 +30,7 @@ export const imagesApi = {
   },
 
   async update(id: string, req: UpdateImageRequest): Promise<Image> {
-    const { data } = await apiClient.put<Image>(`/api/images/${id}`, req)
+    const { data } = await apiClient.patch<Image>(`/api/images/${id}`, req)
     return data
   },
 
