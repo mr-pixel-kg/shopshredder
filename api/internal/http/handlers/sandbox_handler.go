@@ -17,14 +17,12 @@ import (
 )
 
 type SandboxHandler struct {
-	sandboxes       *services.SandboxService
-	images          *services.ImageService
-	resolver        RegistryResolver
-	health          *services.SandboxHealthService
-	auth            *services.AuthService
-	guest           *services.GuestSessionService
-	guestCookieName string
-	sshCfg          config.SSHConfig
+	sandboxes *services.SandboxService
+	images    *services.ImageService
+	resolver  RegistryResolver
+	health    *services.SandboxHealthService
+	auth      *services.AuthService
+	sshCfg    config.SSHConfig
 }
 
 func NewSandboxHandler(
@@ -33,19 +31,15 @@ func NewSandboxHandler(
 	resolver RegistryResolver,
 	health *services.SandboxHealthService,
 	auth *services.AuthService,
-	guest *services.GuestSessionService,
-	guestCookieName string,
 	sshCfg config.SSHConfig,
 ) *SandboxHandler {
 	return &SandboxHandler{
-		sandboxes:       sandboxes,
-		images:          images,
-		resolver:        resolver,
-		health:          health,
-		auth:            auth,
-		guest:           guest,
-		guestCookieName: guestCookieName,
-		sshCfg:          sshCfg,
+		sandboxes: sandboxes,
+		images:    images,
+		resolver:  resolver,
+		health:    health,
+		auth:      auth,
+		sshCfg:    sshCfg,
 	}
 }
 
@@ -100,12 +94,15 @@ func (h *SandboxHandler) ListMine(c echo.Context) error {
 // @Failure      500 {object} dto.ErrorResponse
 // @Router       /api/public/sandboxes [get]
 func (h *SandboxHandler) ListGuest(c echo.Context) error {
-	guest := mw.MustGuest(c)
-	sandboxes, err := h.sandboxes.ListByClientID(guest.SessionID)
+	clientID := mw.ClientID(c)
+	if clientID == nil {
+		return responses.FromAppError(c, apperror.BadRequest("MISSING_CLIENT_ID", "X-Client-Id header is required"))
+	}
+	sandboxes, err := h.sandboxes.ListByClientID(*clientID)
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load guest sandboxes").WithCause(err))
 	}
-	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "client_id", guest.SessionID.String(), "count", len(sandboxes))...)
+	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "count", len(sandboxes))...)
 	resp := h.enrichSandboxResponses(sandboxes)
 	return c.JSON(200, resp)
 }
@@ -207,15 +204,14 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 		return responses.FromError(c, validationError("Invalid image id"))
 	}
 
-	guest := mw.MustGuest(c)
+	clientID := mw.ClientID(c)
 	slog.Debug("public demo creation requested", logging.RequestFields(c,
 		"component", "sandbox",
-		"client_id", guest.SessionID.String(),
 		"image_id", imageID.String(),
 	)...)
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
 		ImageID:    imageID,
-		ClientID:   &guest.SessionID,
+		ClientID:   clientID,
 		ClientIP:   c.RealIP(),
 		Metadata:   input.Metadata,
 		AuditActor: newAuditActor(c, nil),
@@ -227,7 +223,6 @@ func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
 
 	slog.Info("public demo created", logging.RequestFields(c,
 		"component", "sandbox",
-		"client_id", guest.SessionID.String(),
 		"sandbox_id", sandbox.ID.String(),
 		"image_id", sandbox.ImageID.String(),
 		"expires_at", sandbox.ExpiresAt,
@@ -434,13 +429,16 @@ func (h *SandboxHandler) DeleteGuest(c echo.Context) error {
 		return responses.FromError(c, err)
 	}
 
-	guest := mw.MustGuest(c)
-	slog.Debug("guest sandbox deletion requested", logging.RequestFields(c, "component", "sandbox", "client_id", guest.SessionID.String(), "sandbox_id", id.String())...)
-	if err := h.sandboxes.DeleteForGuest(c.Request().Context(), id, guest.SessionID, newAuditActor(c, nil)); err != nil {
+	clientID := mw.ClientID(c)
+	if clientID == nil {
+		return responses.FromAppError(c, apperror.BadRequest("MISSING_CLIENT_ID", "X-Client-Id header is required"))
+	}
+	slog.Debug("guest sandbox deletion requested", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "sandbox_id", id.String())...)
+	if err := h.sandboxes.DeleteForGuest(c.Request().Context(), id, *clientID, newAuditActor(c, nil)); err != nil {
 		return mapSandboxError(c, err)
 	}
 
-	slog.Info("guest sandbox deleted", logging.RequestFields(c, "component", "sandbox", "client_id", guest.SessionID.String(), "sandbox_id", id.String())...)
+	slog.Info("guest sandbox deleted", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "sandbox_id", id.String())...)
 	return c.NoContent(204)
 }
 
@@ -566,7 +564,7 @@ func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.S
 	}
 
 	if userToken != "" {
-		user, _, err := h.auth.Authenticate(userToken)
+		user, err := h.auth.Authenticate(userToken)
 		if err != nil {
 			return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
 		}
@@ -582,17 +580,8 @@ func (h *SandboxHandler) authorizeHealthAccess(c echo.Context, sandbox *models.S
 		return responses.FromAppError(c, apperror.Unauthorized("Missing bearer token"))
 	}
 
-	cookie, err := c.Cookie(h.guestCookieName)
-	if err != nil || cookie == nil || cookie.Value == "" {
-		return responses.FromAppError(c, apperror.Unauthorized("Missing guest session"))
-	}
-
-	sessionID, _, err := h.guest.Validate(cookie.Value)
-	if err != nil {
-		return responses.FromAppError(c, apperror.Unauthorized("Invalid guest session"))
-	}
-
-	if *sandbox.ClientID != sessionID {
+	clientID := mw.ClientID(c)
+	if clientID == nil || *sandbox.ClientID != *clientID {
 		return responses.FromAppError(c, apperror.New(403, "SANDBOX_ACCESS_DENIED", "Sandbox access denied"))
 	}
 

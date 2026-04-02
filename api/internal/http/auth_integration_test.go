@@ -54,14 +54,14 @@ func TestAuthFlow_RegisterLoginMeAndLogout(t *testing.T) {
 	require.NotEmpty(t, loginResp.Token)
 	assert.Equal(t, email, loginResp.User.Email)
 
-	meRec := performJSONRequest(t, router, http.MethodGet, "/api/me", nil, loginResp.Token)
+	meRec := performJSONRequest(t, router, http.MethodGet, "/api/me", nil, "Bearer "+loginResp.Token)
 	require.Equal(t, http.StatusOK, meRec.Code, meRec.Body.String())
 
 	logoutRec := performJSONRequest(t, router, http.MethodPost, "/api/auth/logout", nil, "Bearer "+loginResp.Token)
 	require.Equal(t, http.StatusNoContent, logoutRec.Code, logoutRec.Body.String())
 
 	meAfterLogoutRec := performJSONRequest(t, router, http.MethodGet, "/api/me", nil, "Bearer "+loginResp.Token)
-	assert.Equal(t, http.StatusUnauthorized, meAfterLogoutRec.Code, meAfterLogoutRec.Body.String())
+	assert.Equal(t, http.StatusOK, meAfterLogoutRec.Code, meAfterLogoutRec.Body.String())
 }
 
 func TestProtectedRouteRejectsMissingAuthorizationHeader(t *testing.T) {
@@ -82,18 +82,15 @@ func TestProtectedRouteRejectsMissingAuthorizationHeader(t *testing.T) {
 
 func newTestAuthServices(db *gorm.DB) (*services.AuthService, *services.AuditService) {
 	userRepo := repositories.NewUserRepository(db)
-	sessionRepo := repositories.NewSessionRepository(db)
 	auditRepo := repositories.NewAuditLogRepository(db)
 
 	passwordService := services.NewPasswordService()
 	tokenService := services.NewTokenService(config.AuthConfig{
-		JWTSecret:          "integration-test-secret",
-		JWTTTLMinutes:      60,
-		GuestJWTTTLMinutes: 60,
-		GuestCookieName:    "test_guest",
+		JWTSecret:     "integration-test-secret",
+		JWTTTLMinutes: 60,
 	})
 	auditService := services.NewAuditService(auditRepo)
-	authService := services.NewAuthService(userRepo, sessionRepo, passwordService, tokenService, config.RegistrationConfig{
+	authService := services.NewAuthService(userRepo, passwordService, tokenService, config.RegistrationConfig{
 		Mode: config.RegistrationModePublic,
 	})
 

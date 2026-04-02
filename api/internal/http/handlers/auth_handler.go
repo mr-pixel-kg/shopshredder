@@ -113,12 +113,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 // @Router       /api/auth/logout [post]
 func (h *AuthHandler) Logout(c echo.Context) error {
 	auth := mw.MustAuth(c)
-	slog.Debug("logout request received", logging.RequestFields(c, "component", "auth", "user_id", auth.UserID.String(), "token_id", auth.TokenID)...)
-	if err := h.auth.Logout(auth.TokenID); err != nil {
-		return responses.FromAppError(c, apperror.Internal("LOGOUT_FAILED", "Could not log out").WithCause(err))
-	}
-
-	slog.Info("user logged out", logging.RequestFields(c, "component", "auth", "user_id", auth.UserID.String(), "token_id", auth.TokenID)...)
+	slog.Info("user logged out", logging.RequestFields(c, "component", "auth", "user_id", auth.UserID.String())...)
 	_ = h.audit.Log(newAuditLogInput(c, &auth.UserID, auditcontracts.ActionAuthLoggedOut, nil, nil, map[string]any{}))
 	return c.NoContent(204)
 }

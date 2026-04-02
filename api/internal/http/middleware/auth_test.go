@@ -17,9 +17,10 @@ func TestParseAuthorizationHeader(t *testing.T) {
 	}{
 		{name: "bearer token", header: "Bearer abc.def.ghi", want: "abc.def.ghi", ok: true},
 		{name: "lowercase bearer", header: "bearer abc.def.ghi", want: "abc.def.ghi", ok: true},
-		{name: "bare token", header: "abc.def.ghi", want: "abc.def.ghi", ok: true},
+		{name: "bare token rejected", header: "abc.def.ghi", want: "", ok: false},
 		{name: "empty", header: "", want: "", ok: false},
 		{name: "missing token after bearer", header: "Bearer", want: "", ok: false},
+		{name: "bearer only with space", header: "Bearer ", want: "", ok: false},
 		{name: "wrong scheme", header: "Basic abc", want: "", ok: false},
 		{name: "too many parts", header: "Bearer abc def", want: "", ok: false},
 	}
@@ -29,7 +30,7 @@ func TestParseAuthorizationHeader(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, ok := parseAuthorizationHeader(tt.header)
+			got, ok := ParseAuthorizationHeader(tt.header)
 			assert.Equal(t, tt.ok, ok)
 			assert.Equal(t, tt.want, got)
 		})

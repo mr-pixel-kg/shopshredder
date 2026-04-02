@@ -31,7 +31,6 @@ type Server struct {
 
 type runtimeServices struct {
 	auth          *services.AuthService
-	guest         *services.GuestSessionService
 	audit         *services.AuditService
 	user          *services.UserService
 	image         *services.ImageService
@@ -56,7 +55,6 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 
 	slog.Debug("http routes registered",
 		"component", "http",
-		"guest_cookie_name", cfg.Auth.GuestCookieName,
 		"thumbnail_dir", cfg.Storage.ThumbnailDir,
 	)
 
@@ -81,7 +79,6 @@ func newEcho(cfg config.Config) *echo.Echo {
 
 func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, error) {
 	userRepo := repositories.NewUserRepository(db)
-	sessionRepo := repositories.NewSessionRepository(db)
 	imageRepo := repositories.NewImageRepository(db)
 	sandboxRepo := repositories.NewSandboxRepository(db)
 	auditRepo := repositories.NewAuditLogRepository(db)
@@ -90,9 +87,8 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	passwordService := services.NewPasswordService()
 	tokenService := services.NewTokenService(cfg.Auth)
 	auditService := services.NewAuditService(auditRepo)
-	authService := services.NewAuthService(userRepo, sessionRepo, passwordService, tokenService, cfg.Registration)
+	authService := services.NewAuthService(userRepo, passwordService, tokenService, cfg.Registration)
 	userService := services.NewUserService(userRepo, passwordService)
-	guestService := services.NewGuestSessionService(sessionRepo, tokenService)
 
 	reg, err := registry.Load(cfg.RegistryPath)
 	if err != nil {
@@ -122,7 +118,6 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 
 	return &runtimeServices{
 		auth:          authService,
-		guest:         guestService,
 		audit:         auditService,
 		user:          userService,
 		image:         imageService,
@@ -167,8 +162,6 @@ func registerRoutes(e *echo.Echo, cfg config.Config, runtime *runtimeServices) {
 		runtime.resolver,
 		runtime.sandboxHealth,
 		runtime.auth,
-		runtime.guest,
-		cfg.Auth.GuestCookieName,
 		cfg.SSH,
 	)
 	auditHandler := handlers.NewAuditHandler(runtime.audit)
@@ -198,8 +191,6 @@ func registerAPIRoutes(
 	auth := api.Group("/auth")
 	private := api.Group("")
 	private.Use(authmw.Auth(runtime.auth))
-	public.Use(authmw.EnsureGuestSession(runtime.guest, cfg.Auth.GuestCookieName))
-
 	api.GET("/images/:id/progress", imageHandler.Progress)
 	api.GET("/registry/lookup", imageHandler.RegistryLookup)
 	api.GET("/sandboxes/:id/health", sandboxHandler.Health)

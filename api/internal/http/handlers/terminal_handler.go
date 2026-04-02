@@ -97,7 +97,7 @@ func (h *TerminalHandler) Connect(c echo.Context) error {
 		return responses.FromAppError(c, apperror.Unauthorized("Missing access token"))
 	}
 
-	user, _, err := h.auth.Authenticate(token)
+	user, err := h.auth.Authenticate(token)
 	if err != nil {
 		return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
 	}
