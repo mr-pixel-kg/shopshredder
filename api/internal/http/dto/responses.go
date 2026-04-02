@@ -18,9 +18,18 @@ type ErrorResponse struct {
 	Error ErrorDetail `json:"error"`
 }
 
+type UserResponse struct {
+	ID        uuid.UUID `json:"id" format:"uuid" example:"5cc66f6f-5c71-4be4-9f2d-639dc4b8c8c2"`
+	Email     string    `json:"email" example:"jane.doe@example.com"`
+	Role      string    `json:"role" example:"user"`
+	IsPending bool      `json:"isPending" example:"false"`
+	CreatedAt time.Time `json:"createdAt" example:"2026-03-20T10:15:00Z"`
+	UpdatedAt time.Time `json:"updatedAt" example:"2026-03-20T10:20:00Z"`
+}
+
 type AuthLoginResponse struct {
-	Token string      `json:"token" example:"eyJhbGciOiJIUzI1NiIs..."`
-	User  models.User `json:"user"`
+	Token string       `json:"token" example:"eyJhbGciOiJIUzI1NiIs..."`
+	User  UserResponse `json:"user"`
 }
 
 type UserSummary struct {
@@ -89,7 +98,6 @@ type ImageResponse struct {
 	Owner        *UserSummary   `json:"owner,omitempty"`
 	CreatedAt    time.Time      `json:"createdAt" example:"2026-03-20T10:15:00Z"`
 	UpdatedAt    time.Time      `json:"updatedAt" example:"2026-03-20T10:20:00Z"`
-	DeletedAt    *time.Time     `json:"deletedAt,omitempty"`
 }
 
 type SandboxResponse struct {
@@ -111,7 +119,6 @@ type SandboxResponse struct {
 	LastSeenAt    *time.Time           `json:"lastSeenAt,omitempty" example:"2026-03-20T10:45:00Z"`
 	CreatedAt     time.Time            `json:"createdAt" example:"2026-03-20T10:15:00Z"`
 	UpdatedAt     time.Time            `json:"updatedAt" example:"2026-03-20T10:20:00Z"`
-	DeletedAt     *time.Time           `json:"deletedAt,omitempty"`
 }
 
 type SSHConnectionInfo struct {

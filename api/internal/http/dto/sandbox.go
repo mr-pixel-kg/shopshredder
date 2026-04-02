@@ -9,10 +9,7 @@ type CreateSandboxRequest struct {
 
 type UpdateSandboxRequest struct {
 	DisplayName *string `json:"displayName" example:"My Test Shop"`
-}
-
-type ExtendTTLRequest struct {
-	TTLMinutes *int `json:"ttlMinutes" validate:"omitempty,gte=0" example:"60"`
+	TTLMinutes  *int    `json:"ttlMinutes" validate:"omitempty,gte=0" example:"60"`
 }
 
 type CreateSnapshotRequest struct {

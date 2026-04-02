@@ -35,24 +35,6 @@ func NewImageHandler(images *services.ImageService, audit *services.AuditService
 	return &ImageHandler{images: images, audit: audit, resolver: resolver}
 }
 
-// ListPublic godoc
-// @Summary      List public images
-// @Description  Returns all images marked as public
-// @Tags         Images
-// @Produce      json
-// @Success      200 {array} dto.ImageResponse
-// @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/public/images [get]
-func (h *ImageHandler) ListPublic(c echo.Context) error {
-	images, err := h.images.ListPublic()
-	if err != nil {
-		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load public images").WithCause(err))
-	}
-	h.enrichMetadata(images)
-	slog.Debug("listed public images", logging.RequestFields(c, "component", "image", "count", len(images))...)
-	return c.JSON(200, toImageResponses(images))
-}
-
 // ListAll godoc
 // @Summary      List all images
 // @Description  Returns all images including private ones
@@ -147,7 +129,7 @@ func (h *ImageHandler) Create(c echo.Context) error {
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/images/{id} [put]
+// @Router       /api/images/{id} [patch]
 func (h *ImageHandler) Update(c echo.Context) error {
 	auth := mw.MustAuth(c)
 	id, err := parseUUIDParam(c, "id", "VALIDATION_ERROR", "Invalid image id")

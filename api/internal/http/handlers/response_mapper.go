@@ -13,6 +13,25 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 )
 
+func toUserResponse(user *models.User) dto.UserResponse {
+	return dto.UserResponse{
+		ID:        user.ID,
+		Email:     user.Email,
+		Role:      user.Role,
+		IsPending: user.IsPending(),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+}
+
+func toUserResponses(users []models.User) []dto.UserResponse {
+	out := make([]dto.UserResponse, len(users))
+	for i := range users {
+		out[i] = toUserResponse(&users[i])
+	}
+	return out
+}
+
 func toUserSummary(user *models.User) *dto.UserSummary {
 	if user == nil {
 		return nil
@@ -40,7 +59,6 @@ func toImageResponse(image *models.Image) dto.ImageResponse {
 		Owner:        toUserSummary(image.Owner),
 		CreatedAt:    image.CreatedAt,
 		UpdatedAt:    image.UpdatedAt,
-		DeletedAt:    image.DeletedAt,
 	}
 }
 
@@ -71,7 +89,6 @@ func toSandboxResponse(sandbox *models.Sandbox) dto.SandboxResponse {
 		LastSeenAt:    sandbox.LastSeenAt,
 		CreatedAt:     sandbox.CreatedAt,
 		UpdatedAt:     sandbox.UpdatedAt,
-		DeletedAt:     sandbox.DeletedAt,
 	}
 }
 

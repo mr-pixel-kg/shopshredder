@@ -11,6 +11,7 @@ import (
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	"github.com/manuel/shopware-testenv-platform/api/internal/models"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 )
 
@@ -30,7 +31,7 @@ func NewAuthHandler(auth *services.AuthService, audit *services.AuditService) *A
 // @Accept       json
 // @Produce      json
 // @Param        body body dto.RegisterRequest true "Registration credentials"
-// @Success      201 {object} models.User
+// @Success      201 {object} dto.UserResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      409 {object} dto.ErrorResponse
 // @Router       /api/auth/register [post]
@@ -63,7 +64,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		&user.ID,
 		map[string]any{"email": user.Email},
 	))
-	return c.JSON(201, user)
+	return c.JSON(201, toUserResponse(user))
 }
 
 // Login godoc
@@ -97,7 +98,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	_ = h.audit.Log(newAuditLogInput(c, &user.ID, auditcontracts.ActionAuthLoggedIn, nil, nil, map[string]any{}))
 	return c.JSON(200, dto.AuthLoginResponse{
 		Token: token,
-		User:  *user,
+		User:  toUserResponse(user),
 	})
 }
 
@@ -124,11 +125,12 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 // @Tags         Auth
 // @Security     BearerAuth
 // @Produce      json
-// @Success      200 {object} models.User
+// @Success      200 {object} dto.UserResponse
 // @Failure      401 {object} dto.ErrorResponse
-// @Router       /api/me [get]
+// @Router       /api/auth/me [get]
 func (h *AuthHandler) Me(c echo.Context) error {
 	auth := mw.MustAuth(c)
+	user := c.Get("user").(*models.User)
 	slog.Debug("profile requested", logging.RequestFields(c, "component", "auth", "user_id", auth.UserID.String())...)
-	return c.JSON(200, c.Get("user"))
+	return c.JSON(200, toUserResponse(user))
 }

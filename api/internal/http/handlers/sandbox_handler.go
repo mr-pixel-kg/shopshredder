@@ -44,65 +44,42 @@ func NewSandboxHandler(
 }
 
 // List godoc
-// @Summary      List all active sandboxes
-// @Description  Returns all sandboxes that are currently active (admin view)
+// @Summary      List sandboxes
+// @Description  Admins see all sandboxes. Regular users see their own. Use ?owner=self for own, ?clientId=<uuid> for guest sandboxes.
 // @Tags         Sandboxes
 // @Security     BearerAuth
 // @Produce      json
+// @Param        owner query string false "Filter: 'self' for own sandboxes"
+// @Param        clientId query string false "Filter by client ID" format(uuid)
 // @Success      200 {array} dto.SandboxResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
 // @Router       /api/sandboxes [get]
 func (h *SandboxHandler) List(c echo.Context) error {
-	sandboxes, err := h.sandboxes.ListAll()
+	auth := mw.MustAuth(c)
+	user := c.Get("user").(*models.User)
+
+	var (
+		sandboxes []models.Sandbox
+		err       error
+	)
+
+	if clientIDStr := c.QueryParam("clientId"); clientIDStr != "" {
+		parsed, parseErr := uuid.Parse(clientIDStr)
+		if parseErr != nil {
+			return responses.FromAppError(c, apperror.BadRequest("VALIDATION_ERROR", "Invalid clientId"))
+		}
+		sandboxes, err = h.sandboxes.ListByClientID(parsed)
+	} else if user.IsAdmin() && c.QueryParam("owner") != "self" {
+		sandboxes, err = h.sandboxes.ListAll()
+	} else {
+		sandboxes, err = h.sandboxes.ListByUser(auth.UserID)
+	}
+
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load sandboxes").WithCause(err))
 	}
-	auth := mw.MustAuth(c)
-	slog.Debug("listed all sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	resp := h.enrichSandboxResponses(sandboxes)
-	return c.JSON(200, resp)
-}
-
-// ListMine godoc
-// @Summary      List my sandboxes
-// @Description  Returns sandboxes owned by the authenticated user
-// @Tags         Sandboxes
-// @Security     BearerAuth
-// @Produce      json
-// @Success      200 {array} dto.SandboxResponse
-// @Failure      401 {object} dto.ErrorResponse
-// @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/me/sandboxes [get]
-func (h *SandboxHandler) ListMine(c echo.Context) error {
-	auth := mw.MustAuth(c)
-	sandboxes, err := h.sandboxes.ListByUser(auth.UserID)
-	if err != nil {
-		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load own sandboxes").WithCause(err))
-	}
-	slog.Debug("listed user sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	resp := h.enrichSandboxResponses(sandboxes)
-	return c.JSON(200, resp)
-}
-
-// ListGuest godoc
-// @Summary      List guest sandboxes
-// @Description  Returns sandboxes for the current guest session (cookie-based)
-// @Tags         Public
-// @Produce      json
-// @Success      200 {array} dto.SandboxResponse
-// @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/public/sandboxes [get]
-func (h *SandboxHandler) ListGuest(c echo.Context) error {
-	clientID := mw.ClientID(c)
-	if clientID == nil {
-		return responses.FromAppError(c, apperror.BadRequest("MISSING_CLIENT_ID", "X-Client-Id header is required"))
-	}
-	sandboxes, err := h.sandboxes.ListByClientID(*clientID)
-	if err != nil {
-		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load guest sandboxes").WithCause(err))
-	}
-	slog.Debug("listed guest sandboxes", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "count", len(sandboxes))...)
+	slog.Debug("listed sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
 	resp := h.enrichSandboxResponses(sandboxes)
 	return c.JSON(200, resp)
 }
@@ -180,73 +157,22 @@ func (h *SandboxHandler) Health(c echo.Context) error {
 	}
 }
 
-// CreatePublicDemo godoc
-// @Summary      Create a public demo sandbox
-// @Description  Spin up a new sandbox for a guest visitor
-// @Tags         Public
-// @Accept       json
-// @Produce      json
-// @Param        body body dto.CreateSandboxRequest true "Sandbox configuration"
-// @Success      201 {object} models.Sandbox
-// @Failure      400 {object} dto.ErrorResponse
-// @Failure      409 {object} dto.ErrorResponse
-// @Failure      404 {object} dto.ErrorResponse
-// @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/public/demos [post]
-func (h *SandboxHandler) CreatePublicDemo(c echo.Context) error {
-	var input dto.CreateSandboxRequest
-	if err := bindAndValidate(c, &input); err != nil {
-		return responses.FromError(c, err)
-	}
-
-	imageID, err := uuid.Parse(input.ImageID)
-	if err != nil {
-		return responses.FromError(c, validationError("Invalid image id"))
-	}
-
-	clientID := mw.ClientID(c)
-	slog.Debug("public demo creation requested", logging.RequestFields(c,
-		"component", "sandbox",
-		"image_id", imageID.String(),
-	)...)
-	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
-		ImageID:    imageID,
-		ClientID:   clientID,
-		ClientIP:   c.RealIP(),
-		Metadata:   input.Metadata,
-		AuditActor: newAuditActor(c, nil),
-	})
-	if err != nil {
-		return mapSandboxError(c, err)
-	}
-	h.health.StartMonitoring(sandbox.ID)
-
-	slog.Info("public demo created", logging.RequestFields(c,
-		"component", "sandbox",
-		"sandbox_id", sandbox.ID.String(),
-		"image_id", sandbox.ImageID.String(),
-		"expires_at", sandbox.ExpiresAt,
-	)...)
-	resp := h.enrichSandboxResponse(sandbox)
-	return c.JSON(201, resp)
-}
-
-// CreatePrivateSandbox godoc
-// @Summary      Create a private sandbox
-// @Description  Spin up a new sandbox for an authenticated user
+// Create godoc
+// @Summary      Create a sandbox
+// @Description  Spin up a new sandbox. Always requires auth. Stores X-Client-Id header on sandbox automatically.
 // @Tags         Sandboxes
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        body body dto.CreateSandboxRequest true "Sandbox configuration"
-// @Success      201 {object} models.Sandbox
+// @Success      201 {object} dto.SandboxResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      409 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
 // @Router       /api/sandboxes [post]
-func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
+func (h *SandboxHandler) Create(c echo.Context) error {
 	var input dto.CreateSandboxRequest
 	if err := bindAndValidate(c, &input); err != nil {
 		return responses.FromError(c, err)
@@ -258,7 +184,8 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
-	slog.Debug("private sandbox creation requested", logging.RequestFields(c,
+	clientID := mw.ClientID(c)
+	slog.Debug("sandbox creation requested", logging.RequestFields(c,
 		"component", "sandbox",
 		"user_id", auth.UserID.String(),
 		"image_id", imageID.String(),
@@ -267,6 +194,7 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 	sandbox, err := h.sandboxes.Create(c.Request().Context(), services.CreateSandboxInput{
 		ImageID:     imageID,
 		UserID:      &auth.UserID,
+		ClientID:    clientID,
 		ClientIP:    c.RealIP(),
 		TTLMinutes:  input.TTLMinutes,
 		DisplayName: input.DisplayName,
@@ -278,7 +206,7 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 	}
 	h.health.StartMonitoring(sandbox.ID)
 
-	slog.Info("private sandbox created", logging.RequestFields(c,
+	slog.Info("sandbox created", logging.RequestFields(c,
 		"component", "sandbox",
 		"user_id", auth.UserID.String(),
 		"sandbox_id", sandbox.ID.String(),
@@ -290,15 +218,15 @@ func (h *SandboxHandler) CreatePrivateSandbox(c echo.Context) error {
 }
 
 // Update godoc
-// @Summary      Update sandbox details
-// @Description  Update display name of a sandbox owned by the authenticated user
+// @Summary      Update sandbox
+// @Description  Update display name and/or extend TTL of a sandbox owned by the authenticated user
 // @Tags         Sandboxes
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        id path string true "Sandbox ID" format(uuid)
 // @Param        body body dto.UpdateSandboxRequest true "Update payload"
-// @Success      200 {object} models.Sandbox
+// @Success      200 {object} dto.SandboxResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      403 {object} dto.ErrorResponse
@@ -320,6 +248,7 @@ func (h *SandboxHandler) Update(c echo.Context) error {
 		SandboxID:   id,
 		UserID:      &auth.UserID,
 		DisplayName: input.DisplayName,
+		TTLMinutes:  input.TTLMinutes,
 		ClientIP:    c.RealIP(),
 		AuditActor:  newAuditActor(c, &auth.UserID),
 	})
@@ -336,56 +265,9 @@ func (h *SandboxHandler) Update(c echo.Context) error {
 	return c.JSON(200, resp)
 }
 
-// ExtendTTL godoc
-// @Summary      Extend sandbox TTL
-// @Description  Add additional time to a sandbox's expiration
-// @Tags         Sandboxes
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Param        id path string true "Sandbox ID" format(uuid)
-// @Param        body body dto.ExtendTTLRequest true "TTL extension"
-// @Success      200 {object} models.Sandbox
-// @Failure      400 {object} dto.ErrorResponse
-// @Failure      401 {object} dto.ErrorResponse
-// @Failure      403 {object} dto.ErrorResponse
-// @Failure      404 {object} dto.ErrorResponse
-// @Router       /api/sandboxes/{id}/ttl [patch]
-func (h *SandboxHandler) ExtendTTL(c echo.Context) error {
-	id, err := parseUUIDParam(c, "id", "VALIDATION_ERROR", "Invalid sandbox id")
-	if err != nil {
-		return responses.FromError(c, err)
-	}
-
-	var input dto.ExtendTTLRequest
-	if err := bindAndValidate(c, &input); err != nil {
-		return responses.FromError(c, err)
-	}
-
-	auth := mw.MustAuth(c)
-	slog.Debug("sandbox TTL extension requested", logging.RequestFields(c,
-		"component", "sandbox",
-		"user_id", auth.UserID.String(),
-		"sandbox_id", id.String(),
-		"ttl_minutes", input.TTLMinutes,
-	)...)
-	sandbox, err := h.sandboxes.ExtendTTL(id, input.TTLMinutes, newAuditActor(c, &auth.UserID))
-	if err != nil {
-		return mapSandboxError(c, err)
-	}
-
-	slog.Info("sandbox TTL extended", logging.RequestFields(c,
-		"component", "sandbox",
-		"user_id", auth.UserID.String(),
-		"sandbox_id", id.String(),
-		"new_expires_at", sandbox.ExpiresAt,
-	)...)
-	return c.JSON(200, sandbox)
-}
-
 // Delete godoc
 // @Summary      Delete a sandbox
-// @Description  Stop and remove an authenticated user's sandbox
+// @Description  Stop and remove a sandbox. Checks ownership by user ID or X-Client-Id header.
 // @Tags         Sandboxes
 // @Security     BearerAuth
 // @Param        id path string true "Sandbox ID" format(uuid)
@@ -403,42 +285,28 @@ func (h *SandboxHandler) Delete(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
+	user := c.Get("user").(*models.User)
+
+	sandbox, err := h.sandboxes.FindByID(id)
+	if err != nil {
+		return mapSandboxError(c, err)
+	}
+
+	if !user.IsAdmin() {
+		ownsViaUser := sandbox.OwnerID != nil && *sandbox.OwnerID == auth.UserID
+		clientID := mw.ClientID(c)
+		ownsViaClient := sandbox.ClientID != nil && clientID != nil && *sandbox.ClientID == *clientID
+		if !ownsViaUser && !ownsViaClient {
+			return mapSandboxError(c, services.ErrSandboxAccessDenied)
+		}
+	}
+
 	slog.Debug("sandbox deletion requested", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "sandbox_id", id.String())...)
 	if err := h.sandboxes.Delete(c.Request().Context(), id, newAuditActor(c, &auth.UserID)); err != nil {
 		return mapSandboxError(c, err)
 	}
 
 	slog.Info("sandbox deleted", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "sandbox_id", id.String())...)
-	return c.NoContent(204)
-}
-
-// DeleteGuest godoc
-// @Summary      Delete a guest sandbox
-// @Description  Stop and remove a guest session's sandbox
-// @Tags         Public
-// @Param        id path string true "Sandbox ID" format(uuid)
-// @Success      204
-// @Failure      400 {object} dto.ErrorResponse
-// @Failure      403 {object} dto.ErrorResponse
-// @Failure      404 {object} dto.ErrorResponse
-// @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/public/sandboxes/{id} [delete]
-func (h *SandboxHandler) DeleteGuest(c echo.Context) error {
-	id, err := parseUUIDParam(c, "id", "VALIDATION_ERROR", "Invalid sandbox id")
-	if err != nil {
-		return responses.FromError(c, err)
-	}
-
-	clientID := mw.ClientID(c)
-	if clientID == nil {
-		return responses.FromAppError(c, apperror.BadRequest("MISSING_CLIENT_ID", "X-Client-Id header is required"))
-	}
-	slog.Debug("guest sandbox deletion requested", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "sandbox_id", id.String())...)
-	if err := h.sandboxes.DeleteForGuest(c.Request().Context(), id, *clientID, newAuditActor(c, nil)); err != nil {
-		return mapSandboxError(c, err)
-	}
-
-	slog.Info("guest sandbox deleted", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "sandbox_id", id.String())...)
 	return c.NoContent(204)
 }
 
@@ -456,7 +324,7 @@ func (h *SandboxHandler) DeleteGuest(c echo.Context) error {
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/sandboxes/{id}/snapshot [post]
+// @Router       /api/sandboxes/{id}/snapshots [post]
 func (h *SandboxHandler) Snapshot(c echo.Context) error {
 	id, err := parseUUIDParam(c, "id", "VALIDATION_ERROR", "Invalid sandbox id")
 	if err != nil {
@@ -525,6 +393,10 @@ func (h *SandboxHandler) Stream(c echo.Context) error {
 	sandbox, err := h.sandboxes.FindByID(id)
 	if err != nil {
 		return responses.FromAppError(c, apperror.NotFound("SANDBOX_NOT_FOUND", "Sandbox not found").WithCause(err))
+	}
+
+	if err := h.authorizeHealthAccess(c, sandbox); err != nil {
+		return err
 	}
 
 	writeSSEHeaders(c)

@@ -84,6 +84,7 @@ type UpdateSandboxInput struct {
 	SandboxID   uuid.UUID
 	UserID      *uuid.UUID
 	DisplayName *string
+	TTLMinutes  *int
 	ClientIP    string
 	AuditActor  AuditActor
 }
@@ -126,8 +127,33 @@ func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbo
 		sandbox.DisplayName = *input.DisplayName
 	}
 
+	if input.TTLMinutes != nil {
+		switch *input.TTLMinutes {
+		case 0:
+			sandbox.ExpiresAt = nil
+		default:
+			if sandbox.ExpiresAt != nil {
+				newExpiry := sandbox.ExpiresAt.Add(time.Duration(*input.TTLMinutes) * time.Minute)
+				if maxExpiry := time.Now().UTC().Add(s.cfg.MaxTTL); newExpiry.After(maxExpiry) {
+					newExpiry = maxExpiry
+				}
+				sandbox.ExpiresAt = &newExpiry
+			}
+		}
+	}
+
 	if err := s.repo.Update(sandbox); err != nil {
 		return nil, err
+	}
+
+	details := map[string]any{
+		"displayName": sandbox.DisplayName,
+	}
+	if input.TTLMinutes != nil {
+		details["ttlMinutes"] = *input.TTLMinutes
+		if sandbox.ExpiresAt != nil {
+			details["newExpiresAt"] = sandbox.ExpiresAt.Format(time.RFC3339)
+		}
 	}
 
 	resourceType := auditcontracts.ResourceTypeSandbox
@@ -136,9 +162,7 @@ func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbo
 		Action:       auditcontracts.ActionSandboxUpdated,
 		ResourceType: &resourceType,
 		ResourceID:   &sandbox.ID,
-		Details: map[string]any{
-			"displayName": sandbox.DisplayName,
-		},
+		Details:      details,
 	})
 
 	return sandbox, nil

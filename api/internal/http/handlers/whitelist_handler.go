@@ -31,15 +31,15 @@ func NewWhitelistHandler(users *repositories.UserRepository, audit *services.Aud
 // @Tags         Admin
 // @Security     BearerAuth
 // @Produce      json
-// @Success      200 {array} models.User
+// @Success      200 {array} dto.UserResponse
 // @Failure      403 {object} dto.ErrorResponse
-// @Router       /api/admin/whitelist [get]
+// @Router       /api/whitelist [get]
 func (h *WhitelistHandler) List(c echo.Context) error {
 	users, err := h.users.ListPending()
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("WHITELIST_LIST_FAILED", "Could not list whitelisted emails").WithCause(err))
 	}
-	return c.JSON(200, users)
+	return c.JSON(200, toUserResponses(users))
 }
 
 // Add godoc
@@ -50,11 +50,11 @@ func (h *WhitelistHandler) List(c echo.Context) error {
 // @Accept       json
 // @Produce      json
 // @Param        body body dto.AddWhitelistRequest true "Email to whitelist"
-// @Success      201 {object} models.User
+// @Success      201 {object} dto.UserResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      409 {object} dto.ErrorResponse
-// @Router       /api/admin/whitelist [post]
+// @Router       /api/whitelist [post]
 func (h *WhitelistHandler) Add(c echo.Context) error {
 	var input dto.AddWhitelistRequest
 	if err := bindAndValidate(c, &input); err != nil {
@@ -81,7 +81,7 @@ func (h *WhitelistHandler) Add(c echo.Context) error {
 		"email": user.Email,
 		"role":  user.Role,
 	}))
-	return c.JSON(201, user)
+	return c.JSON(201, toUserResponse(user))
 }
 
 // Remove godoc
@@ -94,7 +94,7 @@ func (h *WhitelistHandler) Add(c echo.Context) error {
 // @Success      204
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
-// @Router       /api/admin/whitelist/{id} [delete]
+// @Router       /api/whitelist/{id} [delete]
 func (h *WhitelistHandler) Remove(c echo.Context) error {
 	id, err := parseUUIDParam(c, "id", "INVALID_ID", "Invalid UUID")
 	if err != nil {

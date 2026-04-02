@@ -30,17 +30,17 @@ func NewUserHandler(users *services.UserService, audit *services.AuditService) *
 // @Tags         Admin
 // @Security     BearerAuth
 // @Produce      json
-// @Success      200 {array} models.User
+// @Success      200 {array} dto.UserResponse
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/admin/users [get]
+// @Router       /api/users [get]
 func (h *UserHandler) List(c echo.Context) error {
 	users, err := h.users.List()
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("USER_LIST_FAILED", "Could not list users").WithCause(err))
 	}
 
-	return c.JSON(http.StatusOK, users)
+	return c.JSON(http.StatusOK, toUserResponses(users))
 }
 
 // Get godoc
@@ -50,11 +50,11 @@ func (h *UserHandler) List(c echo.Context) error {
 // @Security     BearerAuth
 // @Produce      json
 // @Param        id path string true "User ID" format(uuid)
-// @Success      200 {object} models.User
+// @Success      200 {object} dto.UserResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
-// @Router       /api/admin/users/{id} [get]
+// @Router       /api/users/{id} [get]
 func (h *UserHandler) Get(c echo.Context) error {
 	id, err := parseUserID(c)
 	if err != nil {
@@ -66,7 +66,7 @@ func (h *UserHandler) Get(c echo.Context) error {
 		return responses.FromError(c, getErr)
 	}
 
-	return c.JSON(http.StatusOK, user)
+	return c.JSON(http.StatusOK, toUserResponse(user))
 }
 
 // Create godoc
@@ -77,12 +77,12 @@ func (h *UserHandler) Get(c echo.Context) error {
 // @Accept       json
 // @Produce      json
 // @Param        body body dto.CreateUserRequest true "User payload"
-// @Success      201 {object} models.User
+// @Success      201 {object} dto.UserResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      409 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/admin/users [post]
+// @Router       /api/users [post]
 func (h *UserHandler) Create(c echo.Context) error {
 	var input dto.CreateUserRequest
 	if err := bindAndValidate(c, &input); err != nil {
@@ -108,7 +108,7 @@ func (h *UserHandler) Create(c echo.Context) error {
 		"pending": user.IsPending(),
 	}))
 
-	return c.JSON(http.StatusCreated, user)
+	return c.JSON(http.StatusCreated, toUserResponse(user))
 }
 
 // Update godoc
@@ -120,13 +120,13 @@ func (h *UserHandler) Create(c echo.Context) error {
 // @Produce      json
 // @Param        id path string true "User ID" format(uuid)
 // @Param        body body dto.UpdateUserRequest true "User payload"
-// @Success      200 {object} models.User
+// @Success      200 {object} dto.UserResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
 // @Failure      409 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/admin/users/{id} [put]
+// @Router       /api/users/{id} [patch]
 func (h *UserHandler) Update(c echo.Context) error {
 	id, err := parseUserID(c)
 	if err != nil {
@@ -155,7 +155,7 @@ func (h *UserHandler) Update(c echo.Context) error {
 		"role":  user.Role,
 	}))
 
-	return c.JSON(http.StatusOK, user)
+	return c.JSON(http.StatusOK, toUserResponse(user))
 }
 
 // Delete godoc
@@ -170,7 +170,7 @@ func (h *UserHandler) Update(c echo.Context) error {
 // @Failure      403 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
 // @Failure      500 {object} dto.ErrorResponse
-// @Router       /api/admin/users/{id} [delete]
+// @Router       /api/users/{id} [delete]
 func (h *UserHandler) Delete(c echo.Context) error {
 	id, err := parseUserID(c)
 	if err != nil {

@@ -170,13 +170,12 @@ func registerRoutes(e *echo.Echo, cfg config.Config, runtime *runtimeServices) {
 	terminalHandler := handlers.NewTerminalHandler(runtime.terminal, runtime.auth, cfg.Server.AllowedOrigins)
 
 	e.GET("/health", healthCheck)
-	registerAPIRoutes(e, cfg, runtime, authHandler, imageHandler, sandboxHandler, auditHandler, userHandler, whitelistHandler, terminalHandler)
+	registerAPIRoutes(e, runtime, authHandler, imageHandler, sandboxHandler, auditHandler, userHandler, whitelistHandler, terminalHandler)
 	registerDocumentationRoutes(e, cfg)
 }
 
 func registerAPIRoutes(
 	e *echo.Echo,
-	cfg config.Config,
 	runtime *runtimeServices,
 	authHandler *handlers.AuthHandler,
 	imageHandler *handlers.ImageHandler,
@@ -186,55 +185,49 @@ func registerAPIRoutes(
 	whitelistHandler *handlers.WhitelistHandler,
 	terminalHandler *handlers.TerminalHandler,
 ) {
-	api := e.Group("/api")
-	public := api.Group("/public")
-	auth := api.Group("/auth")
-	private := api.Group("")
-	private.Use(authmw.Auth(runtime.auth))
-	api.GET("/images/:id/progress", imageHandler.Progress)
-	api.GET("/registry/lookup", imageHandler.RegistryLookup)
-	api.GET("/sandboxes/:id/health", sandboxHandler.Health)
-	api.GET("/sandboxes/:id/terminal", terminalHandler.Connect)
+	public := e.Group("/api")
+	authed := e.Group("/api", authmw.Auth(runtime.auth))
+	admin := e.Group("/api", authmw.Auth(runtime.auth), authmw.RequireAdmin())
 
-	public.GET("/images", imageHandler.ListPublic)
-	public.GET("/sandboxes", sandboxHandler.ListGuest)
-	public.POST("/demos", sandboxHandler.CreatePublicDemo)
-	public.DELETE("/sandboxes/:id", sandboxHandler.DeleteGuest)
+	// public endpoints without auth
+	public.POST("/auth/register", authHandler.Register)
+	public.POST("/auth/login", authHandler.Login)
+	public.GET("/images/:id/progress", imageHandler.Progress)
+	public.GET("/registry/lookup", imageHandler.RegistryLookup)
+	public.GET("/sandboxes/:id/health", sandboxHandler.Health)
+	public.GET("/sandboxes/:id/stream", sandboxHandler.Stream)
+	public.GET("/sandboxes/:id/terminal", terminalHandler.Connect)
 
-	auth.POST("/register", authHandler.Register)
-	auth.POST("/login", authHandler.Login)
+	// private endpoints with auth required
+	authed.POST("/auth/logout", authHandler.Logout)
+	authed.GET("/auth/me", authHandler.Me)
 
-	private.POST("/auth/logout", authHandler.Logout)
-	private.GET("/me", authHandler.Me)
-	private.GET("/me/sandboxes", sandboxHandler.ListMine)
-	private.GET("/sandboxes/:id/stream", sandboxHandler.Stream)
-	private.GET("/images", imageHandler.ListAll)
-	private.GET("/images/pending", imageHandler.ListPending)
-	private.POST("/images", imageHandler.Create)
-	private.PUT("/images/:id", imageHandler.Update)
-	private.DELETE("/images/:id", imageHandler.Delete)
-	private.POST("/images/:id/thumbnail", imageHandler.UploadThumbnail)
-	private.DELETE("/images/:id/thumbnail", imageHandler.DeleteThumbnail)
-	private.GET("/sandboxes", sandboxHandler.List, authmw.RequireAdmin())
-	private.GET("/sandboxes/:id", sandboxHandler.Get)
-	private.POST("/sandboxes", sandboxHandler.CreatePrivateSandbox)
-	private.DELETE("/sandboxes/:id", sandboxHandler.Delete)
-	private.PATCH("/sandboxes/:id", sandboxHandler.Update)
-	private.PATCH("/sandboxes/:id/ttl", sandboxHandler.ExtendTTL)
-	private.POST("/sandboxes/:id/snapshot", sandboxHandler.Snapshot)
-	private.GET("/audit-logs", auditHandler.List, authmw.RequireAdmin())
-	private.GET("/audit-logs/facets", auditHandler.Facets, authmw.RequireAdmin())
+	authed.GET("/images", imageHandler.ListAll)
+	authed.GET("/images/pending", imageHandler.ListPending)
+	authed.POST("/images", imageHandler.Create)
+	authed.PATCH("/images/:id", imageHandler.Update)
+	authed.DELETE("/images/:id", imageHandler.Delete)
+	authed.POST("/images/:id/thumbnail", imageHandler.UploadThumbnail)
+	authed.DELETE("/images/:id/thumbnail", imageHandler.DeleteThumbnail)
 
-	admin := private.Group("/admin")
-	admin.Use(authmw.RequireAdmin())
+	authed.GET("/sandboxes", sandboxHandler.List)
+	authed.GET("/sandboxes/:id", sandboxHandler.Get)
+	authed.POST("/sandboxes", sandboxHandler.Create)
+	authed.PATCH("/sandboxes/:id", sandboxHandler.Update)
+	authed.DELETE("/sandboxes/:id", sandboxHandler.Delete)
+	authed.POST("/sandboxes/:id/snapshots", sandboxHandler.Snapshot)
+
+	// private endpoints with auth required + admin role
 	admin.GET("/users", userHandler.List)
 	admin.GET("/users/:id", userHandler.Get)
 	admin.POST("/users", userHandler.Create)
-	admin.PUT("/users/:id", userHandler.Update)
+	admin.PATCH("/users/:id", userHandler.Update)
 	admin.DELETE("/users/:id", userHandler.Delete)
 	admin.GET("/whitelist", whitelistHandler.List)
 	admin.POST("/whitelist", whitelistHandler.Add)
 	admin.DELETE("/whitelist/:id", whitelistHandler.Remove)
+	admin.GET("/audit-logs", auditHandler.List)
+	admin.GET("/audit-logs/facets", auditHandler.Facets)
 }
 
 func registerDocumentationRoutes(e *echo.Echo, cfg config.Config) {
