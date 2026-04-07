@@ -178,6 +178,10 @@ export interface UpdateSandboxRequest {
   ttlMinutes?: number
 }
 
+export interface CreateDemoRequest {
+  imageId: string
+}
+
 export interface CreateImageRequest {
   name: string
   tag: string
@@ -225,5 +229,10 @@ export interface ApiError {
 }
 
 export interface ApiErrorResponse {
-  error: ApiError
+  // Legacy format
+  error?: ApiError
+  // RFC 7807 problem+json (Fuego format)
+  title?: string
+  status?: number
+  detail?: string
 }

@@ -172,7 +172,7 @@ func (h SandboxHandler) create(c fuego.ContextWithBody[dto.CreateSandboxRequest]
 		ImageID:     imageID,
 		UserID:      &auth.UserID,
 		ClientID:    clientID,
-		ClientIP:    r.RemoteAddr,
+		ClientIP:    extractIP(r),
 		TTLMinutes:  body.TTLMinutes,
 		DisplayName: body.DisplayName,
 		Metadata:    body.Metadata,
@@ -206,7 +206,7 @@ func (h SandboxHandler) update(c fuego.ContextWithBody[dto.UpdateSandboxRequest]
 		UserID:      &auth.UserID,
 		DisplayName: body.DisplayName,
 		TTLMinutes:  body.TTLMinutes,
-		ClientIP:    r.RemoteAddr,
+		ClientIP:    extractIP(r),
 		AuditActor:  newAuditActor(r, &auth.UserID),
 	})
 	if err != nil {
@@ -274,7 +274,7 @@ func (h SandboxHandler) snapshot(c fuego.ContextWithBody[dto.CreateSnapshotReque
 		Title:       body.Title,
 		Description: body.Description,
 		IsPublic:    body.IsPublic,
-		ClientIP:    r.RemoteAddr,
+		ClientIP:    extractIP(r),
 		UserID:      &auth.UserID,
 		Metadata:    metadataJSON,
 		AuditActor:  newAuditActor(r, &auth.UserID),
@@ -378,7 +378,7 @@ func (h SandboxHandler) createDemo(c fuego.ContextWithBody[dto.CreateDemoRequest
 	sandbox, err := h.Sandboxes.Create(r.Context(), services.CreateSandboxInput{
 		ImageID:    imageID,
 		ClientID:   clientID,
-		ClientIP:   r.RemoteAddr,
+		ClientIP:   extractIP(r),
 		AuditActor: newAuditActor(r, nil),
 	})
 	if err != nil {
@@ -561,3 +561,4 @@ func extractHostname(rawURL string) string {
 	}
 	return u.Hostname()
 }
+

@@ -8,6 +8,7 @@ import { useSandboxesStore } from '@/stores/sandboxes.store'
 import { getToken } from '@/utils/storage'
 
 import type {
+  CreateDemoRequest,
   CreateSandboxRequest,
   CreateSnapshotRequest,
   Image,
@@ -249,7 +250,7 @@ export function useSandboxes() {
     return sandbox
   }
 
-  async function createDemo(req: CreateSandboxRequest): Promise<Sandbox> {
+  async function createDemo(req: CreateDemoRequest): Promise<Sandbox> {
     const sandbox = await sandboxesApi.createDemo(req)
     sandboxes.value.unshift(sandbox)
     return sandbox

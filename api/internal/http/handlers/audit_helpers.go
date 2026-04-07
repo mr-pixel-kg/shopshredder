@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net"
 	"net/http"
 	"strings"
 
@@ -21,7 +22,7 @@ func newAuditLogInput(
 	return services.AuditLogInput{
 		Actor: services.AuditActor{
 			UserID:    userID,
-			IPAddress: optionalString(strings.TrimSpace(r.RemoteAddr)),
+			IPAddress: optionalString(extractIP(r)),
 			UserAgent: optionalString(strings.TrimSpace(r.UserAgent())),
 			ClientID:  mw.ClientIDFromContext(r),
 		},
@@ -41,4 +42,21 @@ func optionalString(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func extractIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-Ip"); ip != "" {
+		return ip
+	}
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		if i := strings.IndexByte(fwd, ','); i > 0 {
+			return strings.TrimSpace(fwd[:i])
+		}
+		return strings.TrimSpace(fwd)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }

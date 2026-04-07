@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 
 import type {
+  CreateDemoRequest,
   CreateSandboxRequest,
   CreateSnapshotRequest,
   Image,
@@ -38,7 +39,7 @@ export const sandboxesApi = {
     return data
   },
 
-  async createDemo(req: CreateSandboxRequest): Promise<Sandbox> {
+  async createDemo(req: CreateDemoRequest): Promise<Sandbox> {
     const { data } = await apiClient.post<Sandbox>('/api/demos', req)
     return data
   },

@@ -71,6 +71,7 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 					WithScheme("bearer"),
 			},
 		}),
+		fuego.WithGlobalMiddlewares(mw.CORS(cfg.Server.AllowedOrigins)),
 	)
 	s.WriteTimeout = 0
 
@@ -99,9 +100,8 @@ func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
 }
 
 func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices) {
-	fuego.Use(s, mw.EnsureClientID())
 	fuego.Use(s, mw.RequestLogger())
-	fuego.Use(s, mw.CORS(cfg.Server.AllowedOrigins))
+	fuego.Use(s, mw.EnsureClientID())
 
 	fuego.Get(s, "/health", healthCheck,
 		option.Summary("Health check"),

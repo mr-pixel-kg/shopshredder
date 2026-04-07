@@ -247,7 +247,7 @@ async function handleDemo(imageId: string) {
     if (authStore.isAuthenticated) {
       await createSandbox({ imageId, metadata })
     } else {
-      await createDemo({ imageId, metadata })
+      await createDemo({ imageId })
     }
     toast.success('Demo wird gestartet')
     refreshSandboxes()
