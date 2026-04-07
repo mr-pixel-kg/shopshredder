@@ -17,7 +17,6 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/models"
 	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -48,9 +47,25 @@ func (h *ImageHandler) ListPublic(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load public images").WithCause(err))
 	}
-	h.enrichMetadata(images)
 	slog.Debug("listed public images", logging.RequestFields(c, "component", "image", "count", len(images))...)
-	return c.JSON(200, toImageResponses(images))
+	out := make([]dto.ImageResponse, len(images))
+	for i := range images {
+		img := &images[i]
+		var owner *dto.UserSummary
+		if img.Owner != nil {
+			owner = &dto.UserSummary{ID: img.Owner.ID, Email: img.Owner.Email}
+		}
+		out[i] = dto.ImageResponse{
+			ID: img.ID, Name: img.Name, Tag: img.Tag,
+			Title: img.Title, Description: img.Description,
+			ThumbnailURL: img.ThumbnailURL, IsPublic: img.IsPublic,
+			Status: img.Status, Error: img.Error,
+			Metadata: img.Metadata, RegistryRef: img.RegistryRef,
+			Owner:     owner,
+			CreatedAt: img.CreatedAt, UpdatedAt: img.UpdatedAt,
+		}
+	}
+	return c.JSON(200, out)
 }
 
 // ListAll godoc
@@ -68,9 +83,25 @@ func (h *ImageHandler) ListAll(c echo.Context) error {
 	if err != nil {
 		return responses.FromAppError(c, apperror.Internal("IMAGE_LIST_FAILED", "Could not load images").WithCause(err))
 	}
-	h.enrichMetadata(images)
 	slog.Debug("listed all images", logging.RequestFields(c, "component", "image", "count", len(images))...)
-	return c.JSON(200, toImageResponses(images))
+	out := make([]dto.ImageResponse, len(images))
+	for i := range images {
+		img := &images[i]
+		var owner *dto.UserSummary
+		if img.Owner != nil {
+			owner = &dto.UserSummary{ID: img.Owner.ID, Email: img.Owner.Email}
+		}
+		out[i] = dto.ImageResponse{
+			ID: img.ID, Name: img.Name, Tag: img.Tag,
+			Title: img.Title, Description: img.Description,
+			ThumbnailURL: img.ThumbnailURL, IsPublic: img.IsPublic,
+			Status: img.Status, Error: img.Error,
+			Metadata: img.Metadata, RegistryRef: img.RegistryRef,
+			Owner:     owner,
+			CreatedAt: img.CreatedAt, UpdatedAt: img.UpdatedAt,
+		}
+	}
+	return c.JSON(200, out)
 }
 
 // Create godoc
@@ -81,7 +112,7 @@ func (h *ImageHandler) ListAll(c echo.Context) error {
 // @Accept       json
 // @Produce      json
 // @Param        body body dto.CreateImageRequest true "Image details"
-// @Success      201 {object} models.Image
+// @Success      201 {object} dto.ImageResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Router       /api/images [post]
@@ -129,8 +160,19 @@ func (h *ImageHandler) Create(c echo.Context) error {
 		"image", image.FullName(),
 		"status", image.Status,
 	)...)
-	h.enrichMetadata([]models.Image{*image})
-	return c.JSON(201, toImageResponse(image))
+	var owner *dto.UserSummary
+	if image.Owner != nil {
+		owner = &dto.UserSummary{ID: image.Owner.ID, Email: image.Owner.Email}
+	}
+	return c.JSON(201, dto.ImageResponse{
+		ID: image.ID, Name: image.Name, Tag: image.Tag,
+		Title: image.Title, Description: image.Description,
+		ThumbnailURL: image.ThumbnailURL, IsPublic: image.IsPublic,
+		Status: image.Status, Error: image.Error,
+		Metadata: image.Metadata, RegistryRef: image.RegistryRef,
+		Owner:     owner,
+		CreatedAt: image.CreatedAt, UpdatedAt: image.UpdatedAt,
+	})
 }
 
 // Update godoc
@@ -142,7 +184,7 @@ func (h *ImageHandler) Create(c echo.Context) error {
 // @Produce      json
 // @Param        id path string true "Image ID" format(uuid)
 // @Param        body body dto.UpdateImageRequest true "Updated image fields"
-// @Success      200 {object} models.Image
+// @Success      200 {object} dto.ImageResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
@@ -181,8 +223,19 @@ func (h *ImageHandler) Update(c echo.Context) error {
 	)...)
 	resourceType := auditcontracts.ResourceTypeImage
 	_ = h.audit.Log(newAuditLogInput(c, &auth.UserID, auditcontracts.ActionImageUpdated, &resourceType, &image.ID, map[string]any{}))
-	h.enrichMetadata([]models.Image{*image})
-	return c.JSON(http.StatusOK, toImageResponse(image))
+	var owner *dto.UserSummary
+	if image.Owner != nil {
+		owner = &dto.UserSummary{ID: image.Owner.ID, Email: image.Owner.Email}
+	}
+	return c.JSON(http.StatusOK, dto.ImageResponse{
+		ID: image.ID, Name: image.Name, Tag: image.Tag,
+		Title: image.Title, Description: image.Description,
+		ThumbnailURL: image.ThumbnailURL, IsPublic: image.IsPublic,
+		Status: image.Status, Error: image.Error,
+		Metadata: image.Metadata, RegistryRef: image.RegistryRef,
+		Owner:     owner,
+		CreatedAt: image.CreatedAt, UpdatedAt: image.UpdatedAt,
+	})
 }
 
 // UploadThumbnail godoc
@@ -194,7 +247,7 @@ func (h *ImageHandler) Update(c echo.Context) error {
 // @Produce      json
 // @Param        id path string true "Image ID" format(uuid)
 // @Param        thumbnail formData file true "Thumbnail file"
-// @Success      200 {object} models.Image
+// @Success      200 {object} dto.ImageResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
@@ -241,8 +294,19 @@ func (h *ImageHandler) UploadThumbnail(c echo.Context) error {
 	)...)
 	resourceType := auditcontracts.ResourceTypeImage
 	_ = h.audit.Log(newAuditLogInput(c, &auth.UserID, auditcontracts.ActionImageThumbnailUploaded, &resourceType, &image.ID, map[string]any{}))
-	h.enrichMetadata([]models.Image{*image})
-	return c.JSON(http.StatusOK, toImageResponse(image))
+	var owner *dto.UserSummary
+	if image.Owner != nil {
+		owner = &dto.UserSummary{ID: image.Owner.ID, Email: image.Owner.Email}
+	}
+	return c.JSON(http.StatusOK, dto.ImageResponse{
+		ID: image.ID, Name: image.Name, Tag: image.Tag,
+		Title: image.Title, Description: image.Description,
+		ThumbnailURL: image.ThumbnailURL, IsPublic: image.IsPublic,
+		Status: image.Status, Error: image.Error,
+		Metadata: image.Metadata, RegistryRef: image.RegistryRef,
+		Owner:     owner,
+		CreatedAt: image.CreatedAt, UpdatedAt: image.UpdatedAt,
+	})
 }
 
 // DeleteThumbnail godoc
@@ -447,20 +511,6 @@ func (h *ImageHandler) RegistryLookup(c echo.Context) error {
 	meta := make([]registry.MetadataItem, len(entry.Metadata))
 	copy(meta, entry.Metadata)
 	return c.JSON(http.StatusOK, meta)
-}
-
-func (h *ImageHandler) enrichMetadata(images []models.Image) {
-	for i := range images {
-		entry := h.resolver.ResolveEntry(images[i].RegistryName())
-		if entry == nil {
-			continue
-		}
-		reg := make([]registry.MetadataItem, len(entry.Metadata))
-		copy(reg, entry.Metadata)
-		merged := mergeRegistryAndDB(reg, images[i].Metadata)
-		data, _ := json.Marshal(merged)
-		images[i].Metadata = datatypes.JSON(data)
-	}
 }
 
 func mapImageError(c echo.Context, code, message string, err error) error {

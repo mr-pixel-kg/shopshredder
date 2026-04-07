@@ -31,6 +31,7 @@ type SandboxService struct {
 	cfg       config.SandboxConfig
 	dockerCfg config.DockerConfig
 	guard     config.GuardConfig
+	sshCfg    config.SSHConfig
 	repo      *repositories.SandboxRepository
 	imageRepo *repositories.ImageRepository
 	images    *ImageService
@@ -45,6 +46,7 @@ func NewSandboxService(
 	cfg config.SandboxConfig,
 	dockerCfg config.DockerConfig,
 	guard config.GuardConfig,
+	sshCfg config.SSHConfig,
 	repo *repositories.SandboxRepository,
 	imageRepo *repositories.ImageRepository,
 	images *ImageService,
@@ -58,6 +60,7 @@ func NewSandboxService(
 		cfg:       cfg,
 		dockerCfg: dockerCfg,
 		guard:     guard,
+		sshCfg:    sshCfg,
 		repo:      repo,
 		imageRepo: imageRepo,
 		images:    images,
@@ -90,19 +93,39 @@ type UpdateSandboxInput struct {
 }
 
 func (s *SandboxService) ListAll() ([]models.Sandbox, error) {
-	return s.repo.ListAll()
+	sandboxes, err := s.repo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
 func (s *SandboxService) ListActive() ([]models.Sandbox, error) {
-	return s.repo.ListAllActive()
+	sandboxes, err := s.repo.ListAllActive()
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
 func (s *SandboxService) ListByUser(userID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListAllByUser(userID)
+	sandboxes, err := s.repo.ListAllByUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
 func (s *SandboxService) ListByClientID(clientID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListAllByClientID(clientID)
+	sandboxes, err := s.repo.ListAllByClientID(clientID)
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
 func (s *SandboxService) FindByID(id uuid.UUID) (*models.Sandbox, error) {
@@ -164,6 +187,10 @@ func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbo
 		ResourceID:   &sandbox.ID,
 		Details:      details,
 	})
+
+	enriched := []models.Sandbox{*sandbox}
+	s.EnrichMetadata(enriched)
+	*sandbox = enriched[0]
 
 	return sandbox, nil
 }
@@ -330,6 +357,10 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 			"actor":   sandboxActorType(sandbox),
 		},
 	})
+
+	enriched := []models.Sandbox{*sandbox}
+	s.EnrichMetadata(enriched)
+	*sandbox = enriched[0]
 
 	return sandbox, nil
 }
@@ -856,6 +887,97 @@ func (s *SandboxService) scheme() string {
 		return "https"
 	}
 	return "http"
+}
+
+func (s *SandboxService) SSHConfig() config.SSHConfig {
+	return s.sshCfg
+}
+
+func (s *SandboxService) ResolveSSHEntry(imageID uuid.UUID) *registry.SSHEntry {
+	img, err := s.images.FindByID(imageID)
+	if err != nil {
+		return nil
+	}
+	entry := s.resolver.ResolveEntry(img.RegistryName())
+	if entry == nil {
+		return nil
+	}
+	return entry.SSH
+}
+
+func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) {
+	type cachedEntry struct {
+		metadata []registry.MetadataItem
+		ssh      *registry.SSHEntry
+	}
+	cache := make(map[uuid.UUID]*cachedEntry)
+
+	for idx := range sandboxes {
+		sb := &sandboxes[idx]
+
+		entry, ok := cache[sb.ImageID]
+		if !ok {
+			img, err := s.images.FindByID(sb.ImageID)
+			if err != nil {
+				slog.Warn("enrich sandbox: image not found", "image_id", sb.ImageID)
+				cache[sb.ImageID] = nil
+				continue
+			}
+			regEntry := s.resolver.ResolveEntry(img.RegistryName())
+			if regEntry != nil {
+				meta := mergeRegistryAndDB(regEntry.Metadata, img.Metadata)
+				entry = &cachedEntry{metadata: meta, ssh: regEntry.SSH}
+			}
+			cache[sb.ImageID] = entry
+		}
+
+		if entry == nil {
+			continue
+		}
+
+		if len(entry.metadata) > 0 {
+			var values map[string]string
+			if len(sb.Metadata) > 0 {
+				_ = json.Unmarshal(sb.Metadata, &values)
+			}
+			enriched := make([]registry.MetadataItem, len(entry.metadata))
+			copy(enriched, entry.metadata)
+			for j := range enriched {
+				if v, exists := values[enriched[j].Key]; exists {
+					enriched[j].Value = v
+				}
+			}
+			data, _ := json.Marshal(enriched)
+			sb.Metadata = datatypes.JSON(data)
+		}
+	}
+}
+
+func mergeRegistryAndDB(reg []registry.MetadataItem, dbJSON datatypes.JSON) []registry.MetadataItem {
+	var dbItems []registry.MetadataItem
+	if len(dbJSON) > 0 {
+		_ = json.Unmarshal(dbJSON, &dbItems)
+	}
+	dbMap := make(map[string]registry.MetadataItem)
+	for _, item := range dbItems {
+		dbMap[item.Key] = item
+	}
+	var merged []registry.MetadataItem
+	for _, item := range reg {
+		if dbItem, ok := dbMap[item.Key]; ok {
+			if dbItem.Value != "" {
+				item.Value = dbItem.Value
+			}
+			delete(dbMap, item.Key)
+		}
+		merged = append(merged, item)
+	}
+	for _, item := range dbItems {
+		if _, ok := dbMap[item.Key]; ok {
+			merged = append(merged, item)
+		}
+	}
+	return merged
 }
 
 func splitImageRef(ref string) (string, string) {

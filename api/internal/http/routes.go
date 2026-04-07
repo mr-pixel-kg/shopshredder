@@ -111,8 +111,8 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	dockerClient := docker.NewClient(sdkClient, cfg.Sandbox, cfg.Docker)
 	executor := &registry.Executor{Client: sdkClient}
 	pullTracker := docker.NewPullTracker()
-	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir)
-	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor)
+	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir, resolver)
+	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, cfg.SSH, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor)
 	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo, imageRepo, resolver)
 	terminalService := services.NewTerminalService(cfg.Terminal, dockerClient, sandboxRepo)
 
@@ -158,15 +158,12 @@ func registerRoutes(e *echo.Echo, cfg config.Config, runtime *runtimeServices) {
 	imageHandler := handlers.NewImageHandler(runtime.image, runtime.audit, runtime.resolver)
 	sandboxHandler := handlers.NewSandboxHandler(
 		runtime.sandbox,
-		runtime.image,
-		runtime.resolver,
 		runtime.sandboxHealth,
 		runtime.auth,
-		cfg.SSH,
 	)
 	auditHandler := handlers.NewAuditHandler(runtime.audit)
 	userHandler := handlers.NewUserHandler(runtime.user, runtime.audit)
-	whitelistHandler := handlers.NewWhitelistHandler(runtime.userRepo, runtime.audit)
+	whitelistHandler := handlers.NewWhitelistHandler(runtime.user, runtime.audit)
 	terminalHandler := handlers.NewTerminalHandler(runtime.terminal, runtime.auth, cfg.Server.AllowedOrigins)
 
 	e.GET("/health", healthCheck)

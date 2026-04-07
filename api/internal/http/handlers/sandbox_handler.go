@@ -1,8 +1,13 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net/url"
+	"strings"
+	"text/template"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -13,33 +18,25 @@ import (
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
 	"github.com/manuel/shopware-testenv-platform/api/internal/models"
+	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 )
 
 type SandboxHandler struct {
 	sandboxes *services.SandboxService
-	images    *services.ImageService
-	resolver  RegistryResolver
 	health    *services.SandboxHealthService
 	auth      *services.AuthService
-	sshCfg    config.SSHConfig
 }
 
 func NewSandboxHandler(
 	sandboxes *services.SandboxService,
-	images *services.ImageService,
-	resolver RegistryResolver,
 	health *services.SandboxHealthService,
 	auth *services.AuthService,
-	sshCfg config.SSHConfig,
 ) *SandboxHandler {
 	return &SandboxHandler{
 		sandboxes: sandboxes,
-		images:    images,
-		resolver:  resolver,
 		health:    health,
 		auth:      auth,
-		sshCfg:    sshCfg,
 	}
 }
 
@@ -80,8 +77,30 @@ func (h *SandboxHandler) List(c echo.Context) error {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load sandboxes").WithCause(err))
 	}
 	slog.Debug("listed sandboxes", logging.RequestFields(c, "component", "sandbox", "user_id", auth.UserID.String(), "count", len(sandboxes))...)
-	resp := h.enrichSandboxResponses(sandboxes)
-	return c.JSON(200, resp)
+	sshCfg := h.sandboxes.SSHConfig()
+	out := make([]dto.SandboxResponse, len(sandboxes))
+	for i, sb := range sandboxes {
+		var owner *dto.UserSummary
+		if sb.Owner != nil {
+			owner = &dto.UserSummary{ID: sb.Owner.ID, Email: sb.Owner.Email}
+		}
+		var ssh *dto.SSHConnectionInfo
+		if sshCfg.Enabled {
+			sshEntry := h.sandboxes.ResolveSSHEntry(sb.ImageID)
+			ssh = buildSSHInfo(&sandboxes[i], sshCfg, sshEntry)
+		}
+		out[i] = dto.SandboxResponse{
+			ID: sb.ID, ImageID: sb.ImageID, Owner: owner,
+			ClientID: sb.ClientID, DisplayName: sb.DisplayName,
+			Status: sb.Status, StateReason: sb.StateReason,
+			ContainerID: sb.ContainerID, ContainerName: sb.ContainerName,
+			URL: sb.URL, Port: sb.Port, SSH: ssh, ClientIP: sb.ClientIP,
+			Metadata:  sb.Metadata,
+			ExpiresAt: sb.ExpiresAt, LastSeenAt: sb.LastSeenAt,
+			CreatedAt: sb.CreatedAt, UpdatedAt: sb.UpdatedAt,
+		}
+	}
+	return c.JSON(200, out)
 }
 
 // Get godoc
@@ -107,8 +126,26 @@ func (h *SandboxHandler) Get(c echo.Context) error {
 		return responses.FromAppError(c, apperror.NotFound("SANDBOX_NOT_FOUND", "Sandbox not found").WithCause(err))
 	}
 	slog.Debug("sandbox loaded", logging.RequestFields(c, "component", "sandbox", "sandbox_id", sandbox.ID.String(), "status", sandbox.Status)...)
-	resp := h.enrichSandboxResponse(sandbox)
-	return c.JSON(200, resp)
+	var owner *dto.UserSummary
+	if sandbox.Owner != nil {
+		owner = &dto.UserSummary{ID: sandbox.Owner.ID, Email: sandbox.Owner.Email}
+	}
+	sshCfg := h.sandboxes.SSHConfig()
+	var ssh *dto.SSHConnectionInfo
+	if sshCfg.Enabled {
+		sshEntry := h.sandboxes.ResolveSSHEntry(sandbox.ImageID)
+		ssh = buildSSHInfo(sandbox, sshCfg, sshEntry)
+	}
+	return c.JSON(200, dto.SandboxResponse{
+		ID: sandbox.ID, ImageID: sandbox.ImageID, Owner: owner,
+		ClientID: sandbox.ClientID, DisplayName: sandbox.DisplayName,
+		Status: sandbox.Status, StateReason: sandbox.StateReason,
+		ContainerID: sandbox.ContainerID, ContainerName: sandbox.ContainerName,
+		URL: sandbox.URL, Port: sandbox.Port, SSH: ssh, ClientIP: sandbox.ClientIP,
+		Metadata:  sandbox.Metadata,
+		ExpiresAt: sandbox.ExpiresAt, LastSeenAt: sandbox.LastSeenAt,
+		CreatedAt: sandbox.CreatedAt, UpdatedAt: sandbox.UpdatedAt,
+	})
 }
 
 // Health godoc
@@ -213,8 +250,26 @@ func (h *SandboxHandler) Create(c echo.Context) error {
 		"image_id", sandbox.ImageID.String(),
 		"expires_at", sandbox.ExpiresAt,
 	)...)
-	resp := h.enrichSandboxResponse(sandbox)
-	return c.JSON(201, resp)
+	var owner *dto.UserSummary
+	if sandbox.Owner != nil {
+		owner = &dto.UserSummary{ID: sandbox.Owner.ID, Email: sandbox.Owner.Email}
+	}
+	sshCfg := h.sandboxes.SSHConfig()
+	var ssh *dto.SSHConnectionInfo
+	if sshCfg.Enabled {
+		sshEntry := h.sandboxes.ResolveSSHEntry(sandbox.ImageID)
+		ssh = buildSSHInfo(sandbox, sshCfg, sshEntry)
+	}
+	return c.JSON(201, dto.SandboxResponse{
+		ID: sandbox.ID, ImageID: sandbox.ImageID, Owner: owner,
+		ClientID: sandbox.ClientID, DisplayName: sandbox.DisplayName,
+		Status: sandbox.Status, StateReason: sandbox.StateReason,
+		ContainerID: sandbox.ContainerID, ContainerName: sandbox.ContainerName,
+		URL: sandbox.URL, Port: sandbox.Port, SSH: ssh, ClientIP: sandbox.ClientIP,
+		Metadata:  sandbox.Metadata,
+		ExpiresAt: sandbox.ExpiresAt, LastSeenAt: sandbox.LastSeenAt,
+		CreatedAt: sandbox.CreatedAt, UpdatedAt: sandbox.UpdatedAt,
+	})
 }
 
 // Update godoc
@@ -261,8 +316,26 @@ func (h *SandboxHandler) Update(c echo.Context) error {
 		"user_id", auth.UserID.String(),
 		"sandbox_id", id.String(),
 	)...)
-	resp := h.enrichSandboxResponse(sandbox)
-	return c.JSON(200, resp)
+	var owner *dto.UserSummary
+	if sandbox.Owner != nil {
+		owner = &dto.UserSummary{ID: sandbox.Owner.ID, Email: sandbox.Owner.Email}
+	}
+	sshCfg := h.sandboxes.SSHConfig()
+	var ssh *dto.SSHConnectionInfo
+	if sshCfg.Enabled {
+		sshEntry := h.sandboxes.ResolveSSHEntry(sandbox.ImageID)
+		ssh = buildSSHInfo(sandbox, sshCfg, sshEntry)
+	}
+	return c.JSON(200, dto.SandboxResponse{
+		ID: sandbox.ID, ImageID: sandbox.ImageID, Owner: owner,
+		ClientID: sandbox.ClientID, DisplayName: sandbox.DisplayName,
+		Status: sandbox.Status, StateReason: sandbox.StateReason,
+		ContainerID: sandbox.ContainerID, ContainerName: sandbox.ContainerName,
+		URL: sandbox.URL, Port: sandbox.Port, SSH: ssh, ClientIP: sandbox.ClientIP,
+		Metadata:  sandbox.Metadata,
+		ExpiresAt: sandbox.ExpiresAt, LastSeenAt: sandbox.LastSeenAt,
+		CreatedAt: sandbox.CreatedAt, UpdatedAt: sandbox.UpdatedAt,
+	})
 }
 
 // Delete godoc
@@ -319,7 +392,7 @@ func (h *SandboxHandler) Delete(c echo.Context) error {
 // @Produce      json
 // @Param        id path string true "Sandbox ID" format(uuid)
 // @Param        body body dto.CreateSnapshotRequest true "Snapshot metadata"
-// @Success      201 {object} models.Image
+// @Success      201 {object} dto.ImageResponse
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
 // @Failure      404 {object} dto.ErrorResponse
@@ -369,7 +442,19 @@ func (h *SandboxHandler) Snapshot(c echo.Context) error {
 		"image_id", image.ID.String(),
 		"image", image.FullName(),
 	)...)
-	return c.JSON(201, image)
+	var owner *dto.UserSummary
+	if image.Owner != nil {
+		owner = &dto.UserSummary{ID: image.Owner.ID, Email: image.Owner.Email}
+	}
+	return c.JSON(201, dto.ImageResponse{
+		ID: image.ID, Name: image.Name, Tag: image.Tag,
+		Title: image.Title, Description: image.Description,
+		ThumbnailURL: image.ThumbnailURL, IsPublic: image.IsPublic,
+		Status: image.Status, Error: image.Error,
+		Metadata: image.Metadata, RegistryRef: image.RegistryRef,
+		Owner:     owner,
+		CreatedAt: image.CreatedAt, UpdatedAt: image.UpdatedAt,
+	})
 }
 
 // Stream godoc
@@ -501,8 +586,26 @@ func (h *SandboxHandler) CreateDemo(c echo.Context) error {
 		"sandbox_id", sandbox.ID.String(),
 		"image_id", sandbox.ImageID.String(),
 	)...)
-	resp := h.enrichSandboxResponse(sandbox)
-	return c.JSON(201, resp)
+	var owner *dto.UserSummary
+	if sandbox.Owner != nil {
+		owner = &dto.UserSummary{ID: sandbox.Owner.ID, Email: sandbox.Owner.Email}
+	}
+	sshCfg := h.sandboxes.SSHConfig()
+	var ssh *dto.SSHConnectionInfo
+	if sshCfg.Enabled {
+		sshEntry := h.sandboxes.ResolveSSHEntry(sandbox.ImageID)
+		ssh = buildSSHInfo(sandbox, sshCfg, sshEntry)
+	}
+	return c.JSON(201, dto.SandboxResponse{
+		ID: sandbox.ID, ImageID: sandbox.ImageID, Owner: owner,
+		ClientID: sandbox.ClientID, DisplayName: sandbox.DisplayName,
+		Status: sandbox.Status, StateReason: sandbox.StateReason,
+		ContainerID: sandbox.ContainerID, ContainerName: sandbox.ContainerName,
+		URL: sandbox.URL, Port: sandbox.Port, SSH: ssh, ClientIP: sandbox.ClientIP,
+		Metadata:  sandbox.Metadata,
+		ExpiresAt: sandbox.ExpiresAt, LastSeenAt: sandbox.LastSeenAt,
+		CreatedAt: sandbox.CreatedAt, UpdatedAt: sandbox.UpdatedAt,
+	})
 }
 
 // ListDemos godoc
@@ -530,8 +633,30 @@ func (h *SandboxHandler) ListDemos(c echo.Context) error {
 		return responses.FromAppError(c, apperror.Internal("SANDBOX_LIST_FAILED", "Could not load demo sandboxes").WithCause(err))
 	}
 	slog.Debug("listed demo sandboxes", logging.RequestFields(c, "component", "sandbox", "client_id", parsed.String(), "count", len(sandboxes))...)
-	resp := h.enrichSandboxResponses(sandboxes)
-	return c.JSON(200, resp)
+	sshCfg := h.sandboxes.SSHConfig()
+	out := make([]dto.SandboxResponse, len(sandboxes))
+	for i, sb := range sandboxes {
+		var owner *dto.UserSummary
+		if sb.Owner != nil {
+			owner = &dto.UserSummary{ID: sb.Owner.ID, Email: sb.Owner.Email}
+		}
+		var ssh *dto.SSHConnectionInfo
+		if sshCfg.Enabled {
+			sshEntry := h.sandboxes.ResolveSSHEntry(sb.ImageID)
+			ssh = buildSSHInfo(&sandboxes[i], sshCfg, sshEntry)
+		}
+		out[i] = dto.SandboxResponse{
+			ID: sb.ID, ImageID: sb.ImageID, Owner: owner,
+			ClientID: sb.ClientID, DisplayName: sb.DisplayName,
+			Status: sb.Status, StateReason: sb.StateReason,
+			ContainerID: sb.ContainerID, ContainerName: sb.ContainerName,
+			URL: sb.URL, Port: sb.Port, SSH: ssh, ClientIP: sb.ClientIP,
+			Metadata:  sb.Metadata,
+			ExpiresAt: sb.ExpiresAt, LastSeenAt: sb.LastSeenAt,
+			CreatedAt: sb.CreatedAt, UpdatedAt: sb.UpdatedAt,
+		}
+	}
+	return c.JSON(200, out)
 }
 
 // DeleteDemo godoc
@@ -562,4 +687,60 @@ func (h *SandboxHandler) DeleteDemo(c echo.Context) error {
 
 	slog.Info("demo deleted", logging.RequestFields(c, "component", "sandbox", "client_id", clientID.String(), "sandbox_id", id.String())...)
 	return c.NoContent(204)
+}
+
+func buildSSHInfo(sandbox *models.Sandbox, sshCfg config.SSHConfig, sshEntry *registry.SSHEntry) *dto.SSHConnectionInfo {
+	if !sshCfg.Enabled || sshEntry == nil || !sandbox.Status.IsActive() {
+		return nil
+	}
+	host := resolveSSHHost(sshCfg.Host, sandbox)
+	username := sshEntry.Username + "+" + sandbox.ID.String()
+	return &dto.SSHConnectionInfo{
+		Host:     host,
+		Port:     sshCfg.Port,
+		Username: username,
+		Password: sshEntry.Password,
+		Command:  fmt.Sprintf("ssh %s@%s -p %d", username, host, sshCfg.Port),
+	}
+}
+
+func resolveSSHHost(hostTemplate string, sandbox *models.Sandbox) string {
+	if hostTemplate == "" {
+		return extractHostname(sandbox.URL)
+	}
+	if !strings.Contains(hostTemplate, "{{") {
+		return hostTemplate
+	}
+	tmpl, err := template.New("ssh_host").Parse(hostTemplate)
+	if err != nil {
+		return extractHostname(sandbox.URL)
+	}
+	shortID := sandbox.ContainerID
+	if len(shortID) > 12 {
+		shortID = shortID[:12]
+	}
+	data := struct {
+		ContainerName    string
+		ContainerID      string
+		ContainerShortID string
+		SandboxID        string
+	}{
+		ContainerName:    sandbox.ContainerName,
+		ContainerID:      sandbox.ContainerID,
+		ContainerShortID: shortID,
+		SandboxID:        sandbox.ID.String(),
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return extractHostname(sandbox.URL)
+	}
+	return buf.String()
+}
+
+func extractHostname(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "localhost"
+	}
+	return u.Hostname()
 }

@@ -3,25 +3,21 @@ package handlers
 import (
 	"log/slog"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
 	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
 	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 )
 
 type WhitelistHandler struct {
-	users *repositories.UserRepository
+	users *services.UserService
 	audit *services.AuditService
 }
 
-func NewWhitelistHandler(users *repositories.UserRepository, audit *services.AuditService) *WhitelistHandler {
+func NewWhitelistHandler(users *services.UserService, audit *services.AuditService) *WhitelistHandler {
 	return &WhitelistHandler{users: users, audit: audit}
 }
 
@@ -37,9 +33,16 @@ func NewWhitelistHandler(users *repositories.UserRepository, audit *services.Aud
 func (h *WhitelistHandler) List(c echo.Context) error {
 	users, err := h.users.ListPending()
 	if err != nil {
-		return responses.FromAppError(c, apperror.Internal("WHITELIST_LIST_FAILED", "Could not list whitelisted emails").WithCause(err))
+		return responses.FromError(c, err)
 	}
-	return c.JSON(200, toUserResponses(users))
+	out := make([]dto.UserResponse, len(users))
+	for i, u := range users {
+		out[i] = dto.UserResponse{
+			ID: u.ID, Email: u.Email, Role: u.Role,
+			IsPending: u.IsPending(), CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
+		}
+	}
+	return c.JSON(200, out)
 }
 
 // Add godoc
@@ -62,14 +65,9 @@ func (h *WhitelistHandler) Add(c echo.Context) error {
 	}
 
 	auth := mw.MustAuth(c)
-	user := &models.User{
-		ID:    uuid.New(),
-		Email: input.Email,
-		Role:  input.Role,
-	}
-
-	if err := h.users.Create(user); err != nil {
-		return responses.FromAppError(c, apperror.Conflict("EMAIL_EXISTS", "Email already exists").WithCause(err))
+	user, err := h.users.AddWhitelist(input.Email, input.Role)
+	if err != nil {
+		return responses.FromError(c, err)
 	}
 
 	slog.Info("email whitelisted", logging.RequestFields(c,
@@ -81,7 +79,10 @@ func (h *WhitelistHandler) Add(c echo.Context) error {
 		"email": user.Email,
 		"role":  user.Role,
 	}))
-	return c.JSON(201, toUserResponse(user))
+	return c.JSON(201, dto.UserResponse{
+		ID: user.ID, Email: user.Email, Role: user.Role,
+		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+	})
 }
 
 // Remove godoc
@@ -101,17 +102,13 @@ func (h *WhitelistHandler) Remove(c echo.Context) error {
 		return responses.FromError(c, err)
 	}
 
-	user, err := h.users.FindByID(id)
-	if err != nil {
-		return responses.FromAppError(c, apperror.NotFound("NOT_FOUND", "Whitelisted email not found").WithCause(err))
+	user, getErr := h.users.Get(id)
+	if getErr != nil {
+		return responses.FromError(c, getErr)
 	}
 
-	if !user.IsPending() {
-		return responses.FromAppError(c, apperror.BadRequest("NOT_PENDING", "User has already registered"))
-	}
-
-	if err := h.users.DeletePending(id); err != nil {
-		return responses.FromAppError(c, apperror.Internal("WHITELIST_DELETE_FAILED", "Could not remove whitelisted email").WithCause(err))
+	if err := h.users.RemoveWhitelist(id); err != nil {
+		return responses.FromError(c, err)
 	}
 
 	auth := mw.MustAuth(c)

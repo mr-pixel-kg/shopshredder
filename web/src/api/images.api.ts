@@ -52,7 +52,7 @@ export const imagesApi = {
   },
 
   async lookupRegistry(imageName: string): Promise<MetadataItem[]> {
-    const { data } = await apiClient.get<MetadataItem[]>('/api/registry/lookup', {
+    const { data } = await apiClient.get<MetadataItem[]>('/api/registry', {
       params: { name: imageName },
     })
     return data

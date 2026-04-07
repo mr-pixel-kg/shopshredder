@@ -64,7 +64,10 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		&user.ID,
 		map[string]any{"email": user.Email},
 	))
-	return c.JSON(201, toUserResponse(user))
+	return c.JSON(201, dto.UserResponse{
+		ID: user.ID, Email: user.Email, Role: user.Role,
+		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+	})
 }
 
 // Login godoc
@@ -98,7 +101,10 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	_ = h.audit.Log(newAuditLogInput(c, &user.ID, auditcontracts.ActionAuthLoggedIn, nil, nil, map[string]any{}))
 	return c.JSON(200, dto.AuthLoginResponse{
 		Token: token,
-		User:  toUserResponse(user),
+		User: dto.UserResponse{
+			ID: user.ID, Email: user.Email, Role: user.Role,
+			IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+		},
 	})
 }
 
@@ -132,5 +138,8 @@ func (h *AuthHandler) Me(c echo.Context) error {
 	auth := mw.MustAuth(c)
 	user := c.Get("user").(*models.User)
 	slog.Debug("profile requested", logging.RequestFields(c, "component", "auth", "user_id", auth.UserID.String())...)
-	return c.JSON(200, toUserResponse(user))
+	return c.JSON(200, dto.UserResponse{
+		ID: user.ID, Email: user.Email, Role: user.Role,
+		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+	})
 }

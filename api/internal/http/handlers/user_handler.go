@@ -40,7 +40,14 @@ func (h *UserHandler) List(c echo.Context) error {
 		return responses.FromAppError(c, apperror.Internal("USER_LIST_FAILED", "Could not list users").WithCause(err))
 	}
 
-	return c.JSON(http.StatusOK, toUserResponses(users))
+	out := make([]dto.UserResponse, len(users))
+	for i, u := range users {
+		out[i] = dto.UserResponse{
+			ID: u.ID, Email: u.Email, Role: u.Role,
+			IsPending: u.IsPending(), CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
+		}
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 // Get godoc
@@ -66,7 +73,10 @@ func (h *UserHandler) Get(c echo.Context) error {
 		return responses.FromError(c, getErr)
 	}
 
-	return c.JSON(http.StatusOK, toUserResponse(user))
+	return c.JSON(http.StatusOK, dto.UserResponse{
+		ID: user.ID, Email: user.Email, Role: user.Role,
+		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+	})
 }
 
 // Create godoc
@@ -108,7 +118,10 @@ func (h *UserHandler) Create(c echo.Context) error {
 		"pending": user.IsPending(),
 	}))
 
-	return c.JSON(http.StatusCreated, toUserResponse(user))
+	return c.JSON(http.StatusCreated, dto.UserResponse{
+		ID: user.ID, Email: user.Email, Role: user.Role,
+		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+	})
 }
 
 // Update godoc
@@ -155,7 +168,10 @@ func (h *UserHandler) Update(c echo.Context) error {
 		"role":  user.Role,
 	}))
 
-	return c.JSON(http.StatusOK, toUserResponse(user))
+	return c.JSON(http.StatusOK, dto.UserResponse{
+		ID: user.ID, Email: user.Email, Role: user.Role,
+		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
+	})
 }
 
 // Delete godoc
