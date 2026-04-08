@@ -20,7 +20,7 @@ export const useSandboxesStore = defineStore('sandboxes', () => {
     if (!authStore.isAdmin) return sandboxes.value
     const userId = authStore.user?.id
     if (!userId) return sandboxes.value
-    return sandboxes.value.filter((s) => s.owner?.id === userId || (!s.owner && s.guestSessionId))
+    return sandboxes.value.filter((s) => s.owner?.id === userId || (!s.owner && s.clientId))
   })
 
   const activeSandboxes = computed(() =>

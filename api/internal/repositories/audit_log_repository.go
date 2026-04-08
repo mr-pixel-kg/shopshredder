@@ -16,7 +16,7 @@ type AuditLogFacetOptions struct {
 	Action       *string
 	ResourceType *string
 	ResourceID   *uuid.UUID
-	ClientToken  *uuid.UUID
+	ClientID     *uuid.UUID
 	From         *time.Time
 	To           *time.Time
 }
@@ -28,7 +28,7 @@ type AuditLogListOptions struct {
 	Action       *string
 	ResourceType *string
 	ResourceID   *uuid.UUID
-	ClientToken  *uuid.UUID
+	ClientID     *uuid.UUID
 	From         *time.Time
 	To           *time.Time
 }
@@ -97,8 +97,8 @@ func applyAuditLogFilters(query *gorm.DB, options AuditLogListOptions) *gorm.DB 
 	if options.ResourceID != nil {
 		query = query.Where("resource_id = ?", *options.ResourceID)
 	}
-	if options.ClientToken != nil {
-		query = query.Where("client_token = ?", *options.ClientToken)
+	if options.ClientID != nil {
+		query = query.Where("client_id = ?", *options.ClientID)
 	}
 	if options.From != nil {
 		query = query.Where("timestamp >= ?", *options.From)
@@ -120,8 +120,8 @@ func applyAuditLogFacetFilters(query *gorm.DB, options AuditLogFacetOptions) *go
 	if options.ResourceID != nil {
 		query = query.Where("audit_logs.resource_id = ?", *options.ResourceID)
 	}
-	if options.ClientToken != nil {
-		query = query.Where("audit_logs.client_token = ?", *options.ClientToken)
+	if options.ClientID != nil {
+		query = query.Where("audit_logs.client_id = ?", *options.ClientID)
 	}
 	if options.From != nil {
 		query = query.Where("audit_logs.timestamp >= ?", *options.From)

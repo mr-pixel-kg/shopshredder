@@ -50,7 +50,7 @@ func TestAuditServiceLogCreatesAuditEntry(t *testing.T) {
 	t.Parallel()
 
 	userID := uuid.New()
-	clientToken := uuid.New()
+	clientID := uuid.New()
 	resourceID := uuid.New()
 	ipAddress := "203.0.113.25"
 	userAgent := "Shopware-Test/1.0"
@@ -60,10 +60,10 @@ func TestAuditServiceLogCreatesAuditEntry(t *testing.T) {
 	resourceType := auditcontracts.ResourceTypeSandbox
 	err := service.Log(AuditLogInput{
 		Actor: AuditActor{
-			UserID:      &userID,
-			IPAddress:   &ipAddress,
-			UserAgent:   &userAgent,
-			ClientToken: &clientToken,
+			UserID:    &userID,
+			IPAddress: &ipAddress,
+			UserAgent: &userAgent,
+			ClientID:  &clientID,
 		},
 		Action:       auditcontracts.ActionSandboxCreated,
 		ResourceType: &resourceType,
@@ -79,7 +79,7 @@ func TestAuditServiceLogCreatesAuditEntry(t *testing.T) {
 	assert.Equal(t, string(auditcontracts.ActionSandboxCreated), store.lastCreate.Action)
 	assert.Equal(t, &ipAddress, store.lastCreate.IPAddress)
 	assert.Equal(t, &userAgent, store.lastCreate.UserAgent)
-	assert.Equal(t, &clientToken, store.lastCreate.ClientToken)
+	assert.Equal(t, &clientID, store.lastCreate.ClientID)
 	assert.Equal(t, "sandbox", *store.lastCreate.ResourceType)
 	assert.Equal(t, &resourceID, store.lastCreate.ResourceID)
 	assert.JSONEq(t, `{"imageId":"`+resourceID.String()+`"}`, string(store.lastCreate.Details))
@@ -102,7 +102,7 @@ func TestAuditServiceLogDefaultsDetailsToEmptyObject(t *testing.T) {
 	assert.Nil(t, store.lastCreate.UserID)
 	assert.Nil(t, store.lastCreate.IPAddress)
 	assert.Nil(t, store.lastCreate.UserAgent)
-	assert.Nil(t, store.lastCreate.ClientToken)
+	assert.Nil(t, store.lastCreate.ClientID)
 	assert.Nil(t, store.lastCreate.ResourceType)
 	assert.Nil(t, store.lastCreate.ResourceID)
 }
@@ -127,7 +127,7 @@ func TestAuditServiceListNormalizesFiltersAndPagination(t *testing.T) {
 
 	userID := uuid.New()
 	resourceID := uuid.New()
-	clientToken := uuid.New()
+	clientID := uuid.New()
 	from := time.Now().UTC().Add(-2 * time.Hour)
 	to := time.Now().UTC()
 	expectedLogs := []models.AuditLog{{ID: uuid.New()}, {ID: uuid.New()}}
@@ -148,7 +148,7 @@ func TestAuditServiceListNormalizesFiltersAndPagination(t *testing.T) {
 		Action:       &action,
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
-		ClientToken:  &clientToken,
+		ClientID:     &clientID,
 		From:         &from,
 		To:           &to,
 	})
@@ -165,7 +165,7 @@ func TestAuditServiceListNormalizesFiltersAndPagination(t *testing.T) {
 	require.NotNil(t, store.lastList.ResourceType)
 	assert.Equal(t, "sandbox", *store.lastList.ResourceType)
 	assert.Equal(t, &resourceID, store.lastList.ResourceID)
-	assert.Equal(t, &clientToken, store.lastList.ClientToken)
+	assert.Equal(t, &clientID, store.lastList.ClientID)
 	assert.Equal(t, &from, store.lastList.From)
 	assert.Equal(t, &to, store.lastList.To)
 }

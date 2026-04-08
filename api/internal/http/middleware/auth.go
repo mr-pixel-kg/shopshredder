@@ -2,87 +2,81 @@ package middleware
 
 import (
 	"log/slog"
+	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
-	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/responses"
-	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
+	"github.com/manuel/shopware-testenv-platform/api/internal/http/errs"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	"github.com/manuel/shopware-testenv-platform/api/internal/types"
 )
 
-const authContextKey = "auth"
-
-func Auth(authService *services.AuthService) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			// Employee routes rely on a bearer token, while guest routes use a cookie
-			// handled by the dedicated guest middleware.
-			authHeader := strings.TrimSpace(c.Request().Header.Get(echo.HeaderAuthorization))
+func Auth(authService *services.AuthService) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 			if authHeader == "" {
-				slog.Warn("missing authorization header", logging.RequestFields(c, "component", "auth")...)
-				return responses.FromAppError(c, apperror.Unauthorized("Missing bearer token"))
+				slog.Warn("missing authorization header",
+					"component", "auth",
+					"method", r.Method,
+					"path", r.URL.Path,
+				)
+				errs.Write(w, http.StatusUnauthorized, "Missing bearer token")
+				return
 			}
 
 			token, ok := ParseAuthorizationHeader(authHeader)
 			if !ok {
-				slog.Warn("invalid authorization header format", logging.RequestFields(c, "component", "auth")...)
-				return responses.FromAppError(c, apperror.Unauthorized("Invalid authorization header"))
+				slog.Warn("invalid authorization header format",
+					"component", "auth",
+					"method", r.Method,
+					"path", r.URL.Path,
+				)
+				errs.Write(w, http.StatusUnauthorized, "Invalid authorization header")
+				return
 			}
 
-			user, tokenID, err := authService.Authenticate(token)
+			user, err := authService.Authenticate(token)
 			if err != nil {
-				slog.Warn("token authentication failed", append(logging.RequestFields(c, "component", "auth"), "error", err.Error())...)
-				return responses.FromAppError(c, apperror.Unauthorized("Invalid or expired token"))
+				slog.Warn("token authentication failed",
+					"component", "auth",
+					"method", r.Method,
+					"path", r.URL.Path,
+					"error", err.Error(),
+				)
+				errs.Write(w, http.StatusUnauthorized, "Invalid or expired token")
+				return
 			}
 
-			// Store the authenticated user on the request context so handlers do not
-			// need to parse or validate the token again.
-			c.Set(authContextKey, types.AuthContext{UserID: user.ID, TokenID: tokenID, SessionType: "user"})
-			c.Set("user", user)
-			slog.Debug("request authenticated", logging.RequestFields(c, "component", "auth", "user_id", user.ID.String(), "token_id", tokenID)...)
-			return next(c)
-		}
+			ctx := withAuth(r.Context(), types.AuthContext{UserID: user.ID})
+			ctx = withUser(ctx, user)
+			slog.Debug("request authenticated",
+				"component", "auth",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"user_id", user.ID.String(),
+			)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
 }
 
-func MustAuth(c echo.Context) types.AuthContext {
-	return c.Get(authContextKey).(types.AuthContext)
-}
-
-func RequireAdmin() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			user, ok := c.Get("user").(*models.User)
-			if !ok || !user.IsAdmin() {
-				return responses.FromAppError(c, apperror.Forbidden("Admin access required"))
+func RequireAdmin() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user := UserFromContext(r)
+			if user == nil || !user.IsAdmin() {
+				errs.Write(w, http.StatusForbidden, "Admin access required")
+				return
 			}
-			return next(c)
-		}
+			next.ServeHTTP(w, r)
+		})
 	}
-}
-
-func parseAuthorizationHeader(authHeader string) (string, bool) {
-	return ParseAuthorizationHeader(authHeader)
 }
 
 func ParseAuthorizationHeader(authHeader string) (string, bool) {
 	parts := strings.Fields(authHeader)
-	switch len(parts) {
-	case 1:
-		// Swagger UI users often paste only the JWT value into the auth dialog.
-		if parts[0] == "" || strings.EqualFold(parts[0], "Bearer") {
-			return "", false
-		}
-		return parts[0], true
-	case 2:
-		if !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
-			return "", false
-		}
-		return parts[1], true
-	default:
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
 		return "", false
 	}
+	return parts[1], true
 }

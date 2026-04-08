@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { auditApi } from '@/api'
+import { usePagination } from '@/composables/usePagination'
 
 import type { AuditLog, AuditLogListMeta } from '@/types'
 
@@ -16,18 +17,15 @@ export function useAuditLogs() {
   const userFilter = ref<string>('all')
   const actionFilter = ref<string>('all')
   const periodFilter = ref<string>('7d')
-  const page = ref(1)
-  const pageSize = 20
 
-  const totalPages = computed(() => {
-    const total = meta.value?.pagination.total ?? logs.value.length
-    return Math.max(1, Math.ceil(total / pageSize))
+  const { page, pageSize, totalPages, paginationParams, updateFromMeta } = usePagination({
+    pageSize: 20,
+    watchResetSources: [userFilter, actionFilter, periodFilter],
   })
 
   const queryParams = computed(() => {
     return {
-      limit: pageSize,
-      offset: (page.value - 1) * pageSize,
+      ...paginationParams.value,
       userId: userFilter.value !== 'all' ? userFilter.value : undefined,
       action: actionFilter.value !== 'all' ? actionFilter.value : undefined,
       from: periodStart.value,
@@ -52,6 +50,7 @@ export function useAuditLogs() {
       const response = await auditApi.list(queryParams.value)
       logs.value = response.data
       meta.value = response.meta
+      updateFromMeta(response.meta.pagination)
       initialized.value = true
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : 'Fehler beim Laden'
@@ -98,7 +97,7 @@ export function useAuditLogs() {
       'Details',
       'IP',
       'User-Agent',
-      'Client-Token',
+      'Client-ID',
     ]
     const rows = exportedLogs.map((l) => [
       l.timestamp,
@@ -109,7 +108,7 @@ export function useAuditLogs() {
       JSON.stringify(l.details),
       l.ipAddress ?? '',
       l.userAgent ?? '',
-      l.clientToken ?? '',
+      l.clientId ?? '',
     ])
     const csv = [headers, ...rows].map((r) => r.join(';')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -120,10 +119,6 @@ export function useAuditLogs() {
     a.click()
     URL.revokeObjectURL(url)
   }
-
-  watch([userFilter, actionFilter, periodFilter], () => {
-    page.value = 1
-  })
 
   watch(
     periodStart,

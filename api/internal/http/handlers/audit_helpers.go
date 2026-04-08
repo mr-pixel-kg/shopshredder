@@ -1,17 +1,18 @@
 package handlers
 
 import (
+	"net"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
 	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 )
 
 func newAuditLogInput(
-	c echo.Context,
+	r *http.Request,
 	userID *uuid.UUID,
 	action auditcontracts.Action,
 	resourceType *auditcontracts.ResourceType,
@@ -20,10 +21,10 @@ func newAuditLogInput(
 ) services.AuditLogInput {
 	return services.AuditLogInput{
 		Actor: services.AuditActor{
-			UserID:      userID,
-			IPAddress:   optionalString(strings.TrimSpace(c.RealIP())),
-			UserAgent:   optionalString(strings.TrimSpace(c.Request().UserAgent())),
-			ClientToken: mw.ClientToken(c),
+			UserID:    userID,
+			IPAddress: optionalString(extractIP(r)),
+			UserAgent: optionalString(strings.TrimSpace(r.UserAgent())),
+			ClientID:  mw.ClientIDFromContext(r),
 		},
 		Action:       action,
 		ResourceType: resourceType,
@@ -32,8 +33,8 @@ func newAuditLogInput(
 	}
 }
 
-func newAuditActor(c echo.Context, userID *uuid.UUID) services.AuditActor {
-	return newAuditLogInput(c, userID, "", nil, nil, nil).Actor
+func newAuditActor(r *http.Request, userID *uuid.UUID) services.AuditActor {
+	return newAuditLogInput(r, userID, "", nil, nil, nil).Actor
 }
 
 func optionalString(value string) *string {
@@ -41,4 +42,21 @@ func optionalString(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func extractIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-Ip"); ip != "" {
+		return ip
+	}
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		if i := strings.IndexByte(fwd, ','); i > 0 {
+			return strings.TrimSpace(fwd[:i])
+		}
+		return strings.TrimSpace(fwd)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
