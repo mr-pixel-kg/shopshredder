@@ -21,11 +21,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 
-import type { ManagedUser } from '@/types'
+import type { User } from '@/types'
 
 const props = defineProps<{
   open: boolean
-  user: ManagedUser | null
+  user: User | null
 }>()
 
 const emit = defineEmits<{

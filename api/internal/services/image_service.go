@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
 	"github.com/manuel/shopware-testenv-platform/api/internal/models"
+	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"gorm.io/datatypes"
 )
@@ -34,6 +35,7 @@ type ImageService struct {
 	tracker       *docker.PullTracker
 	thumbnailDir  string
 	publicBaseURL string
+	resolver      *registry.Resolver
 
 	mu          sync.RWMutex
 	pullCancels map[string]context.CancelFunc
@@ -46,6 +48,7 @@ func NewImageService(
 	tracker *docker.PullTracker,
 	publicBaseURL string,
 	thumbnailDir string,
+	resolver *registry.Resolver,
 ) *ImageService {
 	service := &ImageService{
 		repo:          repo,
@@ -54,6 +57,7 @@ func NewImageService(
 		tracker:       tracker,
 		thumbnailDir:  thumbnailDir,
 		publicBaseURL: strings.TrimRight(publicBaseURL, "/"),
+		resolver:      resolver,
 		pullCancels:   make(map[string]context.CancelFunc),
 	}
 
@@ -95,12 +99,54 @@ func (s *ImageService) ReconcileOnStartup(ctx context.Context) {
 	}
 }
 
+type ImageListInput struct {
+	Limit  int
+	Offset int
+}
+
+type ImageListResult struct {
+	Images []models.Image
+	Total  int64
+	Limit  int
+	Offset int
+}
+
+func (s *ImageService) ListAllPaginated(input ImageListInput) (*ImageListResult, error) {
+	images, total, err := s.repo.ListAllPaginated(input.Limit, input.Offset)
+	if err != nil {
+		return nil, err
+	}
+	images = s.attachThumbnailURLs(images)
+	return &ImageListResult{
+		Images: images,
+		Total:  total,
+		Limit:  input.Limit,
+		Offset: input.Offset,
+	}, nil
+}
+
+func (s *ImageService) ListPublicPaginated(input ImageListInput) (*ImageListResult, error) {
+	images, total, err := s.repo.ListPublicPaginated(input.Limit, input.Offset)
+	if err != nil {
+		return nil, err
+	}
+	images = s.attachThumbnailURLs(images)
+	return &ImageListResult{
+		Images: images,
+		Total:  total,
+		Limit:  input.Limit,
+		Offset: input.Offset,
+	}, nil
+}
+
 func (s *ImageService) ListPublic() ([]models.Image, error) {
 	images, err := s.repo.ListPublic()
 	if err != nil {
 		return nil, err
 	}
-	return s.attachThumbnailURLs(images), nil
+	images = s.attachThumbnailURLs(images)
+	s.enrichMetadata(images)
+	return images, nil
 }
 
 func (s *ImageService) ListAll() ([]models.Image, error) {
@@ -108,7 +154,9 @@ func (s *ImageService) ListAll() ([]models.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.attachThumbnailURLs(images), nil
+	images = s.attachThumbnailURLs(images)
+	s.enrichMetadata(images)
+	return images, nil
 }
 
 func (s *ImageService) FindByID(id uuid.UUID) (*models.Image, error) {
@@ -160,10 +208,12 @@ func (s *ImageService) CreateForUser(
 		if err := s.repo.UpdateStatus(img.ID, models.ImageStatusReady, nil); err != nil {
 			slog.Error("failed to mark image as ready", "component", "image", "image_id", img.ID.String(), "error", err.Error())
 		}
+		s.enrichMetadata([]models.Image{*img})
 		return img, nil
 	}
 
 	s.startPull(img.ID, fullName)
+	s.enrichMetadata([]models.Image{*img})
 	return img, nil
 }
 
@@ -246,7 +296,9 @@ func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic
 		return nil, err
 	}
 
-	return s.attachThumbnailURL(image), nil
+	image = s.attachThumbnailURL(image)
+	s.enrichMetadata([]models.Image{*image})
+	return image, nil
 }
 
 func (s *ImageService) SaveThumbnail(id uuid.UUID, file multipart.File, originalFilename, contentType string) (*models.Image, error) {
@@ -282,7 +334,9 @@ func (s *ImageService) SaveThumbnail(id uuid.UUID, file multipart.File, original
 		return nil, err
 	}
 
-	return s.attachThumbnailURL(image), nil
+	image = s.attachThumbnailURL(image)
+	s.enrichMetadata([]models.Image{*image})
+	return image, nil
 }
 
 func (s *ImageService) DeleteThumbnail(id uuid.UUID) (*models.Image, error) {
@@ -504,5 +558,22 @@ func extensionForContentType(contentType string) string {
 		return ".webp"
 	default:
 		return ""
+	}
+}
+
+func (s *ImageService) enrichMetadata(images []models.Image) {
+	if s.resolver == nil {
+		return
+	}
+	for i := range images {
+		entry := s.resolver.ResolveEntry(images[i].RegistryName())
+		if entry == nil {
+			continue
+		}
+		reg := make([]registry.MetadataItem, len(entry.Metadata))
+		copy(reg, entry.Metadata)
+		merged := mergeRegistryAndDB(reg, images[i].Metadata)
+		data, _ := json.Marshal(merged)
+		images[i].Metadata = datatypes.JSON(data)
 	}
 }

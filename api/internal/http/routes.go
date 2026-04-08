@@ -8,30 +8,28 @@ import (
 	"strconv"
 
 	"github.com/docker/docker/client"
-	"github.com/labstack/echo/v4"
-	echomw "github.com/labstack/echo/v4/middleware"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/go-fuego/fuego"
+	"github.com/go-fuego/fuego/option"
 	"github.com/manuel/shopware-testenv-platform/api/internal/config"
 	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
 	"github.com/manuel/shopware-testenv-platform/api/internal/http/handlers"
-	authmw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
 	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
 	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
 	"github.com/manuel/shopware-testenv-platform/api/internal/services"
 	"github.com/manuel/shopware-testenv-platform/api/internal/sshproxy"
-	echoSwagger "github.com/swaggo/echo-swagger"
 	"gorm.io/gorm"
 )
 
 type Server struct {
-	echo *echo.Echo
-	cfg  config.Config
+	fuego *fuego.Server
+	cfg   config.Config
 }
 
 type runtimeServices struct {
 	auth          *services.AuthService
-	guest         *services.GuestSessionService
 	audit         *services.AuditService
 	user          *services.UserService
 	image         *services.ImageService
@@ -44,44 +42,116 @@ type runtimeServices struct {
 }
 
 func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
-	e := newEcho(cfg)
-
 	runtime, err := buildRuntimeServices(cfg, db)
 	if err != nil {
 		return nil, err
 	}
 
+	s := fuego.NewServer(
+		fuego.WithAddr("0.0.0.0:"+strconv.Itoa(cfg.Server.Port)),
+		fuego.WithoutAutoGroupTags(),
+		fuego.WithEngineOptions(
+			fuego.WithOpenAPIConfig(fuego.OpenAPIConfig{
+				DisableLocalSave: true,
+				PrettyFormatJSON: true,
+				MiddlewareConfig: fuego.MiddlewareConfig{
+					DisableMiddlewareSection: true,
+				},
+				Info: &openapi3.Info{
+					Title:       "Shopware Sandbox Platform API",
+					Description: "REST API for managing Shopware sandbox environments.",
+					Version:     "1.0.0",
+				},
+			}),
+		),
+		fuego.WithSecurity(openapi3.SecuritySchemes{
+			"bearerAuth": &openapi3.SecuritySchemeRef{
+				Value: openapi3.NewSecurityScheme().
+					WithType("http").
+					WithScheme("bearer"),
+			},
+		}),
+		fuego.WithGlobalMiddlewares(mw.CORS(cfg.Server.AllowedOrigins)),
+	)
+	s.WriteTimeout = 0
+
 	startBackgroundJobs(cfg, runtime)
-	registerRoutes(e, cfg, runtime)
+	registerRoutes(s, cfg, runtime)
+
+	for _, pathItem := range s.OpenAPI.Description().Paths.Map() {
+		for _, op := range pathItem.Operations() {
+			filtered := make(openapi3.Parameters, 0, len(op.Parameters))
+			for _, p := range op.Parameters {
+				if p.Value != nil && p.Value.In == "header" && p.Value.Name == "Accept" {
+					continue
+				}
+				filtered = append(filtered, p)
+			}
+			op.Parameters = filtered
+		}
+	}
 
 	slog.Debug("http routes registered",
 		"component", "http",
-		"guest_cookie_name", cfg.Auth.GuestCookieName,
 		"thumbnail_dir", cfg.Storage.ThumbnailDir,
 	)
 
-	return &Server{echo: e, cfg: cfg}, nil
+	return &Server{fuego: s, cfg: cfg}, nil
 }
 
-func newEcho(cfg config.Config) *echo.Echo {
-	e := echo.New()
-	e.HideBanner = true
-	e.Validator = NewValidator()
-	e.Use(authmw.EnsureClientToken())
-	e.Use(echomw.Recover())
-	e.Use(echomw.RequestID())
-	e.Use(logging.EchoRequestLogger())
-	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
-		AllowOrigins:     cfg.Server.AllowedOrigins,
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Client-Token"},
-		AllowCredentials: true,
-	}))
-	return e
+func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices) {
+	fuego.Use(s, mw.RequestLogger())
+	fuego.Use(s, mw.EnsureClientID())
+
+	fuego.Get(s, "/health", healthCheck,
+		option.Summary("Health check"),
+		option.Tags("System"),
+	)
+
+	s.Mux.Handle(services.ThumbnailPublicBasePath+"/",
+		http.StripPrefix(services.ThumbnailPublicBasePath, http.FileServer(http.Dir(cfg.Storage.ThumbnailDir))),
+	)
+
+	authHandler := handlers.AuthHandler{Auth: runtime.auth, Audit: runtime.audit}
+	imageHandler := handlers.ImageHandler{Images: runtime.image, Audit: runtime.audit, Resolver: runtime.resolver}
+	sandboxHandler := handlers.SandboxHandler{Sandboxes: runtime.sandbox, Health: runtime.sandboxHealth, Auth: runtime.auth}
+	auditHandler := handlers.AuditHandler{Audit: runtime.audit}
+	userHandler := handlers.UserHandler{Users: runtime.user, Audit: runtime.audit}
+	whitelistHandler := handlers.WhitelistHandler{Users: runtime.user, Audit: runtime.audit}
+	terminalHandler := handlers.TerminalHandler{Terminals: runtime.terminal, Auth: runtime.auth, AllowedOrigins: cfg.Server.AllowedOrigins}
+
+	public := fuego.Group(s, "/api")
+	authHandler.MountPublicRoutes(public)
+	imageHandler.MountPublicRoutes(public)
+	sandboxHandler.MountPublicRoutes(public)
+	terminalHandler.MountPublicRoutes(public)
+
+	bearerAuth := openapi3.SecurityRequirement{"bearerAuth": {}}
+
+	authed := fuego.Group(s, "/api",
+		option.Middleware(mw.Auth(runtime.auth)),
+		option.Security(bearerAuth),
+	)
+	authHandler.MountAuthedRoutes(authed)
+	imageHandler.MountAuthedRoutes(authed)
+	sandboxHandler.MountAuthedRoutes(authed)
+
+	admin := fuego.Group(s, "/api",
+		option.Middleware(mw.Auth(runtime.auth)),
+		option.Middleware(mw.RequireAdmin()),
+		option.Security(bearerAuth),
+	)
+	userHandler.MountRoutes(admin)
+	whitelistHandler.MountRoutes(admin)
+	auditHandler.MountRoutes(admin)
+}
+
+func healthCheck(_ fuego.ContextNoBody) (dto.HealthResponse, error) {
+	return dto.HealthResponse{Status: "ok"}, nil
 }
 
 func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, error) {
 	userRepo := repositories.NewUserRepository(db)
-	sessionRepo := repositories.NewSessionRepository(db)
 	imageRepo := repositories.NewImageRepository(db)
 	sandboxRepo := repositories.NewSandboxRepository(db)
 	auditRepo := repositories.NewAuditLogRepository(db)
@@ -90,9 +160,8 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	passwordService := services.NewPasswordService()
 	tokenService := services.NewTokenService(cfg.Auth)
 	auditService := services.NewAuditService(auditRepo)
-	authService := services.NewAuthService(userRepo, sessionRepo, passwordService, tokenService, cfg.Registration)
+	authService := services.NewAuthService(userRepo, passwordService, tokenService, cfg.Registration)
 	userService := services.NewUserService(userRepo, passwordService)
-	guestService := services.NewGuestSessionService(sessionRepo, tokenService)
 
 	reg, err := registry.Load(cfg.RegistryPath)
 	if err != nil {
@@ -103,7 +172,6 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 		return nil, fmt.Errorf("compile image registry: %w", err)
 	}
 
-	// FIXME NewClientWithOpts ide says: Potential resource leak: ensure the resource is closed on all execution paths
 	sdkClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("create docker client: %w", err)
@@ -115,14 +183,13 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	dockerClient := docker.NewClient(sdkClient, cfg.Sandbox, cfg.Docker)
 	executor := &registry.Executor{Client: sdkClient}
 	pullTracker := docker.NewPullTracker()
-	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir)
-	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor)
+	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir, resolver)
+	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, cfg.SSH, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor)
 	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo, imageRepo, resolver)
 	terminalService := services.NewTerminalService(cfg.Terminal, dockerClient, sandboxRepo)
 
 	return &runtimeServices{
 		auth:          authService,
-		guest:         guestService,
 		audit:         auditService,
 		user:          userService,
 		image:         imageService,
@@ -158,118 +225,11 @@ func startBackgroundJobs(cfg config.Config, runtime *runtimeServices) {
 	}
 }
 
-func registerRoutes(e *echo.Echo, cfg config.Config, runtime *runtimeServices) {
-	authHandler := handlers.NewAuthHandler(runtime.auth, runtime.audit)
-	imageHandler := handlers.NewImageHandler(runtime.image, runtime.audit, runtime.resolver)
-	sandboxHandler := handlers.NewSandboxHandler(
-		runtime.sandbox,
-		runtime.image,
-		runtime.resolver,
-		runtime.sandboxHealth,
-		runtime.auth,
-		runtime.guest,
-		cfg.Auth.GuestCookieName,
-		cfg.SSH,
-	)
-	auditHandler := handlers.NewAuditHandler(runtime.audit)
-	userHandler := handlers.NewUserHandler(runtime.user, runtime.audit)
-	whitelistHandler := handlers.NewWhitelistHandler(runtime.userRepo, runtime.audit)
-	terminalHandler := handlers.NewTerminalHandler(runtime.terminal, runtime.auth, cfg.Server.AllowedOrigins)
-
-	e.GET("/health", healthCheck)
-	registerAPIRoutes(e, cfg, runtime, authHandler, imageHandler, sandboxHandler, auditHandler, userHandler, whitelistHandler, terminalHandler)
-	registerDocumentationRoutes(e, cfg)
-}
-
-func registerAPIRoutes(
-	e *echo.Echo,
-	cfg config.Config,
-	runtime *runtimeServices,
-	authHandler *handlers.AuthHandler,
-	imageHandler *handlers.ImageHandler,
-	sandboxHandler *handlers.SandboxHandler,
-	auditHandler *handlers.AuditHandler,
-	userHandler *handlers.UserHandler,
-	whitelistHandler *handlers.WhitelistHandler,
-	terminalHandler *handlers.TerminalHandler,
-) {
-	api := e.Group("/api")
-	public := api.Group("/public")
-	auth := api.Group("/auth")
-	private := api.Group("")
-	private.Use(authmw.Auth(runtime.auth))
-	public.Use(authmw.EnsureGuestSession(runtime.guest, cfg.Auth.GuestCookieName))
-
-	api.GET("/images/:id/progress", imageHandler.Progress)
-	api.GET("/registry/lookup", imageHandler.RegistryLookup)
-	api.GET("/sandboxes/:id/health", sandboxHandler.Health)
-	api.GET("/sandboxes/:id/terminal", terminalHandler.Connect)
-
-	public.GET("/images", imageHandler.ListPublic)
-	public.GET("/sandboxes", sandboxHandler.ListGuest)
-	public.POST("/demos", sandboxHandler.CreatePublicDemo)
-	public.DELETE("/sandboxes/:id", sandboxHandler.DeleteGuest)
-
-	auth.POST("/register", authHandler.Register)
-	auth.POST("/login", authHandler.Login)
-
-	private.POST("/auth/logout", authHandler.Logout)
-	private.GET("/me", authHandler.Me)
-	private.GET("/me/sandboxes", sandboxHandler.ListMine)
-	private.GET("/sandboxes/:id/stream", sandboxHandler.Stream)
-	private.GET("/images", imageHandler.ListAll)
-	private.GET("/images/pending", imageHandler.ListPending)
-	private.POST("/images", imageHandler.Create)
-	private.PUT("/images/:id", imageHandler.Update)
-	private.DELETE("/images/:id", imageHandler.Delete)
-	private.POST("/images/:id/thumbnail", imageHandler.UploadThumbnail)
-	private.DELETE("/images/:id/thumbnail", imageHandler.DeleteThumbnail)
-	private.GET("/sandboxes", sandboxHandler.List, authmw.RequireAdmin())
-	private.GET("/sandboxes/:id", sandboxHandler.Get)
-	private.POST("/sandboxes", sandboxHandler.CreatePrivateSandbox)
-	private.DELETE("/sandboxes/:id", sandboxHandler.Delete)
-	private.PATCH("/sandboxes/:id", sandboxHandler.Update)
-	private.PATCH("/sandboxes/:id/ttl", sandboxHandler.ExtendTTL)
-	private.POST("/sandboxes/:id/snapshot", sandboxHandler.Snapshot)
-	private.GET("/audit-logs", auditHandler.List, authmw.RequireAdmin())
-	private.GET("/audit-logs/facets", auditHandler.Facets, authmw.RequireAdmin())
-
-	admin := private.Group("/admin")
-	admin.Use(authmw.RequireAdmin())
-	admin.GET("/users", userHandler.List)
-	admin.GET("/users/:id", userHandler.Get)
-	admin.POST("/users", userHandler.Create)
-	admin.PUT("/users/:id", userHandler.Update)
-	admin.DELETE("/users/:id", userHandler.Delete)
-	admin.GET("/whitelist", whitelistHandler.List)
-	admin.POST("/whitelist", whitelistHandler.Add)
-	admin.DELETE("/whitelist/:id", whitelistHandler.Remove)
-}
-
-func registerDocumentationRoutes(e *echo.Echo, cfg config.Config) {
-	e.GET("/docs", func(c echo.Context) error {
-		return c.Redirect(http.StatusMovedPermanently, "/docs/index.html")
-	})
-	e.Static(services.ThumbnailPublicBasePath, cfg.Storage.ThumbnailDir)
-	e.GET("/docs/*", echoSwagger.WrapHandler)
-}
-
-// healthCheck godoc
-// @Summary      Health check
-// @Description  Returns service health status
-// @Tags         System
-// @Produce      json
-// @Success      200 {object} dto.HealthResponse
-// @Router       /health [get]
-func healthCheck(c echo.Context) error {
-	return c.JSON(http.StatusOK, dto.HealthResponse{Status: "ok"})
-}
-
 func (s *Server) Start() error {
 	slog.Info("starting http server", "port", s.cfg.Server.Port)
-	return s.echo.Start(":" + strconv.Itoa(s.cfg.Server.Port))
+	return s.fuego.Run()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	return s.echo.Shutdown(ctx)
+	return s.fuego.Shutdown(ctx)
 }

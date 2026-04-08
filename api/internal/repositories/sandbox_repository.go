@@ -70,10 +70,10 @@ func (r *SandboxRepository) ListAllByUser(userID uuid.UUID) ([]models.Sandbox, e
 	return sandboxes, err
 }
 
-func (r *SandboxRepository) ListAllByGuestSession(sessionID uuid.UUID) ([]models.Sandbox, error) {
+func (r *SandboxRepository) ListAllByClientID(clientID uuid.UUID) ([]models.Sandbox, error) {
 	var sandboxes []models.Sandbox
 	err := r.withOwner(r.db).
-		Where("guest_session_id = ?", sessionID).
+		Where("client_id = ?", clientID).
 		Order("created_at desc").
 		Find(&sandboxes).Error
 	return sandboxes, err
@@ -122,6 +122,39 @@ func (r *SandboxRepository) ListAll() ([]models.Sandbox, error) {
 	var sandboxes []models.Sandbox
 	err := r.withOwner(r.db).Order("created_at desc").Find(&sandboxes).Error
 	return sandboxes, err
+}
+
+func (r *SandboxRepository) ListAllPaginated(limit, offset int) ([]models.Sandbox, int64, error) {
+	var sandboxes []models.Sandbox
+	var total int64
+	query := r.withOwner(r.db).Order("created_at desc")
+	if err := query.Model(&models.Sandbox{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := query.Limit(limit).Offset(offset).Find(&sandboxes).Error
+	return sandboxes, total, err
+}
+
+func (r *SandboxRepository) ListAllByUserPaginated(userID uuid.UUID, limit, offset int) ([]models.Sandbox, int64, error) {
+	var sandboxes []models.Sandbox
+	var total int64
+	query := r.withOwner(r.db).Where("owner_id = ?", userID).Order("created_at desc")
+	if err := query.Model(&models.Sandbox{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := query.Limit(limit).Offset(offset).Find(&sandboxes).Error
+	return sandboxes, total, err
+}
+
+func (r *SandboxRepository) ListAllByClientIDPaginated(clientID uuid.UUID, limit, offset int) ([]models.Sandbox, int64, error) {
+	var sandboxes []models.Sandbox
+	var total int64
+	query := r.withOwner(r.db).Where("client_id = ?", clientID).Order("created_at desc")
+	if err := query.Model(&models.Sandbox{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := query.Limit(limit).Offset(offset).Find(&sandboxes).Error
+	return sandboxes, total, err
 }
 
 func (r *SandboxRepository) DeleteByID(id uuid.UUID) error {

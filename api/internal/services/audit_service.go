@@ -23,10 +23,10 @@ type auditLogStore interface {
 }
 
 type AuditActor struct {
-	UserID      *uuid.UUID
-	IPAddress   *string
-	UserAgent   *string
-	ClientToken *uuid.UUID
+	UserID    *uuid.UUID
+	IPAddress *string
+	UserAgent *string
+	ClientID  *uuid.UUID
 }
 
 type AuditLogInput struct {
@@ -44,7 +44,7 @@ type AuditLogListInput struct {
 	Action       *string
 	ResourceType *string
 	ResourceID   *uuid.UUID
-	ClientToken  *uuid.UUID
+	ClientID     *uuid.UUID
 	From         *time.Time
 	To           *time.Time
 }
@@ -60,7 +60,7 @@ type AuditLogFacetInput struct {
 	Action       *string
 	ResourceType *string
 	ResourceID   *uuid.UUID
-	ClientToken  *uuid.UUID
+	ClientID     *uuid.UUID
 	From         *time.Time
 	To           *time.Time
 }
@@ -97,7 +97,7 @@ func (s *AuditService) Log(input AuditLogInput) error {
 		Action:       string(input.Action),
 		IPAddress:    input.Actor.IPAddress,
 		UserAgent:    input.Actor.UserAgent,
-		ClientToken:  input.Actor.ClientToken,
+		ClientID:     input.Actor.ClientID,
 		ResourceType: resourceType,
 		ResourceID:   input.ResourceID,
 		Details:      datatypes.JSON(payload),
@@ -139,7 +139,7 @@ func (s *AuditService) List(input AuditLogListInput) (*AuditLogListResult, error
 		Action:       input.Action,
 		ResourceType: input.ResourceType,
 		ResourceID:   input.ResourceID,
-		ClientToken:  input.ClientToken,
+		ClientID:     input.ClientID,
 		From:         input.From,
 		To:           input.To,
 	})
@@ -177,7 +177,7 @@ func (s *AuditService) ListFacets(input AuditLogFacetInput) (*AuditLogFacetsResu
 		Action:       input.Action,
 		ResourceType: input.ResourceType,
 		ResourceID:   input.ResourceID,
-		ClientToken:  input.ClientToken,
+		ClientID:     input.ClientID,
 		From:         input.From,
 		To:           input.To,
 	})

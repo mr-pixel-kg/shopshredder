@@ -1,17 +1,13 @@
 interface BaseModel {
   createdAt: string
   updatedAt: string
-  deletedAt?: string
 }
 
 export interface User extends BaseModel {
   id: string
   email: string
   role: string
-}
-
-export interface ManagedUser extends User {
-  pending: boolean
+  isPending: boolean
 }
 
 export interface UserSummary {
@@ -84,7 +80,7 @@ export interface Sandbox extends BaseModel {
   id: string
   imageId: string
   owner?: UserSummary | null
-  guestSessionId?: string
+  clientId?: string
   displayName: string
   status: SandboxStatus
   stateReason?: string
@@ -120,11 +116,16 @@ export interface AuditLog {
   action: string
   ipAddress?: string | null
   userAgent?: string | null
-  clientToken?: string | null
+  clientId?: string | null
   resourceType?: string | null
   resourceId?: string | null
   details: Record<string, unknown> | unknown[]
   timestamp: string
+}
+
+export interface PaginationParams {
+  limit?: number
+  offset?: number
 }
 
 export interface PaginationMeta {
@@ -135,12 +136,19 @@ export interface PaginationMeta {
   hasMore: boolean
 }
 
+export interface PaginatedResponse<T> {
+  data: T[]
+  meta: {
+    pagination: PaginationMeta
+  }
+}
+
 export interface AuditLogListFilters {
   userId?: string | null
   action?: string | null
   resourceType?: string | null
   resourceId?: string | null
-  clientToken?: string | null
+  clientId?: string | null
   from?: string | null
   to?: string | null
 }
@@ -179,6 +187,11 @@ export interface CreateSandboxRequest {
 
 export interface UpdateSandboxRequest {
   displayName?: string
+  ttlMinutes?: number
+}
+
+export interface CreateDemoRequest {
+  imageId: string
 }
 
 export interface CreateImageRequest {
@@ -228,5 +241,10 @@ export interface ApiError {
 }
 
 export interface ApiErrorResponse {
-  error: ApiError
+  // Legacy format
+  error?: ApiError
+  // RFC 7807 problem+json (Fuego format)
+  title?: string
+  status?: number
+  detail?: string
 }

@@ -2,17 +2,20 @@ import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted, ref } from 'vue'
 
 import { sandboxesApi } from '@/api'
+import { getClientId } from '@/api/client'
 import { useAuthStore } from '@/stores/auth.store'
 import { useSandboxesStore } from '@/stores/sandboxes.store'
 import { getToken } from '@/utils/storage'
 
 import type {
+  CreateDemoRequest,
   CreateSandboxRequest,
   CreateSnapshotRequest,
   Image,
   Sandbox,
   SandboxHealthEvent,
   SandboxStatus,
+  UpdateSandboxRequest,
 } from '@/types'
 
 const TRANSITIONAL_STATUSES = new Set<string>(['starting', 'stopping', 'paused'])
@@ -149,12 +152,11 @@ export function useSandboxes() {
     if (!store.initialized) loading.value = true
     error.value = null
     try {
-      if (authStore.isAdmin) {
-        sandboxes.value = await sandboxesApi.list()
-      } else if (authStore.isAuthenticated) {
-        sandboxes.value = await sandboxesApi.listMine()
+      if (authStore.isAuthenticated) {
+        const response = await sandboxesApi.list({ limit: 500 })
+        sandboxes.value = response.data
       } else {
-        sandboxes.value = await sandboxesApi.listGuest()
+        sandboxes.value = await sandboxesApi.listDemos(getClientId())
       }
       syncSseSubscriptions()
       void fetchHealth()
@@ -249,13 +251,13 @@ export function useSandboxes() {
     return sandbox
   }
 
-  async function createPublicDemo(req: CreateSandboxRequest): Promise<Sandbox> {
-    const sandbox = await sandboxesApi.createPublicDemo(req)
+  async function createDemo(req: CreateDemoRequest): Promise<Sandbox> {
+    const sandbox = await sandboxesApi.createDemo(req)
     sandboxes.value.unshift(sandbox)
     return sandbox
   }
 
-  async function updateSandbox(id: string, req: { displayName?: string }): Promise<Sandbox> {
+  async function updateSandbox(id: string, req: UpdateSandboxRequest): Promise<Sandbox> {
     const updated = await sandboxesApi.update(id, req)
     const idx = sandboxes.value.findIndex((s) => s.id === id)
     if (idx !== -1) sandboxes.value[idx] = updated
@@ -263,23 +265,15 @@ export function useSandboxes() {
     return updated
   }
 
-  async function extendTTL(id: string, ttlMinutes: number): Promise<Sandbox> {
-    const updated = await sandboxesApi.extendTTL(id, ttlMinutes)
-    const idx = sandboxes.value.findIndex((s) => s.id === id)
-    if (idx !== -1) sandboxes.value[idx] = updated
-    void fetchSandboxes()
-    return updated
-  }
-
-  async function deleteSandbox(id: string, guest = false) {
+  async function deleteSandbox(id: string) {
     closeSse(id)
-    if (guest) {
-      await sandboxesApi.removeGuest(id)
-      sandboxes.value = sandboxes.value.filter((s) => s.id !== id)
-    } else {
+    if (authStore.isAuthenticated) {
       await sandboxesApi.remove(id)
-      void fetchSandboxes()
+    } else {
+      await sandboxesApi.removeDemo(id)
     }
+    sandboxes.value = sandboxes.value.filter((s) => s.id !== id)
+    void fetchSandboxes()
   }
 
   async function snapshotSandbox(id: string, req: CreateSnapshotRequest): Promise<Image> {
@@ -309,9 +303,8 @@ export function useSandboxes() {
     healthBySandboxId,
     refresh: fetchSandboxes,
     createSandbox,
-    createPublicDemo,
+    createDemo,
     updateSandbox,
-    extendTTL,
     deleteSandbox,
     snapshotSandbox,
   }

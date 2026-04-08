@@ -4,18 +4,22 @@ import type {
   CreateImageRequest,
   Image,
   MetadataItem,
+  PaginatedResponse,
+  PaginationParams,
   PendingImage,
   UpdateImageRequest,
 } from '@/types'
 
 export const imagesApi = {
-  async listPublic(): Promise<Image[]> {
-    const { data } = await apiClient.get<Image[]>('/api/public/images')
+  async listPublic(params?: PaginationParams): Promise<PaginatedResponse<Image>> {
+    const { data } = await apiClient.get<PaginatedResponse<Image>>('/api/images/public', {
+      params,
+    })
     return data
   },
 
-  async listAll(): Promise<Image[]> {
-    const { data } = await apiClient.get<Image[]>('/api/images')
+  async listAll(params?: PaginationParams): Promise<PaginatedResponse<Image>> {
+    const { data } = await apiClient.get<PaginatedResponse<Image>>('/api/images', { params })
     return data
   },
 
@@ -30,7 +34,7 @@ export const imagesApi = {
   },
 
   async update(id: string, req: UpdateImageRequest): Promise<Image> {
-    const { data } = await apiClient.put<Image>(`/api/images/${id}`, req)
+    const { data } = await apiClient.patch<Image>(`/api/images/${id}`, req)
     return data
   },
 
@@ -52,7 +56,7 @@ export const imagesApi = {
   },
 
   async lookupRegistry(imageName: string): Promise<MetadataItem[]> {
-    const { data } = await apiClient.get<MetadataItem[]>('/api/registry/lookup', {
+    const { data } = await apiClient.get<MetadataItem[]>('/api/registry', {
       params: { name: imageName },
     })
     return data

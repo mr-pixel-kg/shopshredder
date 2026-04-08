@@ -31,6 +31,7 @@ type SandboxService struct {
 	cfg       config.SandboxConfig
 	dockerCfg config.DockerConfig
 	guard     config.GuardConfig
+	sshCfg    config.SSHConfig
 	repo      *repositories.SandboxRepository
 	imageRepo *repositories.ImageRepository
 	images    *ImageService
@@ -45,6 +46,7 @@ func NewSandboxService(
 	cfg config.SandboxConfig,
 	dockerCfg config.DockerConfig,
 	guard config.GuardConfig,
+	sshCfg config.SSHConfig,
 	repo *repositories.SandboxRepository,
 	imageRepo *repositories.ImageRepository,
 	images *ImageService,
@@ -58,6 +60,7 @@ func NewSandboxService(
 		cfg:       cfg,
 		dockerCfg: dockerCfg,
 		guard:     guard,
+		sshCfg:    sshCfg,
 		repo:      repo,
 		imageRepo: imageRepo,
 		images:    images,
@@ -70,38 +73,101 @@ func NewSandboxService(
 }
 
 type CreateSandboxInput struct {
-	ImageID        uuid.UUID
-	UserID         *uuid.UUID
-	GuestSessionID *uuid.UUID
-	ClientIP       string
-	TTLMinutes     *int
-	DisplayName    *string
-	Metadata       map[string]string
-	AuditActor     AuditActor
+	ImageID     uuid.UUID
+	UserID      *uuid.UUID
+	ClientID    *uuid.UUID
+	ClientIP    string
+	TTLMinutes  *int
+	DisplayName *string
+	Metadata    map[string]string
+	AuditActor  AuditActor
 }
 
 type UpdateSandboxInput struct {
 	SandboxID   uuid.UUID
 	UserID      *uuid.UUID
 	DisplayName *string
+	TTLMinutes  *int
 	ClientIP    string
 	AuditActor  AuditActor
 }
 
 func (s *SandboxService) ListAll() ([]models.Sandbox, error) {
-	return s.repo.ListAll()
+	sandboxes, err := s.repo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
 func (s *SandboxService) ListActive() ([]models.Sandbox, error) {
-	return s.repo.ListAllActive()
+	sandboxes, err := s.repo.ListAllActive()
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
 func (s *SandboxService) ListByUser(userID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListAllByUser(userID)
+	sandboxes, err := s.repo.ListAllByUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
 }
 
-func (s *SandboxService) ListByGuestSession(sessionID uuid.UUID) ([]models.Sandbox, error) {
-	return s.repo.ListAllByGuestSession(sessionID)
+func (s *SandboxService) ListByClientID(clientID uuid.UUID) ([]models.Sandbox, error) {
+	sandboxes, err := s.repo.ListAllByClientID(clientID)
+	if err != nil {
+		return nil, err
+	}
+	s.EnrichMetadata(sandboxes)
+	return sandboxes, nil
+}
+
+type SandboxListInput struct {
+	Limit    int
+	Offset   int
+	UserID   *uuid.UUID
+	ClientID *uuid.UUID
+}
+
+type SandboxListResult struct {
+	Sandboxes []models.Sandbox
+	Total     int64
+	Limit     int
+	Offset    int
+}
+
+func (s *SandboxService) ListPaginated(input SandboxListInput) (*SandboxListResult, error) {
+	var (
+		sandboxes []models.Sandbox
+		total     int64
+		err       error
+	)
+
+	switch {
+	case input.ClientID != nil:
+		sandboxes, total, err = s.repo.ListAllByClientIDPaginated(*input.ClientID, input.Limit, input.Offset)
+	case input.UserID != nil:
+		sandboxes, total, err = s.repo.ListAllByUserPaginated(*input.UserID, input.Limit, input.Offset)
+	default:
+		sandboxes, total, err = s.repo.ListAllPaginated(input.Limit, input.Offset)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	s.EnrichMetadata(sandboxes)
+	return &SandboxListResult{
+		Sandboxes: sandboxes,
+		Total:     total,
+		Limit:     input.Limit,
+		Offset:    input.Offset,
+	}, nil
 }
 
 func (s *SandboxService) FindByID(id uuid.UUID) (*models.Sandbox, error) {
@@ -126,8 +192,33 @@ func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbo
 		sandbox.DisplayName = *input.DisplayName
 	}
 
+	if input.TTLMinutes != nil {
+		switch *input.TTLMinutes {
+		case 0:
+			sandbox.ExpiresAt = nil
+		default:
+			if sandbox.ExpiresAt != nil {
+				newExpiry := sandbox.ExpiresAt.Add(time.Duration(*input.TTLMinutes) * time.Minute)
+				if maxExpiry := time.Now().UTC().Add(s.cfg.MaxTTL); newExpiry.After(maxExpiry) {
+					newExpiry = maxExpiry
+				}
+				sandbox.ExpiresAt = &newExpiry
+			}
+		}
+	}
+
 	if err := s.repo.Update(sandbox); err != nil {
 		return nil, err
+	}
+
+	details := map[string]any{
+		"displayName": sandbox.DisplayName,
+	}
+	if input.TTLMinutes != nil {
+		details["ttlMinutes"] = *input.TTLMinutes
+		if sandbox.ExpiresAt != nil {
+			details["newExpiresAt"] = sandbox.ExpiresAt.Format(time.RFC3339)
+		}
 	}
 
 	resourceType := auditcontracts.ResourceTypeSandbox
@@ -136,10 +227,12 @@ func (s *SandboxService) UpdateSandbox(input UpdateSandboxInput) (*models.Sandbo
 		Action:       auditcontracts.ActionSandboxUpdated,
 		ResourceType: &resourceType,
 		ResourceID:   &sandbox.ID,
-		Details: map[string]any{
-			"displayName": sandbox.DisplayName,
-		},
+		Details:      details,
 	})
+
+	enriched := []models.Sandbox{*sandbox}
+	s.EnrichMetadata(enriched)
+	*sandbox = enriched[0]
 
 	return sandbox, nil
 }
@@ -266,20 +359,20 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	}
 	startingReason := "Container wird gestartet"
 	sandbox := &models.Sandbox{
-		ID:             sandboxID,
-		ImageID:        image.ID,
-		OwnerID:        input.UserID,
-		GuestSessionID: input.GuestSessionID,
-		DisplayName:    displayName,
-		Status:         models.SandboxStatusStarting,
-		StateReason:    &startingReason,
-		ContainerID:    container.ID,
-		ContainerName:  container.Name,
-		URL:            container.URL,
-		Port:           container.Port,
-		ClientIP:       input.ClientIP,
-		Metadata:       datatypes.JSON(fieldsJSON),
-		ExpiresAt:      expiresAt,
+		ID:            sandboxID,
+		ImageID:       image.ID,
+		OwnerID:       input.UserID,
+		ClientID:      input.ClientID,
+		DisplayName:   displayName,
+		Status:        models.SandboxStatusStarting,
+		StateReason:   &startingReason,
+		ContainerID:   container.ID,
+		ContainerName: container.Name,
+		URL:           container.URL,
+		Port:          container.Port,
+		ClientIP:      input.ClientIP,
+		Metadata:      datatypes.JSON(fieldsJSON),
+		ExpiresAt:     expiresAt,
 	}
 
 	if err := s.repo.Create(sandbox); err != nil {
@@ -306,6 +399,10 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 			"actor":   sandboxActorType(sandbox),
 		},
 	})
+
+	enriched := []models.Sandbox{*sandbox}
+	s.EnrichMetadata(enriched)
+	*sandbox = enriched[0]
 
 	return sandbox, nil
 }
@@ -395,13 +492,13 @@ func (s *SandboxService) deleteContainerAsync(sandboxID uuid.UUID, containerID s
 	s.logSandboxDeleted(sandboxID, auditActor)
 }
 
-func (s *SandboxService) DeleteForGuest(ctx context.Context, id uuid.UUID, guestSessionID uuid.UUID, auditActor AuditActor) error {
+func (s *SandboxService) DeleteForGuest(ctx context.Context, id uuid.UUID, clientID uuid.UUID, auditActor AuditActor) error {
 	sandbox, err := s.repo.FindByID(id)
 	if err != nil {
 		return ErrSandboxNotFound
 	}
 
-	if sandbox.GuestSessionID == nil || *sandbox.GuestSessionID != guestSessionID {
+	if sandbox.ClientID == nil || *sandbox.ClientID != clientID {
 		return ErrSandboxAccessDenied
 	}
 
@@ -832,6 +929,97 @@ func (s *SandboxService) scheme() string {
 		return "https"
 	}
 	return "http"
+}
+
+func (s *SandboxService) SSHConfig() config.SSHConfig {
+	return s.sshCfg
+}
+
+func (s *SandboxService) ResolveSSHEntry(imageID uuid.UUID) *registry.SSHEntry {
+	img, err := s.images.FindByID(imageID)
+	if err != nil {
+		return nil
+	}
+	entry := s.resolver.ResolveEntry(img.RegistryName())
+	if entry == nil {
+		return nil
+	}
+	return entry.SSH
+}
+
+func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) {
+	type cachedEntry struct {
+		metadata []registry.MetadataItem
+		ssh      *registry.SSHEntry
+	}
+	cache := make(map[uuid.UUID]*cachedEntry)
+
+	for idx := range sandboxes {
+		sb := &sandboxes[idx]
+
+		entry, ok := cache[sb.ImageID]
+		if !ok {
+			img, err := s.images.FindByID(sb.ImageID)
+			if err != nil {
+				slog.Warn("enrich sandbox: image not found", "image_id", sb.ImageID)
+				cache[sb.ImageID] = nil
+				continue
+			}
+			regEntry := s.resolver.ResolveEntry(img.RegistryName())
+			if regEntry != nil {
+				meta := mergeRegistryAndDB(regEntry.Metadata, img.Metadata)
+				entry = &cachedEntry{metadata: meta, ssh: regEntry.SSH}
+			}
+			cache[sb.ImageID] = entry
+		}
+
+		if entry == nil {
+			continue
+		}
+
+		if len(entry.metadata) > 0 {
+			var values map[string]string
+			if len(sb.Metadata) > 0 {
+				_ = json.Unmarshal(sb.Metadata, &values)
+			}
+			enriched := make([]registry.MetadataItem, len(entry.metadata))
+			copy(enriched, entry.metadata)
+			for j := range enriched {
+				if v, exists := values[enriched[j].Key]; exists {
+					enriched[j].Value = v
+				}
+			}
+			data, _ := json.Marshal(enriched)
+			sb.Metadata = datatypes.JSON(data)
+		}
+	}
+}
+
+func mergeRegistryAndDB(reg []registry.MetadataItem, dbJSON datatypes.JSON) []registry.MetadataItem {
+	var dbItems []registry.MetadataItem
+	if len(dbJSON) > 0 {
+		_ = json.Unmarshal(dbJSON, &dbItems)
+	}
+	dbMap := make(map[string]registry.MetadataItem)
+	for _, item := range dbItems {
+		dbMap[item.Key] = item
+	}
+	var merged []registry.MetadataItem
+	for _, item := range reg {
+		if dbItem, ok := dbMap[item.Key]; ok {
+			if dbItem.Value != "" {
+				item.Value = dbItem.Value
+			}
+			delete(dbMap, item.Key)
+		}
+		merged = append(merged, item)
+	}
+	for _, item := range dbItems {
+		if _, ok := dbMap[item.Key]; ok {
+			merged = append(merged, item)
+		}
+	}
+	return merged
 }
 
 func splitImageRef(ref string) (string, string) {

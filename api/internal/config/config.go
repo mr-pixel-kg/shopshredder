@@ -62,10 +62,8 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret          string
-	JWTTTLMinutes      int
-	GuestJWTTTLMinutes int
-	GuestCookieName    string
+	JWTSecret     string
+	JWTTTLMinutes int
 }
 
 type RegistrationMode string
@@ -166,10 +164,8 @@ func MustLoad() Config {
 			SSLMode:  v.GetString("database.sslmode"),
 		},
 		Auth: AuthConfig{
-			JWTSecret:          v.GetString("auth.jwt_secret"),
-			JWTTTLMinutes:      v.GetInt("auth.jwt_ttl_minutes"),
-			GuestJWTTTLMinutes: v.GetInt("auth.guest_jwt_ttl_minutes"),
-			GuestCookieName:    v.GetString("auth.guest_cookie_name"),
+			JWTSecret:     v.GetString("auth.jwt_secret"),
+			JWTTTLMinutes: v.GetInt("auth.jwt_ttl_minutes"),
 		},
 		Registration: RegistrationConfig{
 			Mode:      RegistrationMode(v.GetString("registration.mode")),
@@ -236,12 +232,6 @@ func MustLoad() Config {
 	}
 	if cfg.Auth.JWTTTLMinutes == 0 {
 		cfg.Auth.JWTTTLMinutes = 480
-	}
-	if cfg.Auth.GuestJWTTTLMinutes == 0 {
-		cfg.Auth.GuestJWTTTLMinutes = 43200
-	}
-	if cfg.Auth.GuestCookieName == "" {
-		cfg.Auth.GuestCookieName = "shopshredder_guest"
 	}
 	if cfg.Registration.Mode == "" {
 		cfg.Registration.Mode = RegistrationModePublic

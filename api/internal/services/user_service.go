@@ -23,6 +23,31 @@ func NewUserService(users *repositories.UserRepository, passwords *PasswordServi
 	}
 }
 
+type UserListInput struct {
+	Limit  int
+	Offset int
+}
+
+type UserListResult struct {
+	Users  []models.User
+	Total  int64
+	Limit  int
+	Offset int
+}
+
+func (s *UserService) ListPaginated(input UserListInput) (*UserListResult, error) {
+	users, total, err := s.users.ListPaginated(input.Limit, input.Offset)
+	if err != nil {
+		return nil, err
+	}
+	return &UserListResult{
+		Users:  users,
+		Total:  total,
+		Limit:  input.Limit,
+		Offset: input.Offset,
+	}, nil
+}
+
 func (s *UserService) List() ([]models.User, error) {
 	return s.users.List()
 }
@@ -107,6 +132,36 @@ func (s *UserService) Delete(id uuid.UUID) error {
 		return apperror.Internal("USER_DELETE_FAILED", "Could not delete user").WithCause(err)
 	}
 
+	return nil
+}
+
+func (s *UserService) ListPending() ([]models.User, error) {
+	return s.users.ListPending()
+}
+
+func (s *UserService) AddWhitelist(email, role string) (*models.User, error) {
+	user := &models.User{
+		ID:    uuid.New(),
+		Email: email,
+		Role:  role,
+	}
+	if err := s.users.Create(user); err != nil {
+		return nil, apperror.Conflict("EMAIL_EXISTS", "Email already exists").WithCause(err)
+	}
+	return user, nil
+}
+
+func (s *UserService) RemoveWhitelist(id uuid.UUID) error {
+	user, err := s.users.FindByID(id)
+	if err != nil {
+		return apperror.NotFound("NOT_FOUND", "Whitelisted email not found").WithCause(err)
+	}
+	if !user.IsPending() {
+		return apperror.BadRequest("NOT_PENDING", "User has already registered")
+	}
+	if err := s.users.DeletePending(id); err != nil {
+		return apperror.Internal("WHITELIST_DELETE_FAILED", "Could not remove whitelisted email").WithCause(err)
+	}
 	return nil
 }
 

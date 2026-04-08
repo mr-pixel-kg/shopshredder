@@ -20,6 +20,7 @@ import NewSandboxDialog from '@/components/modals/NewSandboxDialog.vue'
 import { SandboxDetailDialog } from '@/components/modals/sandbox-detail'
 import SnapshotDialog from '@/components/modals/SnapshotDialog.vue'
 import TtlChip from '@/components/sandboxes/TtlChip.vue'
+import DataTablePagination from '@/components/shared/DataTablePagination.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import StatusBadge from '@/components/shared/StatusBadge.vue'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +50,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useImages } from '@/composables/useImages'
+import { usePagination } from '@/composables/usePagination'
 import { useSandboxes } from '@/composables/useSandboxes'
 import { useAuthStore } from '@/stores/auth.store'
 import { getApiErrorMessage } from '@/utils/error'
@@ -69,7 +71,6 @@ const {
   createSandbox,
   deleteSandbox,
   updateSandbox,
-  extendTTL,
   snapshotSandbox,
 } = useSandboxes()
 const { images, uploadThumbnail, trackPendingImage } = useImages('all')
@@ -86,6 +87,30 @@ const filteredAllSandboxes = computed(() => {
   if (adminStatusFilter.value === 'inactive')
     return all.filter((s) => inactiveStatuses.includes(s.status))
   return all
+})
+
+const PAGE_SIZE = 5
+
+const {
+  page: activePage,
+  pageSize: activePageSize,
+  paginatedItems: paginatedActiveSandboxes,
+} = usePagination({ pageSize: PAGE_SIZE, source: activeSandboxes })
+
+const {
+  page: recentPage,
+  pageSize: recentPageSize,
+  paginatedItems: paginatedRecentSandboxes,
+} = usePagination({ pageSize: PAGE_SIZE, source: recentSandboxes })
+
+const {
+  page: allPage,
+  pageSize: allPageSize,
+  paginatedItems: paginatedAllSandboxes,
+} = usePagination({
+  pageSize: PAGE_SIZE,
+  source: filteredAllSandboxes,
+  watchResetSources: [adminStatusFilter],
 })
 
 const showNewSandbox = ref(false)
@@ -196,7 +221,7 @@ async function handleExtendTtl(
   done: (success: boolean) => void,
 ) {
   try {
-    await extendTTL(payload.sandboxId, payload.ttlMinutes)
+    await updateSandbox(payload.sandboxId, { ttlMinutes: payload.ttlMinutes })
     toast.success('Laufzeit wurde verlängert')
     done(true)
   } catch (e) {
@@ -305,7 +330,7 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
               </template>
               <TableEmpty v-else-if="!hasActive" :colspan="5">Keine aktiven Sandboxes</TableEmpty>
               <TableRow
-                v-for="sandbox in activeSandboxes"
+                v-for="sandbox in paginatedActiveSandboxes"
                 :key="sandbox.id"
                 class="h-13 cursor-pointer"
                 @click="handleRowClick(sandbox)"
@@ -370,6 +395,12 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
             </TableBody>
           </Table>
         </div>
+        <DataTablePagination
+          :page="activePage"
+          :total-items="activeSandboxes.length"
+          :page-size="activePageSize"
+          @update:page="activePage = $event"
+        />
       </section>
 
       <section v-if="hasRecent || loading">
@@ -396,7 +427,7 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                 </TableRow>
               </template>
               <TableRow
-                v-for="sandbox in recentSandboxes"
+                v-for="sandbox in paginatedRecentSandboxes"
                 :key="sandbox.id"
                 class="h-13 cursor-pointer"
                 @click="handleRowClick(sandbox)"
@@ -441,6 +472,12 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
             </TableBody>
           </Table>
         </div>
+        <DataTablePagination
+          :page="recentPage"
+          :total-items="recentSandboxes.length"
+          :page-size="recentPageSize"
+          @update:page="recentPage = $event"
+        />
       </section>
 
       <section v-if="isAdmin">
@@ -486,7 +523,7 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
                 Keine Instanzen gefunden
               </TableEmpty>
               <TableRow
-                v-for="sandbox in filteredAllSandboxes"
+                v-for="sandbox in paginatedAllSandboxes"
                 :key="sandbox.id"
                 class="h-13 cursor-pointer"
                 @click="handleRowClick(sandbox)"
@@ -548,6 +585,12 @@ async function handleConfirmDelete(done: (success: boolean) => void) {
             </TableBody>
           </Table>
         </div>
+        <DataTablePagination
+          :page="allPage"
+          :total-items="filteredAllSandboxes.length"
+          :page-size="allPageSize"
+          @update:page="allPage = $event"
+        />
       </section>
     </div>
 
