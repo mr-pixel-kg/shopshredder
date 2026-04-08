@@ -1,7 +1,5 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 
-import { formatTtlRemaining } from '@/utils/formatters'
-
 export function useTtlCountdown(expiresAt: () => string | undefined, createdAt: () => string) {
   const now = ref(Date.now())
   let interval: ReturnType<typeof setInterval> | null = null
@@ -27,9 +25,11 @@ export function useTtlCountdown(expiresAt: () => string | undefined, createdAt: 
   })
 
   const remainingFormatted = computed(() => {
-    const exp = expiresAt()
-    if (!exp) return '—'
-    return formatTtlRemaining(exp)
+    if (remainingMs.value <= 0) return 'abgelaufen'
+    const hours = Math.floor(remainingMs.value / (1000 * 60 * 60))
+    const minutes = Math.floor((remainingMs.value % (1000 * 60 * 60)) / (1000 * 60))
+    if (hours > 0) return `${hours}h ${minutes}m`
+    return `${minutes}m`
   })
 
   const progressPercent = computed(() => {
