@@ -38,7 +38,7 @@ const destructiveActions = computed(() => props.actions.filter((a) => a.variant 
         v-if="thumbnailSrc"
         :src="thumbnailSrc"
         :alt="image.title || image.name"
-        class="h-full w-full object-cover"
+        class="w-full"
       />
       <Package v-else class="text-muted-foreground/40 h-10 w-10" />
     </div>
