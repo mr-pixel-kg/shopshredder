@@ -71,6 +71,15 @@ func stripTag(image string) string {
 }
 
 func renderEntry(entry ImageEntry, ctx TemplateContext) (*ResolvedImage, error) {
+	if ctx.Meta == nil {
+		ctx.Meta = make(map[string]string)
+	}
+	for _, m := range entry.Metadata {
+		if _, ok := ctx.Meta[m.Key]; !ok && m.Value != "" {
+			ctx.Meta[m.Key] = m.Value
+		}
+	}
+
 	if entry.SSH != nil {
 		ctx.SSHPort = strconv.Itoa(entry.SSH.Port)
 		ctx.SSHUsername = entry.SSH.Username
