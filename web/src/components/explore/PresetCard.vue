@@ -33,12 +33,12 @@ const destructiveActions = computed(() => props.actions.filter((a) => a.variant 
 
 <template>
   <Card class="overflow-hidden pt-0">
-    <div class="bg-muted relative flex h-36 items-center justify-center">
+    <div class="bg-muted relative flex h-36 shrink-0 items-center justify-center">
       <img
         v-if="thumbnailSrc"
         :src="thumbnailSrc"
         :alt="image.title || image.name"
-        class="w-full"
+        class="h-full w-full object-contain"
       />
       <Package v-else class="text-muted-foreground/40 h-10 w-10" />
     </div>
