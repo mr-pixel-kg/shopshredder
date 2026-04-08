@@ -57,12 +57,7 @@ async function copyToClipboard(field: MetadataField) {
 <template>
   <Card class="flex h-[460px] flex-col overflow-hidden pt-0">
     <div class="bg-muted relative flex h-36 shrink-0 items-center justify-center">
-      <img
-        v-if="thumbnailUrl"
-        :src="thumbnailUrl"
-        :alt="title"
-        class="h-full w-full object-cover"
-      />
+      <img v-if="thumbnailUrl" :src="thumbnailUrl" :alt="title" class="w-full" />
       <Package v-else class="text-muted-foreground/40 h-8 w-8" />
     </div>
     <CardHeader>
