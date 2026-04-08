@@ -29,16 +29,17 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	auth          *services.AuthService
-	audit         *services.AuditService
-	user          *services.UserService
-	image         *services.ImageService
-	sandbox       *services.SandboxService
-	sandboxHealth *services.SandboxHealthService
-	terminal      *services.TerminalService
-	resolver      *registry.Resolver
-	userRepo      *repositories.UserRepository
-	dockerSDK     *client.Client
+	auth           *services.AuthService
+	audit          *services.AuditService
+	user           *services.UserService
+	image          *services.ImageService
+	sandbox        *services.SandboxService
+	sandboxHealth  *services.SandboxHealthService
+	terminal       *services.TerminalService
+	registrySearch *services.RegistrySearchService
+	resolver       *registry.Resolver
+	userRepo       *repositories.UserRepository
+	dockerSDK      *client.Client
 }
 
 func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
@@ -118,6 +119,7 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 	auditHandler := handlers.AuditHandler{Audit: runtime.audit}
 	userHandler := handlers.UserHandler{Users: runtime.user, Audit: runtime.audit}
 	whitelistHandler := handlers.WhitelistHandler{Users: runtime.user, Audit: runtime.audit}
+	registrySearchHandler := handlers.RegistrySearchHandler{Search: runtime.registrySearch}
 	terminalHandler := handlers.TerminalHandler{Terminals: runtime.terminal, Auth: runtime.auth, AllowedOrigins: cfg.Server.AllowedOrigins}
 
 	public := fuego.Group(s, "/api")
@@ -135,6 +137,7 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 	authHandler.MountAuthedRoutes(authed)
 	imageHandler.MountAuthedRoutes(authed)
 	sandboxHandler.MountAuthedRoutes(authed)
+	registrySearchHandler.MountAuthedRoutes(authed)
 
 	admin := fuego.Group(s, "/api",
 		option.Middleware(mw.Auth(runtime.auth)),
@@ -188,17 +191,20 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo, imageRepo, resolver)
 	terminalService := services.NewTerminalService(cfg.Terminal, dockerClient, sandboxRepo)
 
+	registrySearchService := services.NewRegistrySearchService()
+
 	return &runtimeServices{
-		auth:          authService,
-		audit:         auditService,
-		user:          userService,
-		image:         imageService,
-		sandbox:       sandboxService,
-		sandboxHealth: sandboxHealthService,
-		terminal:      terminalService,
-		resolver:      resolver,
-		userRepo:      userRepo,
-		dockerSDK:     sdkClient,
+		auth:           authService,
+		audit:          auditService,
+		user:           userService,
+		image:          imageService,
+		sandbox:        sandboxService,
+		sandboxHealth:  sandboxHealthService,
+		terminal:       terminalService,
+		registrySearch: registrySearchService,
+		resolver:       resolver,
+		userRepo:       userRepo,
+		dockerSDK:      sdkClient,
 	}, nil
 }
 
