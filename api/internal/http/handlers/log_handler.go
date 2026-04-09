@@ -133,18 +133,8 @@ func (h LogHandler) streamLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeLogError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, services.ErrSandboxNotFound):
-		errs.Write(w, http.StatusNotFound, "Sandbox not found")
-	case errors.Is(err, services.ErrLogNotRunning):
-		errs.Write(w, http.StatusConflict, "Sandbox is not running")
-	case errors.Is(err, services.ErrLogAccessDenied):
-		errs.Write(w, http.StatusForbidden, "Log access denied")
-	case errors.Is(err, services.ErrLogSourceNotFound):
-		errs.Write(w, http.StatusNotFound, "Log source not found")
-	default:
-		errs.Write(w, http.StatusInternalServerError, "Log operation failed")
-	}
+	httpErr := mapLogError(err).(fuego.HTTPError)
+	errs.Write(w, httpErr.Status, httpErr.Detail)
 }
 
 func mapLogError(err error) error {

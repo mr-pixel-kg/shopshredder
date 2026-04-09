@@ -94,7 +94,7 @@ func (h TerminalHandler) connect(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:   user.IsAdmin(),
 	})
 	if err != nil {
-		mapTerminalErrorStd(w, err)
+		writeTerminalError(w, err)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h TerminalHandler) connect(w http.ResponseWriter, r *http.Request) {
 
 	execSession, err := h.Terminals.OpenSession(r.Context(), sandbox, cols, rows)
 	if err != nil {
-		mapTerminalErrorStd(w, err)
+		writeTerminalError(w, err)
 		return
 	}
 
@@ -121,7 +121,7 @@ func (h TerminalHandler) connect(w http.ResponseWriter, r *http.Request) {
 	slog.Info("terminal session ended", "sandbox_id", sandboxID, "user_id", user.ID)
 }
 
-func mapTerminalErrorStd(w http.ResponseWriter, err error) {
+func writeTerminalError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, services.ErrSandboxNotFound):
 		errs.Write(w, http.StatusNotFound, "Sandbox not found")

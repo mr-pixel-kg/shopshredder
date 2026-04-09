@@ -10,6 +10,7 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/apperror"
 	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/http/errs"
@@ -161,7 +162,7 @@ func (h ImageHandler) create(c fuego.ContextWithBody[dto.CreateImageRequest]) (d
 		metadataJSON, nil,
 	)
 	if err != nil {
-		return dto.ImageResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: err.Error()}
+		return dto.ImageResponse{}, mapImageError(err)
 	}
 
 	resourceType := auditcontracts.ResourceTypeImage
@@ -392,10 +393,14 @@ func imageToResponse(img *models.Image) dto.ImageResponse {
 }
 
 func mapImageError(err error) error {
+	var appErr *apperror.AppError
+	if errors.As(err, &appErr) {
+		return fuego.HTTPError{Status: appErr.StatusCode, Detail: appErr.Message}
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return fuego.HTTPError{Status: http.StatusNotFound, Detail: "Image not found"}
 	}
-	return fuego.HTTPError{Status: http.StatusInternalServerError, Detail: err.Error()}
+	return fuego.HTTPError{Status: http.StatusInternalServerError, Detail: "Image operation failed"}
 }
 
 func writeSSEHeaders(w http.ResponseWriter) {

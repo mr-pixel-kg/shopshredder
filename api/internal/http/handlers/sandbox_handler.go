@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -399,19 +400,19 @@ func (h SandboxHandler) createDemo(c fuego.ContextWithBody[dto.CreateDemoRequest
 	return sandboxToResponse(sandbox, sshCfg, h.Sandboxes.ResolveSSHEntry(sandbox.ImageID)), nil
 }
 
-func (h SandboxHandler) listDemos(c fuego.ContextNoBody) ([]dto.SandboxResponse, error) {
+func (h SandboxHandler) listDemos(c fuego.ContextNoBody) (dto.SandboxListResponse, error) {
 	clientIDStr := c.Request().URL.Query().Get("clientId")
 	if clientIDStr == "" {
-		return nil, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "clientId query parameter is required"}
+		return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "clientId query parameter is required"}
 	}
 	parsed, err := uuid.Parse(clientIDStr)
 	if err != nil {
-		return nil, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "Invalid clientId"}
+		return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "Invalid clientId"}
 	}
 
 	sandboxes, err := h.Sandboxes.ListByClientID(parsed)
 	if err != nil {
-		return nil, fuego.HTTPError{Status: http.StatusInternalServerError, Detail: "Could not load demo sandboxes"}
+		return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusInternalServerError, Detail: "Could not load demo sandboxes"}
 	}
 
 	sshCfg := h.Sandboxes.SSHConfig()
@@ -419,7 +420,12 @@ func (h SandboxHandler) listDemos(c fuego.ContextNoBody) ([]dto.SandboxResponse,
 	for i, sb := range sandboxes {
 		out[i] = sandboxToResponse(&sandboxes[i], sshCfg, h.Sandboxes.ResolveSSHEntry(sb.ImageID))
 	}
-	return out, nil
+	return dto.SandboxListResponse{
+		Data: out,
+		Meta: dto.PaginatedMeta{
+			Pagination: buildPaginationMeta(len(out), len(out), 0, int64(len(out))),
+		},
+	}, nil
 }
 
 func (h SandboxHandler) deleteDemo(c fuego.ContextNoBody) (any, error) {
@@ -481,12 +487,12 @@ func (h SandboxHandler) authorizeHealthAccess(w http.ResponseWriter, r *http.Req
 }
 
 func mapSandboxError(err error) error {
-	switch err {
-	case services.ErrSandboxLimitReached:
+	switch {
+	case errors.Is(err, services.ErrSandboxLimitReached):
 		return fuego.HTTPError{Status: http.StatusConflict, Detail: "Maximum number of sandboxes reached"}
-	case services.ErrSandboxNotFound:
+	case errors.Is(err, services.ErrSandboxNotFound):
 		return fuego.HTTPError{Status: http.StatusNotFound, Detail: "Sandbox not found"}
-	case services.ErrSandboxAccessDenied:
+	case errors.Is(err, services.ErrSandboxAccessDenied):
 		return fuego.HTTPError{Status: http.StatusForbidden, Detail: "Sandbox does not belong to the current user"}
 	default:
 		return fuego.HTTPError{Status: http.StatusInternalServerError, Detail: "Sandbox operation failed"}
