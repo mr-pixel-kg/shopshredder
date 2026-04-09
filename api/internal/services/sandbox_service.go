@@ -376,11 +376,14 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 		StateReason:   &startingReason,
 		ContainerID:   container.ID,
 		ContainerName: container.Name,
-		URL:           container.URL,
+		URL:           nil,
 		Port:          container.Port,
 		ClientIP:      input.ClientIP,
 		Metadata:      datatypes.JSON(fieldsJSON),
 		ExpiresAt:     expiresAt,
+	}
+	if container.URL != "" {
+		sandbox.URL = &container.URL
 	}
 
 	if err := s.repo.Create(sandbox); err != nil {

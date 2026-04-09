@@ -19,10 +19,11 @@ func TestSandboxHealthServiceProbeSandboxReady(t *testing.T) {
 	defer server.Close()
 
 	service := NewSandboxHealthService(nil, nil, nil)
+	serverURL := server.URL
 	event := service.probeSandbox(&models.Sandbox{
 		ID:     uuid.New(),
 		Status: models.SandboxStatusStarting,
-		URL:    server.URL,
+		URL:    &serverURL,
 	}, false)
 
 	assert.True(t, event.Ready)
@@ -38,10 +39,11 @@ func TestSandboxHealthServiceProbeSandboxPending(t *testing.T) {
 	defer server.Close()
 
 	service := NewSandboxHealthService(nil, nil, nil)
+	serverURL := server.URL
 	event := service.probeSandbox(&models.Sandbox{
 		ID:     uuid.New(),
 		Status: models.SandboxStatusStarting,
-		URL:    server.URL,
+		URL:    &serverURL,
 	}, false)
 
 	assert.False(t, event.Ready)
@@ -52,10 +54,11 @@ func TestSandboxHealthServiceProbeSandboxPending(t *testing.T) {
 }
 
 func TestSandboxHealthEventFromStatusRunning(t *testing.T) {
+	exampleURL := "https://example.invalid"
 	sandbox := &models.Sandbox{
 		ID:     uuid.New(),
 		Status: models.SandboxStatusRunning,
-		URL:    "https://example.invalid",
+		URL:    &exampleURL,
 	}
 
 	event := sandboxHealthEventFromStatus(sandbox)

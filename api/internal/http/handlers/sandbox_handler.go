@@ -385,7 +385,7 @@ func sandboxToResponse(sb *models.Sandbox, sshCfg config.SSHConfig, sshEntry *re
 		ClientID: sb.ClientID, DisplayName: sb.DisplayName,
 		Status: sb.Status, StateReason: sb.StateReason,
 		ContainerID: sb.ContainerID, ContainerName: sb.ContainerName,
-		URL: sb.URL, Port: sb.Port, SSH: ssh, ClientIP: sb.ClientIP,
+		URL: sb.GetURL(), Port: sb.Port, SSH: ssh, ClientIP: sb.ClientIP,
 		Metadata:  sb.Metadata,
 		ExpiresAt: sb.ExpiresAt, LastSeenAt: sb.LastSeenAt,
 		CreatedAt: sb.CreatedAt, UpdatedAt: sb.UpdatedAt,
@@ -409,14 +409,14 @@ func buildSSHInfo(sandbox *models.Sandbox, sshCfg config.SSHConfig, sshEntry *re
 
 func resolveSSHHost(hostTemplate string, sandbox *models.Sandbox) string {
 	if hostTemplate == "" {
-		return extractHostname(sandbox.URL)
+		return extractHostname(sandbox.GetURL())
 	}
 	if !strings.Contains(hostTemplate, "{{") {
 		return hostTemplate
 	}
 	tmpl, err := template.New("ssh_host").Parse(hostTemplate)
 	if err != nil {
-		return extractHostname(sandbox.URL)
+		return extractHostname(sandbox.GetURL())
 	}
 	shortID := sandbox.ContainerID
 	if len(shortID) > 12 {
@@ -435,7 +435,7 @@ func resolveSSHHost(hostTemplate string, sandbox *models.Sandbox) string {
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return extractHostname(sandbox.URL)
+		return extractHostname(sandbox.GetURL())
 	}
 	return buf.String()
 }

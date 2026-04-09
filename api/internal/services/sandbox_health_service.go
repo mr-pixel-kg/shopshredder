@@ -191,7 +191,7 @@ func (s *SandboxHealthService) runProbe(sandboxID uuid.UUID) bool {
 				SandboxID: sandboxID,
 				Status:    models.HealthStatusReady,
 				Ready:     true,
-				URL:       sandbox.URL,
+				URL:       sandbox.GetURL(),
 				CheckedAt: time.Now().UTC(),
 			})
 			return true
@@ -221,7 +221,7 @@ func (s *SandboxHealthService) runProbe(sandboxID uuid.UUID) bool {
 				SandboxID: sandboxID,
 				Status:    models.HealthStatusReady,
 				Ready:     true,
-				URL:       sandbox.URL,
+				URL:       sandbox.GetURL(),
 				CheckedAt: time.Now().UTC(),
 			})
 			return true
@@ -271,17 +271,17 @@ func (s *SandboxHealthService) probeSandbox(sandbox *models.Sandbox, wasReady bo
 		status = models.HealthStatusOffline
 	}
 
-	probeURL := sandbox.URL
+	probeURL := sandbox.GetURL()
 	hc := s.getHealthConfig(sandbox)
 	if hc != nil && hc.Path != "" {
-		probeURL = strings.TrimRight(sandbox.URL, "/") + hc.Path
+		probeURL = strings.TrimRight(sandbox.GetURL(), "/") + hc.Path
 	}
 
 	event := SandboxHealthEvent{
 		SandboxID: sandbox.ID,
 		Status:    status,
 		Ready:     false,
-		URL:       sandbox.URL,
+		URL:       sandbox.GetURL(),
 		CheckedAt: time.Now().UTC(),
 	}
 
@@ -406,7 +406,7 @@ func sandboxHealthEventFromStatus(sandbox *models.Sandbox) SandboxHealthEvent {
 		SandboxID: sandbox.ID,
 		Status:    string(sandbox.Status),
 		Ready:     sandbox.Status == models.SandboxStatusRunning,
-		URL:       sandbox.URL,
+		URL:       sandbox.GetURL(),
 		CheckedAt: time.Now().UTC(),
 	}
 
