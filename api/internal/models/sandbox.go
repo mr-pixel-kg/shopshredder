@@ -47,7 +47,7 @@ type Sandbox struct {
 	StateReason   *string        `gorm:"size:512" json:"stateReason,omitempty" example:"Snapshot wird erstellt"`
 	ContainerID   string         `gorm:"size:255;not null;uniqueIndex" json:"containerId" example:"1a2b3c4d5e6f7g8h9i0j"`
 	ContainerName string         `gorm:"size:255;not null;uniqueIndex" json:"containerName" example:"sandbox-0b443c82"`
-	URL           string         `gorm:"size:1024;not null;uniqueIndex" json:"url" example:"https://sandbox-0b443c82.demo.shopshredder.de"`
+	URL           *string        `gorm:"size:1024;uniqueIndex" json:"url,omitempty" example:"https://sandbox-0b443c82.demo.shopshredder.de"`
 	Port          *int           `gorm:"default:null" json:"port,omitempty" example:"8080"`
 	ClientIP      string         `gorm:"size:128;not null;index" json:"clientIp" example:"203.0.113.25"`
 	Metadata      datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"metadata,omitempty" swaggertype:"string"`
@@ -58,4 +58,11 @@ type Sandbox struct {
 
 func (Sandbox) TableName() string {
 	return "sandboxes"
+}
+
+func (s Sandbox) GetURL() string {
+	if s.URL != nil {
+		return *s.URL
+	}
+	return ""
 }
