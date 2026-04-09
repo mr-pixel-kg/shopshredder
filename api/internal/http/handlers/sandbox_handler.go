@@ -41,24 +41,17 @@ func (h SandboxHandler) List(c fuego.ContextNoBody) (dto.SandboxListResponse, er
 	input := services.SandboxListInput{Limit: limit, Offset: offset}
 
 	if auth == nil {
-		// Guest: require clientId query param
-		clientIDStr := r.URL.Query().Get("clientId")
-		if clientIDStr == "" {
-			return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "clientId query parameter is required for guests"}
+		clientID := mw.ClientIDFromContext(r)
+		if clientID == nil {
+			return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "Client identification required"}
 		}
-		parsed, parseErr := uuid.Parse(clientIDStr)
-		if parseErr != nil {
-			return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "Invalid clientId"}
+		input.ClientID = clientID
+	} else {
+		isAdminAll := user != nil && user.IsAdmin() && r.URL.Query().Get("scope") == "all"
+		if !isAdminAll {
+			input.UserID = &auth.UserID
+			input.ClientID = mw.ClientIDFromContext(r)
 		}
-		input.ClientID = &parsed
-	} else if clientIDStr := r.URL.Query().Get("clientId"); clientIDStr != "" {
-		parsed, parseErr := uuid.Parse(clientIDStr)
-		if parseErr != nil {
-			return dto.SandboxListResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "Invalid clientId"}
-		}
-		input.ClientID = &parsed
-	} else if user == nil || !user.IsAdmin() || r.URL.Query().Get("owner") == "self" {
-		input.UserID = &auth.UserID
 	}
 
 	result, err := h.Sandboxes.ListPaginated(input)

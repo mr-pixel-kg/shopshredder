@@ -12,9 +12,7 @@ import type {
 } from '@/types'
 
 export const sandboxesApi = {
-  async list(
-    params?: PaginationParams & { clientId?: string },
-  ): Promise<PaginatedResponse<Sandbox>> {
+  async list(params?: PaginationParams & { scope?: 'all' }): Promise<PaginatedResponse<Sandbox>> {
     const { data } = await apiClient.get<PaginatedResponse<Sandbox>>('/api/sandboxes', { params })
     return data
   },

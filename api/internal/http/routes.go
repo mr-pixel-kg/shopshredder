@@ -128,7 +128,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 
 	public := fuego.Group(s, "/api")
 
-	// Auth
 	fuego.Post(public, "/auth/register", auth.Register,
 		option.Summary("Register a new user"),
 		option.Description("Create a new user account with email and password"),
@@ -139,13 +138,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Summary("Log in"),
 		option.Description("Authenticate with email and password, receive a JWT token"),
 		option.Tags("Auth"),
-	)
-
-	// Images
-	fuego.Get(public, "/images/pending", image.ListPending,
-		option.Summary("List pending image operations"),
-		option.Description("Returns all images with ongoing operations with optional progress percentage"),
-		option.Tags("Images"),
 	)
 	fuego.GetStd(public, "/images/{id}/progress", image.Progress,
 		option.Summary("Stream image progress"),
@@ -159,8 +151,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Query("name", "Image name (e.g. dockware/dev:6.6.9.0)"),
 		option.Query("id", "Image ID"),
 	)
-
-	// Sandboxes
 	fuego.GetStd(public, "/sandboxes/{id}/health", sandbox.HealthSSE,
 		option.Summary("Stream sandbox health"),
 		option.Description("SSE endpoint streaming sandbox readiness for active subscribers"),
@@ -172,8 +162,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Description("SSE endpoint streaming real-time state updates for a single sandbox"),
 		option.Tags("Sandboxes"),
 	)
-
-	// Terminal
 	fuego.GetStd(public, "/sandboxes/{id}/terminal", terminal.Connect,
 		option.Summary("Open interactive terminal session"),
 		option.Description("Interactive shell (docker exec) into the sandbox container via WebSocket"),
@@ -187,13 +175,11 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Middleware(mw.OptionalAuth(runtime.auth)),
 	)
 
-	// Sandboxes
 	fuego.Get(flex, "/sandboxes", sandbox.List,
 		option.Summary("List sandboxes"),
-		option.Description("Guests filter by ?clientId=<uuid>. Authenticated users see their own (or all for admins). Use ?owner=self to force own-only view."),
+		option.Description("Defaults to own sandboxes. Guests are identified by client_id cookie. Admins can pass ?scope=all to see all sandboxes."),
 		option.Tags("Sandboxes"),
-		option.Query("owner", "Filter: 'self' for own sandboxes"),
-		option.Query("clientId", "Filter by client ID (required for guests)"),
+		option.Query("scope", "Admin only: 'all' to list all sandboxes across users"),
 		option.QueryInt("limit", "Max entries per page (1-500, default 50)"),
 		option.QueryInt("offset", "Offset for pagination (default 0)"),
 	)
@@ -209,8 +195,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Tags("Sandboxes"),
 		option.DefaultStatusCode(http.StatusNoContent),
 	)
-
-	// Images
 	fuego.Get(flex, "/images", image.ListImages,
 		option.Summary("List images"),
 		option.Description("Returns public images for guests or ?visibility=public. Authenticated users see all images."),
@@ -225,7 +209,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Security(bearerAuth),
 	)
 
-	// Auth
 	fuego.Post(authed, "/auth/logout", auth.Logout,
 		option.Summary("Log out"),
 		option.Description("Invalidate the current session token"),
@@ -237,8 +220,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Description("Return the authenticated user's profile"),
 		option.Tags("Auth"),
 	)
-
-	// Sandboxes
 	fuego.Get(authed, "/sandboxes/{id}", sandbox.Get,
 		option.Summary("Get sandbox by ID"),
 		option.Description("Returns a single sandbox by its UUID"),
@@ -255,8 +236,11 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Tags("Sandboxes"),
 		option.DefaultStatusCode(http.StatusCreated),
 	)
-
-	// Images
+	fuego.Get(authed, "/images/pending", image.ListPending,
+		option.Summary("List pending image operations"),
+		option.Description("Returns all images with ongoing operations with optional progress percentage"),
+		option.Tags("Images"),
+	)
 	fuego.Post(authed, "/images", image.Create,
 		option.Summary("Create an image"),
 		option.Description("Register a new Docker image. If not available locally, a background pull is started."),
@@ -284,8 +268,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Description("Remove the thumbnail associated with an image"),
 		option.Tags("Images"),
 	)
-
-	// Logs
 	fuego.Get(authed, "/sandboxes/{id}/logs", log.ListSources,
 		option.Summary("List available log sources"),
 		option.Description("Returns all configured log sources for this sandbox's image"),
@@ -296,8 +278,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Description("SSE endpoint streaming live log output for a specific log source"),
 		option.Tags("Sandboxes"),
 	)
-
-	// Registry search
 	fuego.Get(authed, "/registry/images/search", registrySearch.SearchImages,
 		option.Summary("Search Docker Hub images"),
 		option.Description("Returns matching image repositories from Docker Hub for autocomplete"),
@@ -318,7 +298,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Security(bearerAuth),
 	)
 
-	// Users
 	fuego.Get(admin, "/users", user.List,
 		option.Summary("List users"),
 		option.Description("Return all users, including pending invited users"),
@@ -348,8 +327,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Tags("Users"),
 		option.DefaultStatusCode(http.StatusNoContent),
 	)
-
-	// Whitelist
 	fuego.Get(admin, "/whitelist", whitelist.List,
 		option.Summary("List whitelisted emails"),
 		option.Description("Return all pending (whitelisted but not yet registered) users"),
@@ -367,8 +344,6 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 		option.Tags("Whitelist"),
 		option.DefaultStatusCode(http.StatusNoContent),
 	)
-
-	// Audit logs
 	fuego.Get(admin, "/audit-logs", audit.List,
 		option.Summary("List audit logs"),
 		option.Description("Returns recent audit log entries with pagination and filtering"),

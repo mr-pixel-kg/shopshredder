@@ -22,7 +22,7 @@ export function useImages(mode: FetchMode = 'public') {
     if (sseConnections.has(id)) return
 
     const baseURL = import.meta.env.WEB_API_URL || ''
-    const es = new EventSource(`${baseURL}/api/images/${id}/progress`)
+    const es = new EventSource(`${baseURL}/api/images/${id}/progress`, { withCredentials: true })
     sseConnections.set(id, es)
 
     es.onmessage = (event) => {
