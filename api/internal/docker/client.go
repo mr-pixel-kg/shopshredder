@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	dockerevents "github.com/docker/docker/api/types/events"
@@ -262,7 +263,19 @@ func (c *DockerClient) CommitContainer(ctx context.Context, containerID, targetI
 		return fmt.Errorf("invalid target image reference")
 	}
 
-	// we need to pause the source container and freeze it because ongoing mysql writes/reads makes the process crash
+	info, err := c.client.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return fmt.Errorf("inspect container %s before commit: %w", containerID, err)
+	}
+
+	cleanLabels := make(map[string]string)
+	for k, v := range info.Config.Labels {
+		if strings.HasPrefix(k, "traefik.") || strings.HasPrefix(k, "sandbox_") {
+			continue
+		}
+		cleanLabels[k] = v
+	}
+
 	if err := c.client.ContainerPause(ctx, containerID); err != nil {
 		return fmt.Errorf("pause container %s before commit: %w", containerID, err)
 	}
@@ -275,6 +288,9 @@ func (c *DockerClient) CommitContainer(ctx context.Context, containerID, targetI
 		Author:    c.dockerCfg.SnapshotAuthor,
 		Comment:   c.dockerCfg.SnapshotComment,
 		Pause:     true,
+		Config: &container.Config{
+			Labels: cleanLabels,
+		},
 	}); err != nil {
 		return fmt.Errorf("commit container %s to %s: %w", containerID, targetImage, err)
 	}
