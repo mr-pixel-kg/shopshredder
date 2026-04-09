@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/go-fuego/fuego"
-	"github.com/go-fuego/fuego/option"
 	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
 	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
@@ -17,28 +16,7 @@ type WhitelistHandler struct {
 	Audit *services.AuditService
 }
 
-func (h WhitelistHandler) MountRoutes(s *fuego.Server) {
-	wl := fuego.Group(s, "/whitelist")
-	fuego.Get(wl, "", h.list,
-		option.Summary("List whitelisted emails"),
-		option.Description("Return all pending (whitelisted but not yet registered) users"),
-		option.Tags("Whitelist"),
-	)
-	fuego.Post(wl, "", h.add,
-		option.Summary("Add email to whitelist"),
-		option.Description("Create a pending user row so the email can register in whitelist mode"),
-		option.Tags("Whitelist"),
-		option.DefaultStatusCode(http.StatusCreated),
-	)
-	fuego.Delete(wl, "/{id}", h.remove,
-		option.Summary("Remove email from whitelist"),
-		option.Description("Delete a pending user row (only works for users that have not yet registered)"),
-		option.Tags("Whitelist"),
-		option.DefaultStatusCode(http.StatusNoContent),
-	)
-}
-
-func (h WhitelistHandler) list(c fuego.ContextNoBody) (dto.UserListResponse, error) {
+func (h WhitelistHandler) List(c fuego.ContextNoBody) (dto.UserListResponse, error) {
 	users, err := h.Users.ListPending()
 	if err != nil {
 		return dto.UserListResponse{}, fuego.HTTPError{Status: http.StatusInternalServerError, Detail: "Could not list whitelist"}
@@ -59,7 +37,7 @@ func (h WhitelistHandler) list(c fuego.ContextNoBody) (dto.UserListResponse, err
 	}, nil
 }
 
-func (h WhitelistHandler) add(c fuego.ContextWithBody[dto.AddWhitelistRequest]) (dto.UserResponse, error) {
+func (h WhitelistHandler) Add(c fuego.ContextWithBody[dto.AddWhitelistRequest]) (dto.UserResponse, error) {
 	body, err := c.Body()
 	if err != nil {
 		return dto.UserResponse{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "Invalid request body"}
@@ -83,7 +61,7 @@ func (h WhitelistHandler) add(c fuego.ContextWithBody[dto.AddWhitelistRequest]) 
 	}, nil
 }
 
-func (h WhitelistHandler) remove(c fuego.ContextNoBody) (any, error) {
+func (h WhitelistHandler) Remove(c fuego.ContextNoBody) (any, error) {
 	id, err := parsePathUUID(c, "id")
 	if err != nil {
 		return nil, err

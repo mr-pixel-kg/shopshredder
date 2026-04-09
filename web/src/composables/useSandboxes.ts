@@ -8,7 +8,6 @@ import { useSandboxesStore } from '@/stores/sandboxes.store'
 import { getToken } from '@/utils/storage'
 
 import type {
-  CreateDemoRequest,
   CreateSandboxRequest,
   CreateSnapshotRequest,
   Image,
@@ -156,7 +155,8 @@ export function useSandboxes() {
         const response = await sandboxesApi.list({ limit: 500 })
         sandboxes.value = response.data
       } else {
-        sandboxes.value = await sandboxesApi.listDemos(getClientId())
+        const response = await sandboxesApi.list({ clientId: getClientId(), limit: 500 })
+        sandboxes.value = response.data
       }
       syncSseSubscriptions()
       void fetchHealth()
@@ -251,12 +251,6 @@ export function useSandboxes() {
     return sandbox
   }
 
-  async function createDemo(req: CreateDemoRequest): Promise<Sandbox> {
-    const sandbox = await sandboxesApi.createDemo(req)
-    sandboxes.value.unshift(sandbox)
-    return sandbox
-  }
-
   async function updateSandbox(id: string, req: UpdateSandboxRequest): Promise<Sandbox> {
     const updated = await sandboxesApi.update(id, req)
     const idx = sandboxes.value.findIndex((s) => s.id === id)
@@ -267,11 +261,7 @@ export function useSandboxes() {
 
   async function deleteSandbox(id: string, { skipRemove = false } = {}) {
     closeSse(id)
-    if (authStore.isAuthenticated) {
-      await sandboxesApi.remove(id)
-    } else {
-      await sandboxesApi.removeDemo(id)
-    }
+    await sandboxesApi.remove(id)
     if (!skipRemove) {
       sandboxes.value = sandboxes.value.filter((s) => s.id !== id)
     }
@@ -309,7 +299,6 @@ export function useSandboxes() {
     healthBySandboxId,
     refresh: fetchSandboxes,
     createSandbox,
-    createDemo,
     updateSandbox,
     deleteSandbox,
     removeSandbox,

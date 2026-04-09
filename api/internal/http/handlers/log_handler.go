@@ -9,7 +9,6 @@ import (
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/go-fuego/fuego"
-	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/http/errs"
@@ -21,21 +20,7 @@ type LogHandler struct {
 	Logs *services.LogService
 }
 
-func (h LogHandler) MountAuthedRoutes(s *fuego.Server) {
-	sandboxes := fuego.Group(s, "/sandboxes")
-	fuego.Get(sandboxes, "/{id}/logs", h.listSources,
-		option.Summary("List available log sources"),
-		option.Description("Returns all configured log sources for this sandbox's image"),
-		option.Tags("Sandboxes"),
-	)
-	fuego.GetStd(sandboxes, "/{id}/logs/{key}", h.streamLog,
-		option.Summary("Stream log output"),
-		option.Description("SSE endpoint streaming live log output for a specific log source"),
-		option.Tags("Sandboxes"),
-	)
-}
-
-func (h LogHandler) listSources(c fuego.ContextNoBody) ([]dto.LogSourceResponse, error) {
+func (h LogHandler) ListSources(c fuego.ContextNoBody) ([]dto.LogSourceResponse, error) {
 	id, err := parsePathUUID(c, "id")
 	if err != nil {
 		return nil, err
@@ -66,7 +51,7 @@ func (h LogHandler) listSources(c fuego.ContextNoBody) ([]dto.LogSourceResponse,
 	return out, nil
 }
 
-func (h LogHandler) streamLog(w http.ResponseWriter, r *http.Request) {
+func (h LogHandler) StreamLog(w http.ResponseWriter, r *http.Request) {
 	sandboxID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		errs.Write(w, http.StatusBadRequest, "Invalid sandbox id")
