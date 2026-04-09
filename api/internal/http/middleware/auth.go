@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/errs"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
-	"github.com/manuel/shopware-testenv-platform/api/internal/types"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/errs"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/types"
 )
 
 func Auth(authService *services.AuthService) func(http.Handler) http.Handler {

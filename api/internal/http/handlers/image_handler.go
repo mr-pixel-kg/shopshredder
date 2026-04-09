@@ -10,13 +10,13 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
-	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/errs"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/errs"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 	"gorm.io/gorm"
 )
 
@@ -378,7 +378,7 @@ func (h ImageHandler) registryLookup(c fuego.ContextNoBody) ([]registry.Metadata
 func imageToResponse(img *models.Image) dto.ImageResponse {
 	var owner *dto.UserSummary
 	if img.Owner != nil {
-		owner = &dto.UserSummary{ID: img.Owner.ID, Email: img.Owner.Email}
+		owner = &dto.UserSummary{ID: img.Owner.ID, Email: img.Owner.Email, AvatarURL: dto.GravatarURL(img.Owner.Email, 80)}
 	}
 	return dto.ImageResponse{
 		ID: img.ID, Name: img.Name, Tag: img.Tag,

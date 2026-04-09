@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/types"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/types"
 )
 
 type contextKey string

@@ -14,13 +14,13 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/errs"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/errs"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 )
 
 type SandboxHandler struct {
@@ -496,7 +496,7 @@ func mapSandboxError(err error) error {
 func sandboxToResponse(sb *models.Sandbox, sshCfg config.SSHConfig, sshEntry *registry.SSHEntry) dto.SandboxResponse {
 	var owner *dto.UserSummary
 	if sb.Owner != nil {
-		owner = &dto.UserSummary{ID: sb.Owner.ID, Email: sb.Owner.Email}
+		owner = &dto.UserSummary{ID: sb.Owner.ID, Email: sb.Owner.Email, AvatarURL: dto.GravatarURL(sb.Owner.Email, 80)}
 	}
 	var ssh *dto.SSHConnectionInfo
 	if sshCfg.Enabled {

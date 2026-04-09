@@ -8,11 +8,11 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
-	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/apperror"
+	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 	"gorm.io/gorm"
 )
 
@@ -68,7 +68,7 @@ func (h UserHandler) list(c fuego.ContextNoBody) (dto.UserListResponse, error) {
 	out := make([]dto.UserResponse, len(result.Users))
 	for i, u := range result.Users {
 		out[i] = dto.UserResponse{
-			ID: u.ID, Email: u.Email, Role: u.Role,
+			ID: u.ID, Email: u.Email, AvatarURL: dto.GravatarURL(u.Email, 80), Role: u.Role,
 			IsPending: u.IsPending(), CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
 		}
 	}
@@ -92,7 +92,7 @@ func (h UserHandler) get(c fuego.ContextNoBody) (dto.UserResponse, error) {
 	}
 
 	return dto.UserResponse{
-		ID: user.ID, Email: user.Email, Role: user.Role,
+		ID: user.ID, Email: user.Email, AvatarURL: dto.GravatarURL(user.Email, 80), Role: user.Role,
 		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
 	}, nil
 }
@@ -116,7 +116,7 @@ func (h UserHandler) create(c fuego.ContextWithBody[dto.CreateUserRequest]) (dto
 	}))
 
 	return dto.UserResponse{
-		ID: user.ID, Email: user.Email, Role: user.Role,
+		ID: user.ID, Email: user.Email, AvatarURL: dto.GravatarURL(user.Email, 80), Role: user.Role,
 		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
 	}, nil
 }
@@ -145,7 +145,7 @@ func (h UserHandler) update(c fuego.ContextWithBody[dto.UpdateUserRequest]) (dto
 	}))
 
 	return dto.UserResponse{
-		ID: user.ID, Email: user.Email, Role: user.Role,
+		ID: user.ID, Email: user.Email, AvatarURL: dto.GravatarURL(user.Email, 80), Role: user.Role,
 		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
 	}, nil
 }

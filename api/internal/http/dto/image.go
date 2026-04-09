@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
 	"gorm.io/datatypes"
 )
 

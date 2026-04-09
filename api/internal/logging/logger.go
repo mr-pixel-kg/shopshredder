@@ -6,7 +6,7 @@ import (
 	"time"
 
 	charmlog "github.com/charmbracelet/log"
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
 	"github.com/muesli/termenv"
 )
 

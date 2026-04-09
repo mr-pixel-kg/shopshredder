@@ -1,4 +1,4 @@
-# mpXsandbox
+# Shopshredder
 
 This application allows you to create demo shops in a docker environment.
 
@@ -60,9 +60,9 @@ server:
 database:
   host: "localhost"
   port: 5432
-  user: "mrpix_sandbox"
+  user: "shopshredder"
   password: "sandXbox_mrpix2025"
-  name: "mrpix_sandbox"
+  name: "shopshredder"
   sslmode: "disable"
 
 auth:
@@ -119,9 +119,9 @@ ssh:
 |          | allowed_origins          | array  | []                      | List of allowed CORS origins.                                                                                                                                         |
 | database | host                     | string | "localhost"             | Database host address.                                                                                                                                                |
 |          | port                     | int    | 5432                    | Database port.                                                                                                                                                        |
-|          | user                     | string | "mrpix_sandbox"         | Database username.                                                                                                                                                    |
+|          | user                     | string | "shopshredder"          | Database username.                                                                                                                                                    |
 |          | password                 | string | "sandXbox_mrpix2025"    | Database password.                                                                                                                                                    |
-|          | name                     | string | "mrpix_sandbox"         | Database name.                                                                                                                                                        |
+|          | name                     | string | "shopshredder"          | Database name.                                                                                                                                                        |
 |          | sslmode                  | string | "disable"               | PostgreSQL SSL mode.                                                                                                                                                  |
 | auth     | jwt_secret               | string | "local-dev-secret"      | JWT signing secret.                                                                                                                                                   |
 |          | jwt_ttl_minutes          | int    | 480                     | JWT token TTL in minutes.                                                                                                                                             |
@@ -224,9 +224,9 @@ Copied from `.env.example`. Controls Docker and database settings:
 | Variable             | Description                                    | Default                 |
 |----------------------|------------------------------------------------|-------------------------|
 | `DOCKER_SOCKET_PATH` | Path to Docker socket (differs macOS vs Linux) | `/var/run/docker.sock`  |
-| `POSTGRES_USER`      | PostgreSQL username                            | `mrpix_sandbox`         |
+| `POSTGRES_USER`      | PostgreSQL username                            | `shopshredder`          |
 | `POSTGRES_PASSWORD`  | PostgreSQL password                            | /                       |
-| `POSTGRES_DB`        | PostgreSQL database name                       | `mrpix_sandbox`         |
+| `POSTGRES_DB`        | PostgreSQL database name                       | `shopshredder`          |
 | `WEB_API_URL`        | API URL for web frontend                       | `http://localhost:8080` |
 
 ## Development
@@ -313,7 +313,7 @@ In addition you can add your custom configuration files to the image by copying 
 Then, you can build your new image.
 
 ```bash
-docker build . -t mr-pixel/sw-sandbox:6.7.0.0-rc1
+docker build . -t shopshredder-sandbox:6.7.0.0-rc1
 ```
 
 After that, go to the administration page in the application and add this new image that you just created.

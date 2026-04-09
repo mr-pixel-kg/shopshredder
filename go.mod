@@ -1,4 +1,4 @@
-module github.com/mr-pixel-kg/shopware-sandbox-plattform
+module github.com/mr-pixel-kg/shopshredder
 
 go 1.25.8
 

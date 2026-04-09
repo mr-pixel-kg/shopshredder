@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
 )
 
 type ContainerCreateRequest struct {
@@ -51,6 +51,8 @@ type Client interface {
 	ContainerExists(ctx context.Context, containerID string) bool
 	SubscribeSandboxEvents(ctx context.Context) (<-chan SandboxContainerEvent, <-chan error)
 	CreateExecSession(ctx context.Context, containerID string, opts ExecAttachOptions) (*ExecSession, error)
+	ContainerLogs(ctx context.Context, containerID string) (io.ReadCloser, error)
+	ExecFollow(ctx context.Context, containerID string, cmd []string) (io.ReadCloser, error)
 }
 
 type DockerClient struct {

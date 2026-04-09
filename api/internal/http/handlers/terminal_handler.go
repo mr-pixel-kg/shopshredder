@@ -14,11 +14,11 @@ import (
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/errs"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/docker"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/errs"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 )
 
 const (

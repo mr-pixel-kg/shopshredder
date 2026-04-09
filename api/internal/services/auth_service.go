@@ -4,9 +4,9 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/repositories"
 	"gorm.io/gorm"
 )
 

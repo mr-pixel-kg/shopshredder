@@ -6,6 +6,7 @@ interface BaseModel {
 export interface User extends BaseModel {
   id: string
   email: string
+  avatarUrl: string
   role: string
   isPending: boolean
 }
@@ -13,6 +14,7 @@ export interface User extends BaseModel {
 export interface UserSummary {
   id: string
   email: string
+  avatarUrl: string
 }
 
 export type ImageStatus = 'pulling' | 'committing' | 'ready' | 'failed'
@@ -105,6 +107,18 @@ export interface SandboxHealthEvent {
   failureReason?: string
   message?: string
   checkedAt: string
+}
+
+export type LogSourceType = 'docker' | 'file'
+
+export interface LogSource {
+  key: string
+  label: string
+  type: LogSourceType
+}
+
+export interface LogEvent {
+  line: string
 }
 
 export interface AuditLog {

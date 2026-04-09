@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
-	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 )
 
 type AuthHandler struct {
@@ -68,7 +68,7 @@ func (h AuthHandler) register(c fuego.ContextWithBody[dto.RegisterRequest]) (dto
 	_ = h.Audit.Log(newAuditLogInput(c.Request(), &user.ID, auditcontracts.ActionUserRegistered, &resourceType, &user.ID, map[string]any{"email": user.Email}))
 
 	return dto.UserResponse{
-		ID: user.ID, Email: user.Email, Role: user.Role,
+		ID: user.ID, Email: user.Email, AvatarURL: dto.GravatarURL(user.Email, 80), Role: user.Role,
 		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
 	}, nil
 }
@@ -91,7 +91,7 @@ func (h AuthHandler) login(c fuego.ContextWithBody[dto.LoginRequest]) (dto.Login
 	return dto.LoginResponse{
 		Token: token,
 		User: dto.UserResponse{
-			ID: user.ID, Email: user.Email, Role: user.Role,
+			ID: user.ID, Email: user.Email, AvatarURL: dto.GravatarURL(user.Email, 80), Role: user.Role,
 			IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
 		},
 	}, nil
@@ -107,7 +107,7 @@ func (h AuthHandler) logout(c fuego.ContextNoBody) (any, error) {
 func (h AuthHandler) me(c fuego.ContextNoBody) (dto.UserResponse, error) {
 	user := mw.UserFromContext(c.Request())
 	return dto.UserResponse{
-		ID: user.ID, Email: user.Email, Role: user.Role,
+		ID: user.ID, Email: user.Email, AvatarURL: dto.GravatarURL(user.Email, 80), Role: user.Role,
 		IsPending: user.IsPending(), CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
 	}, nil
 }
