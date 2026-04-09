@@ -16,7 +16,7 @@ Die Audit Logs sind bewusst nicht als fachliche Event-Sourcing-Historie gedacht.
 
 ## Datenmodell
 
-Das Datenmodell liegt in [api/internal/models/audit_log.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/models/audit_log.go).
+Das Datenmodell liegt in [api/internal/models/audit_log.go](/api/internal/models/audit_log.go).
 
 Aktuelle Felder:
 
@@ -44,13 +44,13 @@ Wichtige Eigenschaften:
 - `resourceType` und `resourceId` duerfen `nil` sein
   Das ist vor allem fuer globale Auth-Aktionen wie Login/Logout sinnvoll.
 
-Die Migration fuer die neuen Audit-Felder liegt in [api/internal/database/migrations/000010_audit_log_actor_and_resource.sql](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/database/migrations/000010_audit_log_actor_and_resource.sql).
+Die Migration fuer die neuen Audit-Felder liegt in [api/internal/database/migrations/000010_audit_log_actor_and_resource.sql](/api/internal/database/migrations/000010_audit_log_actor_and_resource.sql).
 
-Die Umbenennung von `created_at` auf `timestamp` liegt in [api/internal/database/migrations/000011_audit_logs_timestamp.sql](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/database/migrations/000011_audit_logs_timestamp.sql).
+Die Umbenennung von `created_at` auf `timestamp` liegt in [api/internal/database/migrations/000011_audit_logs_timestamp.sql](/api/internal/database/migrations/000011_audit_logs_timestamp.sql).
 
 ## Zentrale Contracts
 
-Actions und Resource-Typen werden zentral in [api/internal/auditlog/contracts.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/auditlog/contracts.go) definiert.
+Actions und Resource-Typen werden zentral in [api/internal/auditlog/contracts.go](/api/internal/auditlog/contracts.go) definiert.
 
 ### Warum zentral?
 
@@ -69,7 +69,7 @@ Jetzt gilt:
 
 ## Struktur eines Audit-Eintrags
 
-Der Service verwendet [api/internal/services/audit_service.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/services/audit_service.go).
+Der Service verwendet [api/internal/services/audit_service.go](/api/internal/services/audit_service.go).
 
 Zentrales Input-Modell:
 
@@ -125,7 +125,7 @@ Dieses Muster ist bewusst so aufgebaut, dass spaetere Listen-Endpunkte die Pagin
 
 ## Herkunft des Actor-Kontexts
 
-HTTP-Handler bauen den Audit-Kontext ueber [api/internal/http/handlers/audit_helpers.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/handlers/audit_helpers.go).
+HTTP-Handler bauen den Audit-Kontext ueber [api/internal/http/handlers/audit_helpers.go](/api/internal/http/handlers/audit_helpers.go).
 
 Dort werden aktuell gesammelt:
 
@@ -134,7 +134,7 @@ Dort werden aktuell gesammelt:
 - `c.Request().UserAgent()`
 - optionaler `clientToken`
 
-Der `clientToken` wird aktuell nur passiv gelesen, nicht erzeugt oder gesetzt. Die Middleware dafuer liegt in [api/internal/http/middleware/client_token.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/middleware/client_token.go).
+Der `clientToken` wird aktuell nur passiv gelesen, nicht erzeugt oder gesetzt. Die Middleware dafuer liegt in [api/internal/http/middleware/client_token.go](/api/internal/http/middleware/client_token.go).
 
 Aktueller Stand:
 
@@ -269,11 +269,11 @@ Aktuell zentral definiert:
 
 Wichtige Call-Sites:
 
-- [api/internal/http/handlers/auth_handler.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/handlers/auth_handler.go)
-- [api/internal/http/handlers/image_handler.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/handlers/image_handler.go)
-- [api/internal/http/handlers/user_handler.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/handlers/user_handler.go)
-- [api/internal/http/handlers/whitelist_handler.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/handlers/whitelist_handler.go)
-- [api/internal/services/sandbox_service.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/services/sandbox_service.go)
+- [api/internal/http/handlers/auth_handler.go](/api/internal/http/handlers/auth_handler.go)
+- [api/internal/http/handlers/image_handler.go](/api/internal/http/handlers/image_handler.go)
+- [api/internal/http/handlers/user_handler.go](/api/internal/http/handlers/user_handler.go)
+- [api/internal/http/handlers/whitelist_handler.go](/api/internal/http/handlers/whitelist_handler.go)
+- [api/internal/services/sandbox_service.go](/api/internal/services/sandbox_service.go)
 
 Faustregel:
 
@@ -284,28 +284,28 @@ Wenn eine Aktion tief in der Fachlogik entsteht, sollte sie eher im Service gelo
 
 ## Wie man eine neue Audit-Action hinzufuegt
 
-1. Neue Action in [api/internal/auditlog/contracts.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/auditlog/contracts.go) definieren.
+1. Neue Action in [api/internal/auditlog/contracts.go](/api/internal/auditlog/contracts.go) definieren.
 2. Falls noetig neuen `ResourceType` ebenfalls dort anlegen.
 3. An der passenden Call-Site `newAuditLogInput(...)` oder `AuditLogInput{...}` verwenden.
 4. `resourceType` und `resourceId` setzen, wenn eine konkrete Ressource betroffen ist.
 5. Nur sinnvolle, kleine Zusatzinfos in `details` schreiben.
-6. Falls die Action im Admin-UI speziell dargestellt werden soll, Mapping in [web/src/views/admin/AdminAuditView.vue](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/web/src/views/admin/AdminAuditView.vue) erweitern.
+6. Falls die Action im Admin-UI speziell dargestellt werden soll, Mapping in [web/src/views/admin/AdminAuditView.vue](/web/src/views/admin/AdminAuditView.vue) erweitern.
 
 ## API und Frontend
 
 Die Audit-API liefert Audit-Eintraege ueber:
 
-- [api/internal/http/handlers/audit_handler.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/handlers/audit_handler.go)
+- [api/internal/http/handlers/audit_handler.go](/api/internal/http/handlers/audit_handler.go)
 
 Response-Typ:
 
-- [api/internal/http/dto/responses.go](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/api/internal/http/dto/responses.go)
+- [api/internal/http/dto/responses.go](/api/internal/http/dto/responses.go)
 
 Frontend-Typen und Anzeige:
 
-- [web/src/types/api.types.ts](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/web/src/types/api.types.ts)
-- [web/src/composables/useAuditLogs.ts](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/web/src/composables/useAuditLogs.ts)
-- [web/src/views/admin/AdminAuditView.vue](/Users/manuel.kienlein/GolandProjects/shopware-testenv-platform/web/src/views/admin/AdminAuditView.vue)
+- [web/src/types/api.types.ts](/web/src/types/api.types.ts)
+- [web/src/composables/useAuditLogs.ts](/web/src/composables/useAuditLogs.ts)
+- [web/src/views/admin/AdminAuditView.vue](/web/src/views/admin/AdminAuditView.vue)
 
 Wichtig:
 

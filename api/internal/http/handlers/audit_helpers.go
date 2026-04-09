@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 )
 
 func newAuditLogInput(

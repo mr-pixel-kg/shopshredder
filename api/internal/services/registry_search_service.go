@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
 )
 
 const (

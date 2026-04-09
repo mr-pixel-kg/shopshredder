@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
-	"github.com/manuel/shopware-testenv-platform/api/internal/database"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/database"
 	"github.com/pressly/goose/v3"
 )
 

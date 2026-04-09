@@ -1,4 +1,4 @@
-module github.com/manuel/shopware-testenv-platform/api
+module github.com/mr-pixel-kg/shopshredder/api
 
 go 1.25.0
 

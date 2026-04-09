@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
-	"github.com/manuel/shopware-testenv-platform/api/internal/database"
-	httpserver "github.com/manuel/shopware-testenv-platform/api/internal/http"
-	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/database"
+	httpserver "github.com/mr-pixel-kg/shopshredder/api/internal/http"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/logging"
 )
 
 func main() {

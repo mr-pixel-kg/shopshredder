@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
-	"github.com/manuel/shopware-testenv-platform/api/internal/logging"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/logging"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
