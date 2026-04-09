@@ -379,21 +379,6 @@ func (c *DockerClient) buildLabels(ctx context.Context, imageName string, contai
 	for k, v := range containerLabels {
 		merged[k] = v
 	}
-
-	for k := range inspect.Config.Labels {
-		if _, has := merged[k]; has {
-			continue
-		}
-		switch {
-		case strings.HasSuffix(k, ".rule"):
-			merged[k] = "Host(`_never.invalid`)"
-		case strings.HasSuffix(k, ".entrypoints"):
-			merged[k] = "none"
-		case strings.HasPrefix(k, "traefik.") || strings.HasPrefix(k, "sandbox_"):
-			merged[k] = ""
-		}
-	}
-
 	return merged
 }
 
