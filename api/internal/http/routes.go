@@ -29,17 +29,18 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	auth          *services.AuthService
-	audit         *services.AuditService
-	user          *services.UserService
-	image         *services.ImageService
-	sandbox       *services.SandboxService
-	sandboxHealth *services.SandboxHealthService
-	terminal      *services.TerminalService
-	log           *services.LogService
-	resolver      *registry.Resolver
-	userRepo      *repositories.UserRepository
-	dockerSDK     *client.Client
+	auth           *services.AuthService
+	audit          *services.AuditService
+	user           *services.UserService
+	image          *services.ImageService
+	sandbox        *services.SandboxService
+	sandboxHealth  *services.SandboxHealthService
+	terminal       *services.TerminalService
+	registrySearch *services.RegistrySearchService
+	log            *services.LogService
+	resolver       *registry.Resolver
+	userRepo       *repositories.UserRepository
+	dockerSDK      *client.Client
 }
 
 func NewServer(cfg config.Config, db *gorm.DB) (*Server, error) {
@@ -119,6 +120,7 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 	auditHandler := handlers.AuditHandler{Audit: runtime.audit}
 	userHandler := handlers.UserHandler{Users: runtime.user, Audit: runtime.audit}
 	whitelistHandler := handlers.WhitelistHandler{Users: runtime.user, Audit: runtime.audit}
+	registrySearchHandler := handlers.RegistrySearchHandler{Search: runtime.registrySearch}
 	terminalHandler := handlers.TerminalHandler{Terminals: runtime.terminal, Auth: runtime.auth, AllowedOrigins: cfg.Server.AllowedOrigins}
 	logHandler := handlers.LogHandler{Logs: runtime.log}
 
@@ -137,6 +139,7 @@ func registerRoutes(s *fuego.Server, cfg config.Config, runtime *runtimeServices
 	authHandler.MountAuthedRoutes(authed)
 	imageHandler.MountAuthedRoutes(authed)
 	sandboxHandler.MountAuthedRoutes(authed)
+	registrySearchHandler.MountAuthedRoutes(authed)
 	logHandler.MountAuthedRoutes(authed)
 
 	admin := fuego.Group(s, "/api",
@@ -192,18 +195,21 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	terminalService := services.NewTerminalService(cfg.Terminal, dockerClient, sandboxRepo)
 	logService := services.NewLogService(dockerClient, sandboxRepo, imageRepo, resolver)
 
+	registrySearchService := services.NewRegistrySearchService()
+
 	return &runtimeServices{
-		auth:          authService,
-		audit:         auditService,
-		user:          userService,
-		image:         imageService,
-		sandbox:       sandboxService,
-		sandboxHealth: sandboxHealthService,
-		terminal:      terminalService,
-		log:           logService,
-		resolver:      resolver,
-		userRepo:      userRepo,
-		dockerSDK:     sdkClient,
+		auth:           authService,
+		audit:          auditService,
+		user:           userService,
+		image:          imageService,
+		sandbox:        sandboxService,
+		sandboxHealth:  sandboxHealthService,
+		terminal:       terminalService,
+		registrySearch: registrySearchService,
+		log:            logService,
+		resolver:       resolver,
+		userRepo:       userRepo,
+		dockerSDK:      sdkClient,
 	}, nil
 }
 

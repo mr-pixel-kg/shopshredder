@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.4.4] - 2026-04-08
+### Added
+- Gravatar-based user avatars via API
+- Refactored frontend avatar component to use avatar URL from API
+- Docker Hub image name and tag autocomplete in the add image dialog
+- New API endpoints: `GET /api/registry/images/search` and `GET /api/registry/tags`
+- Reusable `AutocompleteInput` component using shadcn-vue Combobox
+
 ## [1.4.3] - 2026-04-08
 ### Added
 - pgadmin service to docker stack for production

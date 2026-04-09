@@ -2,7 +2,8 @@
 import { Loader2, Lock, Plus, Trash2, Upload } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 
-import { imagesApi } from '@/api'
+import { imagesApi, registrySearchApi } from '@/api'
+import AutocompleteInput from '@/components/shared/AutocompleteInput.vue'
 import IconPicker from '@/components/shared/IconPicker.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,6 +26,7 @@ import {
   newMetadataRow,
 } from '@/utils/metadata'
 
+import type { Suggestion } from '@/components/shared/AutocompleteInput.vue'
 import type { MetadataItem } from '@/types'
 
 const props = defineProps<{
@@ -57,11 +59,18 @@ const thumbnailPreview = ref<string | undefined>()
 const busy = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
+const imageSuggestions = ref<Suggestion[]>([])
+const tagSuggestions = ref<Suggestion[]>([])
+const imageSearchLoading = ref(false)
+const tagSearchLoading = ref(false)
+
 const registryMeta = ref<MetadataItem[]>([])
 const fieldRows = ref<MetadataRow[]>([])
 const actionRows = ref<MetadataRow[]>([])
 
 let lookupTimer: ReturnType<typeof setTimeout> | undefined
+let imageSearchTimer: ReturnType<typeof setTimeout> | undefined
+let tagSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 const registryFields = computed(() =>
   registryMeta.value.filter((m) => m.type === 'field' || m.type === 'setting'),
@@ -70,11 +79,16 @@ const registryActions = computed(() => registryMeta.value.filter((m) => m.type =
 
 watch(name, (val) => {
   clearTimeout(lookupTimer)
+  clearTimeout(imageSearchTimer)
+  tagSuggestions.value = []
+
   if (!val) {
     registryMeta.value = []
+    imageSuggestions.value = []
     rebuildRows()
     return
   }
+
   lookupTimer = setTimeout(async () => {
     try {
       registryMeta.value = await imagesApi.lookupRegistry(val)
@@ -82,6 +96,54 @@ watch(name, (val) => {
       registryMeta.value = []
     }
     rebuildRows()
+  }, 400)
+
+  if (val.length >= 2) {
+    imageSearchLoading.value = true
+    imageSearchTimer = setTimeout(async () => {
+      try {
+        const results = await registrySearchApi.searchImages(val)
+        imageSuggestions.value = results.map((r) => ({
+          value: r.name,
+          label: r.name,
+          description: r.description || undefined,
+        }))
+      } catch {
+        imageSuggestions.value = []
+      } finally {
+        imageSearchLoading.value = false
+      }
+    }, 400)
+  } else {
+    imageSuggestions.value = []
+    imageSearchLoading.value = false
+  }
+})
+
+watch(tag, (val) => {
+  clearTimeout(tagSearchTimer)
+
+  if (!name.value) {
+    tagSuggestions.value = []
+    return
+  }
+
+  tagSearchLoading.value = true
+  tagSearchTimer = setTimeout(async () => {
+    try {
+      const results = await registrySearchApi.searchTags(name.value, val)
+      tagSuggestions.value = results.map((r) => ({
+        value: r.name,
+        label: r.name,
+        description: r.lastUpdated
+          ? new Date(r.lastUpdated).toLocaleDateString('de-DE')
+          : undefined,
+      }))
+    } catch {
+      tagSuggestions.value = []
+    } finally {
+      tagSearchLoading.value = false
+    }
   }, 400)
 })
 
@@ -118,6 +180,10 @@ function resetState() {
   registryMeta.value = []
   fieldRows.value = []
   actionRows.value = []
+  imageSuggestions.value = []
+  tagSuggestions.value = []
+  imageSearchLoading.value = false
+  tagSearchLoading.value = false
   if (fileInputRef.value) fileInputRef.value.value = ''
 }
 
@@ -206,17 +272,27 @@ function handleSubmit() {
           <TabsContent value="general" class="mt-4 grid min-h-[380px] gap-4">
             <div class="grid gap-2">
               <Label for="image-name">Image Name</Label>
-              <Input
+              <AutocompleteInput
                 id="image-name"
                 v-model="name"
                 placeholder="dockware/dev"
-                required
+                :suggestions="imageSuggestions"
+                :loading="imageSearchLoading"
                 :disabled="busy"
+                :min-chars="2"
               />
             </div>
             <div class="grid gap-2">
               <Label for="image-tag">Tag</Label>
-              <Input id="image-tag" v-model="tag" placeholder="latest" required :disabled="busy" />
+              <AutocompleteInput
+                id="image-tag"
+                v-model="tag"
+                placeholder="latest"
+                :suggestions="tagSuggestions"
+                :loading="tagSearchLoading"
+                :disabled="busy || !name"
+                :min-chars="1"
+              />
             </div>
             <div class="grid gap-2">
               <Label for="image-title">Titel</Label>
