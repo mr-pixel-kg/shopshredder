@@ -134,8 +134,10 @@ func (c *DockerClient) CreateContainer(ctx context.Context, request ContainerCre
 }
 
 func (c *DockerClient) createPortContainer(ctx context.Context, request ContainerCreateRequest) (*SandboxContainer, error) {
-	labels := c.buildLabels(ctx, request.ImageName, request.Labels)
-
+	labels, err := c.mergedCreateLabels(ctx, request.ImageName, request.Labels)
+	if err != nil {
+		return nil, err
+	}
 	containerConfig := &container.Config{
 		Image:     request.ImageName,
 		Labels:    labels,
@@ -198,8 +200,10 @@ func (c *DockerClient) createPortContainer(ctx context.Context, request Containe
 }
 
 func (c *DockerClient) createTraefikContainer(ctx context.Context, request ContainerCreateRequest) (*SandboxContainer, error) {
-	labels := c.buildLabels(ctx, request.ImageName, request.Labels)
-
+	labels, err := c.mergedCreateLabels(ctx, request.ImageName, request.Labels)
+	if err != nil {
+		return nil, err
+	}
 	containerConfig := &container.Config{
 		Image:     request.ImageName,
 		Labels:    labels,
@@ -273,12 +277,7 @@ func (c *DockerClient) CommitContainer(ctx context.Context, containerID, targetI
 		return fmt.Errorf("inspect container %s before commit: %w", containerID, err)
 	}
 
-	var changes []string
-	for k := range info.Config.Labels {
-		if strings.HasPrefix(k, "traefik.") || strings.HasPrefix(k, "sandbox_") {
-			changes = append(changes, fmt.Sprintf("LABEL %s=", k))
-		}
-	}
+	committedLabels := shadowEphemeralLabels(info.Config.Labels)
 
 	if err := c.client.ContainerPause(ctx, containerID); err != nil {
 		return fmt.Errorf("pause container %s before commit: %w", containerID, err)
@@ -292,7 +291,9 @@ func (c *DockerClient) CommitContainer(ctx context.Context, containerID, targetI
 		Author:    c.dockerCfg.SnapshotAuthor,
 		Comment:   c.dockerCfg.SnapshotComment,
 		Pause:     true,
-		Changes:   changes,
+		Config: &container.Config{
+			Labels: committedLabels,
+		},
 	}); err != nil {
 		return fmt.Errorf("commit container %s to %s: %w", containerID, targetImage, err)
 	}
@@ -361,27 +362,6 @@ func (c *DockerClient) SubscribeSandboxEvents(ctx context.Context) (<-chan Sandb
 	return out, errOut
 }
 
-func (c *DockerClient) buildLabels(ctx context.Context, imageName string, containerLabels map[string]string) map[string]string {
-	inspect, _, err := c.client.ImageInspectWithRaw(ctx, imageName)
-	if err != nil {
-		return containerLabels
-	}
-
-	merged := make(map[string]string, len(inspect.Config.Labels)+len(containerLabels))
-
-	for k, v := range inspect.Config.Labels {
-		if strings.HasPrefix(k, "traefik.") || strings.HasPrefix(k, "sandbox_") {
-			continue
-		}
-		merged[k] = v
-	}
-
-	for k, v := range containerLabels {
-		merged[k] = v
-	}
-	return merged
-}
-
 func (c *DockerClient) scheme() string {
 	if c.dockerCfg.Mode == config.DockerModeTraefik && c.dockerCfg.TraefikCertResolver != "" {
 		return "https"
@@ -399,6 +379,39 @@ func FindFreePort() (int, error) {
 		_ = l.Close()
 	}()
 	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+func isEphemeralSandboxLabel(key string) bool {
+	return strings.HasPrefix(key, "traefik.") || strings.HasPrefix(key, "sandbox_")
+}
+
+func shadowEphemeralLabels(src map[string]string) map[string]string {
+	out := make(map[string]string, len(src))
+	for k, v := range src {
+		if isEphemeralSandboxLabel(k) {
+			out[k] = ""
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func (c *DockerClient) mergedCreateLabels(ctx context.Context, imageName string, requested map[string]string) (map[string]string, error) {
+	img, _, err := c.client.ImageInspectWithRaw(ctx, imageName)
+	if err != nil {
+		return nil, fmt.Errorf("inspect image %s before create: %w", imageName, err)
+	}
+	merged := make(map[string]string, len(img.Config.Labels)+len(requested))
+	for k := range img.Config.Labels {
+		if isEphemeralSandboxLabel(k) {
+			merged[k] = ""
+		}
+	}
+	for k, v := range requested {
+		merged[k] = v
+	}
+	return merged, nil
 }
 
 // BuildTraefikLabels builds the treafik routing labels
