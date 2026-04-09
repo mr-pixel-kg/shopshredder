@@ -324,7 +324,6 @@ func (s *SandboxService) Create(ctx context.Context, input CreateSandboxInput) (
 	if err != nil {
 		return nil, fmt.Errorf("resolve registry for %s: %w", image.FullName(), err)
 	}
-
 	// build labels: sandbox marker + resolved labels + traefik labels.
 	labels := map[string]string{"sandbox_container": "true"}
 	for k, v := range resolved.Labels {
