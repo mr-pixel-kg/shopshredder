@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
 )
 
 type ContainerCreateRequest struct {

@@ -7,11 +7,11 @@ import (
 
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
-	"github.com/manuel/shopware-testenv-platform/api/internal/apperror"
-	auditcontracts "github.com/manuel/shopware-testenv-platform/api/internal/auditlog"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	mw "github.com/manuel/shopware-testenv-platform/api/internal/http/middleware"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/apperror"
+	auditcontracts "github.com/mr-pixel-kg/shopshredder/api/internal/auditlog"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	mw "github.com/mr-pixel-kg/shopshredder/api/internal/http/middleware"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 )
 
 type WhitelistHandler struct {

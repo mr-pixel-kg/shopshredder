@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/config"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

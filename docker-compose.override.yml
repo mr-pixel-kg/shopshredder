@@ -16,17 +16,17 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    image: mpxsandbox-api:local
+    image: shopshredder-api:local
     ports:
       - "8080:8080"
       - "2222:2222"
     environment:
       DATABASE_HOST: ${DATABASE_HOST:-database}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_USER: ${DATABASE_USER:-mrpix_sandbox}
+      DATABASE_USER: ${DATABASE_USER:-shopshredder}
       SERVER_ALLOWED_ORIGINS: ${SERVER_ALLOWED_ORIGINS}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      DATABASE_NAME: ${DATABASE_NAME:-mrpix_sandbox}
+      DATABASE_NAME: ${DATABASE_NAME:-shopshredder}
       DATABASE_SSLMODE: ${DATABASE_SSLMODE:-disable}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       SERVER_APP_URL: ${SERVER_APP_URL:-http://localhost:8080}
@@ -42,7 +42,7 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-    image: mpxsandbox-web:local
+    image: shopshredder-web:local
     ports:
       - "8000:80"
     environment:

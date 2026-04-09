@@ -1,6 +1,6 @@
 services:
   api:
-    image: ghcr.io/mr-pixel-kg/mpxsandbox-api:latest
+    image: ghcr.io/mr-pixel-kg/shopshredder-api:latest
     restart: always
     expose:
       - 8080
@@ -12,9 +12,9 @@ services:
       DATABASE_HOST: ${DATABASE_HOST:-database}
       SERVER_ALLOWED_ORIGINS: ${SERVER_ALLOWED_ORIGINS}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_USER: ${DATABASE_USER:-mrpix_sandbox}
+      DATABASE_USER: ${DATABASE_USER:-shopshredder}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      DATABASE_NAME: ${DATABASE_NAME:-mrpix_sandbox}
+      DATABASE_NAME: ${DATABASE_NAME:-shopshredder}
       DATABASE_SSLMODE: ${DATABASE_SSLMODE:-disable}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       SERVER_APP_URL: ${SERVER_APP_URL:-https://${API_DOMAIN}}
@@ -41,7 +41,7 @@ services:
       - "traefik.http.services.sandbox-api.loadbalancer.server.port=8080"
 
   web:
-    image: ghcr.io/mr-pixel-kg/mpxsandbox-web:latest
+    image: ghcr.io/mr-pixel-kg/shopshredder-web:latest
     restart: always
     expose:
       - 80
@@ -92,13 +92,13 @@ services:
     volumes:
       - database_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${DATABASE_USER:-mrpix_sandbox}
+      POSTGRES_USER: ${DATABASE_USER:-shopshredder}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME:-mrpix_sandbox}
+      POSTGRES_DB: ${DATABASE_NAME:-shopshredder}
     networks:
       - sandbox-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-mrpix_sandbox} -d ${DATABASE_NAME:-mrpix_sandbox}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-shopshredder} -d ${DATABASE_NAME:-shopshredder}"]
       interval: 15s
       timeout: 5s
       retries: 3

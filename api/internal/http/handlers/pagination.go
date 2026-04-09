@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-fuego/fuego"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
 )
 
 func parsePaginationParams(r *http.Request) (limit, offset int, err error) {

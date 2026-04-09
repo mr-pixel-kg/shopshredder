@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
 	"gorm.io/gorm"
 )
 

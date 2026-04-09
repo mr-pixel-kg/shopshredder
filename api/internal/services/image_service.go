@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/docker"
-	"github.com/manuel/shopware-testenv-platform/api/internal/models"
-	"github.com/manuel/shopware-testenv-platform/api/internal/registry"
-	"github.com/manuel/shopware-testenv-platform/api/internal/repositories"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/docker"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/repositories"
 	"gorm.io/datatypes"
 )
 

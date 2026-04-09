@@ -100,8 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved user interface and user experience
 
 ### Fixed
-- Sandbox not visible in Gallery when not logged in (Guest-Mode) [#58](https://github.com/mr-pixel-kg/shopware-sandbox-plattform/issues/58)
-- APP_URL not set correctly [#59](https://github.com/mr-pixel-kg/shopware-sandbox-plattform/issues/59)
+- Sandbox not visible in Gallery when not logged in (Guest-Mode) [#58](https://github.com/mr-pixel-kg/shopshredder/issues/58)
+- APP_URL not set correctly [#59](https://github.com/mr-pixel-kg/shopshredder/issues/59)
 
 ## [1.1.0] - 2026-03-27
 ### Added

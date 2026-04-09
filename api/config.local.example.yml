@@ -13,9 +13,9 @@ server:
 database:
   host: "localhost"
   port: 5432
-  user: "mrpix_sandbox"
+  user: "shopshredder"
   password: "sandXbox_mrpix2025"
-  name: "mrpix_sandbox"
+  name: "shopshredder"
   sslmode: "disable"
 
 auth:

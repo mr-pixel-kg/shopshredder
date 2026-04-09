@@ -8,8 +8,8 @@ import (
 	"github.com/go-fuego/fuego"
 	"github.com/go-fuego/fuego/option"
 	"github.com/google/uuid"
-	"github.com/manuel/shopware-testenv-platform/api/internal/http/dto"
-	"github.com/manuel/shopware-testenv-platform/api/internal/services"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/http/dto"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/services"
 )
 
 type AuditHandler struct {
