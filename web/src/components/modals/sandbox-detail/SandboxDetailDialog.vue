@@ -51,7 +51,7 @@ watch(
 
 const isActive = computed(() => {
   const s = props.sandbox?.status
-  return s === 'running' || s === 'starting'
+  return s === 'running' || s === 'starting' || s === 'paused' || s === 'stopping'
 })
 
 const isOffline = computed(
