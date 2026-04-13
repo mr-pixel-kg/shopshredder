@@ -136,10 +136,11 @@ type SandboxListInput struct {
 }
 
 type SandboxListResult struct {
-	Sandboxes []models.Sandbox
-	Total     int64
-	Limit     int
-	Offset    int
+	Sandboxes  []models.Sandbox
+	SSHEntries map[uuid.UUID]*registry.SSHEntry
+	Total      int64
+	Limit      int
+	Offset     int
 }
 
 func (s *SandboxService) ListPaginated(input SandboxListInput) (*SandboxListResult, error) {
@@ -163,12 +164,13 @@ func (s *SandboxService) ListPaginated(input SandboxListInput) (*SandboxListResu
 		return nil, err
 	}
 
-	s.EnrichMetadata(sandboxes)
+	sshEntries := s.EnrichMetadata(sandboxes)
 	return &SandboxListResult{
-		Sandboxes: sandboxes,
-		Total:     total,
-		Limit:     input.Limit,
-		Offset:    input.Offset,
+		Sandboxes:  sandboxes,
+		SSHEntries: sshEntries,
+		Total:      total,
+		Limit:      input.Limit,
+		Offset:     input.Offset,
 	}, nil
 }
 
@@ -982,52 +984,74 @@ func (s *SandboxService) ResolveSSHEntry(imageID uuid.UUID) *registry.SSHEntry {
 	return entry.SSH
 }
 
-func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) {
+func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) map[uuid.UUID]*registry.SSHEntry {
 	type cachedEntry struct {
 		metadata []registry.MetadataItem
 		ssh      *registry.SSHEntry
 	}
-	cache := make(map[uuid.UUID]*cachedEntry)
+
+	seen := make(map[uuid.UUID]struct{})
+	var imageIDs []uuid.UUID
+	for i := range sandboxes {
+		if _, ok := seen[sandboxes[i].ImageID]; !ok {
+			seen[sandboxes[i].ImageID] = struct{}{}
+			imageIDs = append(imageIDs, sandboxes[i].ImageID)
+		}
+	}
+
+	sshEntries := make(map[uuid.UUID]*registry.SSHEntry, len(imageIDs))
+
+	images, err := s.images.FindByIDs(imageIDs)
+	if err != nil {
+		slog.Warn("enrich sandbox: failed to batch-load images", "error", err)
+		return sshEntries
+	}
+	imageMap := make(map[uuid.UUID]*models.Image, len(images))
+	for i := range images {
+		imageMap[images[i].ID] = &images[i]
+	}
+
+	cache := make(map[uuid.UUID]*cachedEntry, len(imageIDs))
+	for _, id := range imageIDs {
+		img, ok := imageMap[id]
+		if !ok {
+			slog.Warn("enrich sandbox: image not found", "image_id", id)
+			cache[id] = nil
+			continue
+		}
+		regEntry := s.resolver.ResolveEntry(img.RegistryName())
+		if regEntry != nil {
+			meta := mergeRegistryAndDB(regEntry.Metadata, img.Metadata)
+			cache[id] = &cachedEntry{metadata: meta, ssh: regEntry.SSH}
+			sshEntries[id] = regEntry.SSH
+		} else {
+			cache[id] = nil
+		}
+	}
 
 	for idx := range sandboxes {
 		sb := &sandboxes[idx]
-
-		entry, ok := cache[sb.ImageID]
-		if !ok {
-			img, err := s.images.FindByID(sb.ImageID)
-			if err != nil {
-				slog.Warn("enrich sandbox: image not found", "image_id", sb.ImageID)
-				cache[sb.ImageID] = nil
-				continue
-			}
-			regEntry := s.resolver.ResolveEntry(img.RegistryName())
-			if regEntry != nil {
-				meta := mergeRegistryAndDB(regEntry.Metadata, img.Metadata)
-				entry = &cachedEntry{metadata: meta, ssh: regEntry.SSH}
-			}
-			cache[sb.ImageID] = entry
-		}
-
-		if entry == nil {
+		entry := cache[sb.ImageID]
+		if entry == nil || len(entry.metadata) == 0 {
 			continue
 		}
 
-		if len(entry.metadata) > 0 {
-			var values map[string]string
-			if len(sb.Metadata) > 0 {
-				_ = json.Unmarshal(sb.Metadata, &values)
-			}
-			enriched := make([]registry.MetadataItem, len(entry.metadata))
-			copy(enriched, entry.metadata)
-			for j := range enriched {
-				if v, exists := values[enriched[j].Key]; exists {
-					enriched[j].Value = v
-				}
-			}
-			data, _ := json.Marshal(enriched)
-			sb.Metadata = datatypes.JSON(data)
+		var values map[string]string
+		if len(sb.Metadata) > 0 {
+			_ = json.Unmarshal(sb.Metadata, &values)
 		}
+		enriched := make([]registry.MetadataItem, len(entry.metadata))
+		copy(enriched, entry.metadata)
+		for j := range enriched {
+			if v, exists := values[enriched[j].Key]; exists {
+				enriched[j].Value = v
+			}
+		}
+		data, _ := json.Marshal(enriched)
+		sb.Metadata = datatypes.JSON(data)
 	}
+
+	return sshEntries
 }
 
 func mergeRegistryAndDB(reg []registry.MetadataItem, dbJSON datatypes.JSON) []registry.MetadataItem {
