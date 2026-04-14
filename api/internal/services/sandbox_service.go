@@ -468,6 +468,35 @@ func (s *SandboxService) Delete(ctx context.Context, id uuid.UUID, auditActor Au
 	return nil
 }
 
+func (s *SandboxService) StopActiveForImage(ctx context.Context, imageID uuid.UUID) error {
+	sandboxes, err := s.repo.ListByImageID(imageID)
+	if err != nil {
+		return err
+	}
+	for i := range sandboxes {
+		sb := &sandboxes[i]
+		if !sb.Status.IsActive() {
+			continue
+		}
+		if err := s.stopContainer(ctx, sb); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SandboxService) stopContainer(ctx context.Context, sandbox *models.Sandbox) error {
+	s.runPreStop(ctx, sandbox.ContainerID, sandbox.ImageID)
+
+	if err := s.docker.DeleteContainer(ctx, sandbox.ContainerID); err != nil {
+		return err
+	}
+
+	_ = s.setStatusByID(sandbox.ID, models.SandboxStatusDeleted, nil)
+	_ = s.addEvent(sandbox.ID, "deleted", map[string]any{})
+	return nil
+}
+
 func (s *SandboxService) deleteContainerAsync(sandboxID uuid.UUID, containerID string, imageID uuid.UUID, auditActor AuditActor) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

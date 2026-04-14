@@ -415,8 +415,9 @@ func buildRuntimeServices(cfg config.Config, db *gorm.DB) (*runtimeServices, err
 	lifecycleStore := lifecycle.NewStore(10_000)
 	executor := &registry.Executor{Client: sdkClient, Lifecycle: lifecycleStore}
 	pullTracker := docker.NewPullTracker()
-	imageService := services.NewImageService(imageRepo, sandboxRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir, resolver)
+	imageService := services.NewImageService(imageRepo, dockerClient, pullTracker, cfg.Server.BaseURL, cfg.Storage.ThumbnailDir, resolver)
 	sandboxService := services.NewSandboxService(cfg.Sandbox, cfg.Docker, cfg.Guard, cfg.SSH, sandboxRepo, imageRepo, imageService, eventRepo, auditService, dockerClient, resolver, executor, lifecycleStore)
+	imageService.SetSandboxService(sandboxService)
 	sandboxHealthService := services.NewSandboxHealthService(sandboxRepo, imageRepo, resolver, executor, lifecycleStore)
 	terminalService := services.NewTerminalService(cfg.Terminal, dockerClient, sandboxRepo)
 	logService := services.NewLogService(dockerClient, sandboxRepo, imageRepo, resolver, lifecycleStore)
