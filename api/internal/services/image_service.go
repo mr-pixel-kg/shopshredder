@@ -30,7 +30,7 @@ var ErrUnsupportedThumbnailFormat = errors.New("unsupported thumbnail format")
 
 type ImageService struct {
 	repo          *repositories.ImageRepository
-	sandboxRepo   *repositories.SandboxRepository
+	sandboxes     *SandboxService
 	docker        docker.Client
 	tracker       *docker.PullTracker
 	thumbnailDir  string
@@ -41,9 +41,12 @@ type ImageService struct {
 	pullCancels map[string]context.CancelFunc
 }
 
+func (s *ImageService) SetSandboxService(sandboxes *SandboxService) {
+	s.sandboxes = sandboxes
+}
+
 func NewImageService(
 	repo *repositories.ImageRepository,
-	sandboxRepo *repositories.SandboxRepository,
 	dockerClient docker.Client,
 	tracker *docker.PullTracker,
 	publicBaseURL string,
@@ -52,7 +55,6 @@ func NewImageService(
 ) *ImageService {
 	service := &ImageService{
 		repo:          repo,
-		sandboxRepo:   sandboxRepo,
 		docker:        dockerClient,
 		tracker:       tracker,
 		thumbnailDir:  thumbnailDir,
@@ -441,24 +443,10 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	// Delete all sandboxes that use this image first.
-	sandboxes, err := s.sandboxRepo.ListByImageID(id)
-	if err != nil {
+	if err := s.sandboxes.StopActiveForImage(ctx, id); err != nil {
 		return err
 	}
 
-	for _, sb := range sandboxes {
-		if sb.Status == models.SandboxStatusStarting || sb.Status == models.SandboxStatusRunning {
-			if err := s.docker.DeleteContainer(ctx, sb.ContainerID); err != nil {
-				slog.Warn("failed to delete sandbox container during image deletion", "component", "image", "container_id", sb.ContainerID, "error", err.Error())
-			}
-		}
-		if err := s.sandboxRepo.DeleteByID(sb.ID); err != nil {
-			slog.Warn("failed to delete sandbox during image deletion", "component", "image", "sandbox_id", sb.ID.String(), "error", err.Error())
-		}
-	}
-
-	// Remove Docker image if it exists locally.
 	if s.docker.ImageExists(ctx, img.FullName()) {
 		if err := s.docker.RemoveImage(ctx, img.FullName()); err != nil {
 			slog.Warn("docker image removal failed, proceeding with db deletion", "component", "image", "image", img.FullName(), "error", err.Error())
