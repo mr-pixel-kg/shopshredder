@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/lifecycle"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/repositories"
@@ -45,12 +46,19 @@ type HealthCheckResolver interface {
 	ResolveEntry(imageName string) *registry.ImageEntry
 }
 
+type PostStartChecker interface {
+	PostStartDone(containerID string) bool
+	PostStartFailed(containerID string) bool
+}
+
 type SandboxHealthService struct {
-	repo     *repositories.SandboxRepository
-	imgRepo  *repositories.ImageRepository
-	resolver HealthCheckResolver
-	interval time.Duration
-	client   *http.Client
+	repo      *repositories.SandboxRepository
+	imgRepo   *repositories.ImageRepository
+	resolver  HealthCheckResolver
+	psc       PostStartChecker
+	lifecycle *lifecycle.Store
+	interval  time.Duration
+	client    *http.Client
 
 	mu          sync.Mutex
 	active      map[uuid.UUID]*sandboxHealthState
@@ -61,12 +69,16 @@ func NewSandboxHealthService(
 	repo *repositories.SandboxRepository,
 	imgRepo *repositories.ImageRepository,
 	resolver HealthCheckResolver,
+	psc PostStartChecker,
+	lifecycleStore *lifecycle.Store,
 ) *SandboxHealthService {
 	return &SandboxHealthService{
-		repo:     repo,
-		imgRepo:  imgRepo,
-		resolver: resolver,
-		interval: 5 * time.Second,
+		repo:      repo,
+		imgRepo:   imgRepo,
+		resolver:  resolver,
+		psc:       psc,
+		lifecycle: lifecycleStore,
+		interval:  5 * time.Second,
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
@@ -180,7 +192,33 @@ func (s *SandboxHealthService) runProbe(sandboxID uuid.UUID) bool {
 
 	switch sandbox.Status {
 	case models.SandboxStatusStarting:
-		if hc == nil {
+		postStartPending := s.psc != nil && !s.psc.PostStartDone(sandbox.ContainerID)
+		postStartFailed := s.psc != nil && s.psc.PostStartFailed(sandbox.ContainerID)
+
+		if postStartFailed {
+			s.lifecycle.Log(sandbox.ContainerID, "health", lifecycle.LevelError, "Post-start commands failed")
+			reason := "Post-start Befehle fehlgeschlagen"
+			sandbox.Status = models.SandboxStatusRunning
+			sandbox.StateReason = &reason
+			if err := s.repo.Update(sandbox); err != nil {
+				slog.Error("could not persist running state after post-start failure", "sandbox_id", sandboxID, "error", err)
+				return false
+			}
+			s.broadcastFinal(sandboxID, SandboxHealthEvent{
+				SandboxID:     sandboxID,
+				Status:        string(models.SandboxStatusRunning),
+				Ready:         false,
+				URL:           sandbox.GetURL(),
+				FailureReason: "post_start_failed",
+				StateReason:   reason,
+				Message:       "Post-start commands failed",
+				CheckedAt:     time.Now().UTC(),
+			})
+			return true
+		}
+
+		if hc == nil && !postStartPending {
+			s.lifecycle.Log(sandbox.ContainerID, "health", lifecycle.LevelSuccess, "Sandbox is ready")
 			sandbox.Status = models.SandboxStatusRunning
 			sandbox.StateReason = nil
 			if err := s.repo.Update(sandbox); err != nil {
@@ -196,8 +234,30 @@ func (s *SandboxHealthService) runProbe(sandboxID uuid.UUID) bool {
 			})
 			return true
 		}
+		if hc == nil {
+			reason := "Post-start Befehle werden ausgeführt"
+			sandbox.StateReason = &reason
+			_ = s.repo.Update(sandbox)
+			s.broadcast(sandboxID, SandboxHealthEvent{
+				SandboxID:   sandboxID,
+				Status:      models.HealthStatusProbing,
+				Ready:       false,
+				URL:         sandbox.GetURL(),
+				StateReason: reason,
+				Message:     "Waiting for post-start commands to finish",
+				CheckedAt:   time.Now().UTC(),
+			})
+			return false
+		}
 		event := s.probeSandbox(sandbox, false)
+		if event.Ready && postStartPending {
+			event.Ready = false
+			event.Status = models.HealthStatusProbing
+			event.StateReason = "Post-start Befehle werden ausgeführt"
+			event.Message = "Waiting for post-start commands to finish"
+		}
 		if event.Ready {
+			s.lifecycle.Log(sandbox.ContainerID, "health", lifecycle.LevelSuccess, fmt.Sprintf("Health check passed (HTTP %d, %dms)", event.HTTPStatus, event.LatencyMs))
 			sandbox.Status = models.SandboxStatusRunning
 			sandbox.StateReason = nil
 			if err := s.repo.Update(sandbox); err != nil {
