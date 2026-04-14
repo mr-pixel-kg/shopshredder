@@ -57,6 +57,87 @@ func validateRegistry(reg *ImageRegistry) error {
 	return pe.err()
 }
 
+func ValidateMetadata(metadata []MetadataItem, registrySchema *MetadataSchema) error {
+	pe := &pathErrors{}
+	groupKeys := map[string]bool{}
+	if registrySchema != nil {
+		for _, g := range registrySchema.Groups {
+			groupKeys[g.Key] = true
+		}
+	}
+
+	fieldOptions := map[string][]string{}
+	seenItems := map[string]bool{}
+	for i := range metadata {
+		it := &metadata[i]
+		if it.Key != "" && keyRE.MatchString(it.Key) && it.Type == "field" && it.Field != nil {
+			if it.Field.Input == "select" || it.Field.Input == "multiselect" {
+				vals := make([]string, 0, len(it.Field.Options))
+				for _, o := range it.Field.Options {
+					vals = append(vals, o.Value)
+				}
+				fieldOptions[it.Key] = vals
+			} else {
+				fieldOptions[it.Key] = nil
+			}
+		}
+	}
+
+	for i := range metadata {
+		it := &metadata[i]
+		p := fmt.Sprintf("metadata[%d] (key=%q)", i, it.Key)
+		if it.Key == "" || !keyRE.MatchString(it.Key) {
+			pe.at(p, "item key must match ^[a-z][a-z0-9_]{0,62}$")
+		}
+		if seenItems[it.Key] {
+			pe.at(p, "duplicate item key %q", it.Key)
+		}
+		seenItems[it.Key] = true
+		if it.Label == "" {
+			pe.at(p, "label is required")
+		}
+		if !ValidItemTypes[it.Type] {
+			pe.at(p, "type must be one of field|action|display, got %q", it.Type)
+		}
+		setCount := 0
+		if it.Field != nil {
+			setCount++
+		}
+		if it.Action != nil {
+			setCount++
+		}
+		if it.Display != nil {
+			setCount++
+		}
+		if setCount != 1 {
+			pe.at(p, "exactly one of field/action/display must be set (found %d)", setCount)
+		}
+		if it.Type == "field" && it.Field == nil {
+			pe.at(p, "type=field requires field sub-object")
+		}
+		if it.Type == "action" && it.Action == nil {
+			pe.at(p, "type=action requires action sub-object")
+		}
+		if it.Type == "display" && it.Display == nil {
+			pe.at(p, "type=display requires display sub-object")
+		}
+		if it.Group != "" && !groupKeys[it.Group] {
+			pe.at(p, "group %q is not declared in the registry schema", it.Group)
+		}
+		validateVisibility(p, it.Visibility, fieldOptions, pe)
+		if it.Field != nil {
+			validateFieldSpec(p+".field", it.Field, pe)
+		}
+		if it.Action != nil {
+			validateActionSpec(p+".action", it.Action, pe)
+		}
+		if it.Display != nil {
+			validateDisplaySpec(p+".display", it.Display, pe)
+		}
+	}
+	return pe.err()
+}
+
 func validateMetadata(base string, schema *MetadataSchema, pe *pathErrors) {
 	groupKeys := map[string]bool{}
 	seenGroups := map[string]bool{}

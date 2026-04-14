@@ -57,7 +57,7 @@ type MetadataGroup struct {
 
 type MetadataItem struct {
 	Key        string          `yaml:"key"                  json:"key"`
-	Label      string          `yaml:"label"                json:"label"`
+	Label      string          `yaml:"label"                json:"label,omitempty"`
 	Type       string          `yaml:"type"                 json:"type"`
 	Icon       string          `yaml:"icon,omitempty"       json:"icon,omitempty"`
 	Group      string          `yaml:"group,omitempty"      json:"group,omitempty"`
@@ -80,14 +80,13 @@ type FieldDependency struct {
 }
 
 type FieldSpec struct {
-	Input       string         `yaml:"input"                 json:"input"`
+	Input       string         `yaml:"input"                 json:"input,omitempty"`
 	Default     string         `yaml:"default,omitempty"     json:"default,omitempty"`
 	Placeholder string         `yaml:"placeholder,omitempty" json:"placeholder,omitempty"`
 	HelpText    string         `yaml:"help_text,omitempty"   json:"helpText,omitempty"`
 	Required    bool           `yaml:"required,omitempty"    json:"required,omitempty"`
 	ReadOnly    bool           `yaml:"read_only,omitempty"   json:"readOnly,omitempty"`
 	Options     []SelectOption `yaml:"options,omitempty"     json:"options,omitempty"`
-	Value       string         `yaml:"-"                     json:"value"`
 }
 
 type SelectOption struct {
@@ -96,7 +95,7 @@ type SelectOption struct {
 }
 
 type ActionSpec struct {
-	URL     string             `yaml:"url"               json:"url"`
+	URL     string             `yaml:"url"               json:"url,omitempty"`
 	Variant string             `yaml:"variant,omitempty" json:"variant,omitempty"`
 	Size    string             `yaml:"size,omitempty"    json:"size,omitempty"`
 	Target  string             `yaml:"target,omitempty"  json:"target,omitempty"`
@@ -105,7 +104,7 @@ type ActionSpec struct {
 }
 
 type DisplaySpec struct {
-	Value    string `yaml:"value"              json:"value"`
+	Value    string `yaml:"value"              json:"value,omitempty"`
 	Format   string `yaml:"format,omitempty"   json:"format,omitempty"`
 	Copyable bool   `yaml:"copyable,omitempty" json:"copyable,omitempty"`
 

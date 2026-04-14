@@ -177,84 +177,88 @@ func renderExecCommand(cmd ExecCommand, ctx TemplateContext) (ExecCommand, error
 	return rendered, nil
 }
 
-func (r *Resolver) RenderMetadata(imageName string, values map[string]string, ctx TemplateContext) (*MetadataSchema, error) {
-	entry := r.ResolveEntry(imageName)
-	if entry == nil {
-		return &MetadataSchema{}, nil
-	}
-	return RenderMetadata(&entry.Metadata, values, ctx)
+func (r *Resolver) RenderMetadata(imageName string, values map[string]string, metadata []MetadataItem, ctx TemplateContext) ([]MetadataItem, error) {
+	return RenderMetadata(r.SchemaFor(imageName), values, metadata, ctx)
 }
 
-func RenderMetadata(schema *MetadataSchema, values map[string]string, ctx TemplateContext) (*MetadataSchema, error) {
-	if schema == nil {
-		return &MetadataSchema{}, nil
+func (r *Resolver) SchemaFor(imageName string) *MetadataSchema {
+	if r == nil {
+		return nil
 	}
-	out := &MetadataSchema{
-		Groups: append([]MetadataGroup(nil), schema.Groups...),
-		Items:  make([]MetadataItem, len(schema.Items)),
+	entry := r.ResolveEntry(imageName)
+	if entry == nil {
+		return nil
 	}
+	return &entry.Metadata
+}
 
-	meta := make(map[string]string)
-	for _, it := range schema.Items {
-		if it.Type == "field" && it.Field != nil && it.Field.Default != "" {
+func (r *Resolver) MergeMetadata(imageName string, metadata []MetadataItem) []MetadataItem {
+	return MergeWithRegistry(r.SchemaFor(imageName), metadata)
+}
+
+func RenderMetadata(registrySchema *MetadataSchema, values map[string]string, metadata []MetadataItem, ctx TemplateContext) ([]MetadataItem, error) {
+	merged := MergeWithRegistry(registrySchema, metadata)
+
+	meta := make(map[string]string, len(merged))
+	for _, it := range merged {
+		if it.Type == "field" && it.Field != nil {
 			meta[it.Key] = it.Field.Default
 		}
 	}
-	defined := make(map[string]bool, len(schema.Items))
-	for _, it := range schema.Items {
-		if it.Type == "field" {
-			defined[it.Key] = true
-		}
-	}
 	for k, v := range values {
-		if defined[k] {
+		if _, ok := meta[k]; ok {
 			meta[k] = v
 		}
 	}
 	ctx.Meta = meta
 
-	for i, it := range schema.Items {
+	out := make([]MetadataItem, len(merged))
+	for i, it := range merged {
 		clone := it
 		switch it.Type {
 		case "field":
 			if it.Field != nil {
 				f := *it.Field
 				if v, ok := values[it.Key]; ok {
-					f.Value = v
-				} else {
-					f.Value = it.Field.Default
+					f.Default = v
 				}
 				clone.Field = &f
 			}
 		case "action":
 			if it.Action != nil {
 				a := *it.Action
-				if it.Action.urlTmpl != nil {
-					rendered, err := execTemplate(it.Action.urlTmpl, ctx)
-					if err != nil {
-						return nil, fmt.Errorf("render action.url for %q: %w", it.Key, err)
-					}
-					a.URL = rendered
+				rendered, err := renderInlineTemplate(it.Action.urlTmpl, a.URL, ctx)
+				if err != nil {
+					return nil, fmt.Errorf("render action.url for %q: %w", it.Key, err)
 				}
+				a.URL = rendered
 				clone.Action = &a
 			}
 		case "display":
 			if it.Display != nil {
 				d := *it.Display
-				if it.Display.valueTmpl != nil {
-					rendered, err := execTemplate(it.Display.valueTmpl, ctx)
-					if err != nil {
-						return nil, fmt.Errorf("render display.value for %q: %w", it.Key, err)
-					}
-					d.Value = rendered
+				rendered, err := renderInlineTemplate(it.Display.valueTmpl, d.Value, ctx)
+				if err != nil {
+					return nil, fmt.Errorf("render display.value for %q: %w", it.Key, err)
 				}
+				d.Value = rendered
 				clone.Display = &d
 			}
 		}
-		out.Items[i] = clone
+		out[i] = clone
 	}
 
 	return out, nil
+}
+
+func renderInlineTemplate(cached *template.Template, source string, ctx TemplateContext) (string, error) {
+	if cached != nil {
+		return execTemplate(cached, ctx)
+	}
+	if source == "" {
+		return "", nil
+	}
+	return renderTemplate(source, ctx)
 }
 
 func execTemplate(t *template.Template, ctx TemplateContext) (string, error) {
@@ -275,4 +279,76 @@ func renderTemplate(text string, ctx TemplateContext) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func MergeWithRegistry(registrySchema *MetadataSchema, userItems []MetadataItem) []MetadataItem {
+	userByKey := map[string]MetadataItem{}
+	for _, it := range userItems {
+		userByKey[it.Key] = it
+	}
+	var registryItems []MetadataItem
+	if registrySchema != nil {
+		registryItems = registrySchema.Items
+	}
+	out := make([]MetadataItem, 0, len(registryItems)+len(userItems))
+	for _, it := range registryItems {
+		if patch, ok := userByKey[it.Key]; ok {
+			out = append(out, mergeItem(it, patch))
+			delete(userByKey, it.Key)
+			continue
+		}
+		out = append(out, it)
+	}
+	for _, it := range userItems {
+		if _, ok := userByKey[it.Key]; ok {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+func StripRegistryDuplicates(userItems []MetadataItem, registrySchema *MetadataSchema) []MetadataItem {
+	registryByKey := map[string]MetadataItem{}
+	if registrySchema != nil {
+		for _, it := range registrySchema.Items {
+			registryByKey[it.Key] = it
+		}
+	}
+	out := make([]MetadataItem, 0, len(userItems))
+	for _, it := range userItems {
+		ref, hasMatch := registryByKey[it.Key]
+		if !hasMatch {
+			out = append(out, it)
+			continue
+		}
+		if patch, ok := extractOverride(it, ref); ok {
+			out = append(out, patch)
+		}
+	}
+	return out
+}
+
+func extractOverride(user, ref MetadataItem) (MetadataItem, bool) {
+	if user.Type != "field" || user.Field == nil || ref.Field == nil {
+		return MetadataItem{}, false
+	}
+	if user.Field.Default == ref.Field.Default {
+		return MetadataItem{}, false
+	}
+	return MetadataItem{
+		Key:   user.Key,
+		Type:  "field",
+		Field: &FieldSpec{Default: user.Field.Default},
+	}, true
+}
+
+func mergeItem(base, patch MetadataItem) MetadataItem {
+	if base.Type != "field" || base.Field == nil || patch.Field == nil {
+		return base
+	}
+	merged := *base.Field
+	merged.Default = patch.Field.Default
+	out := base
+	out.Field = &merged
+	return out
 }

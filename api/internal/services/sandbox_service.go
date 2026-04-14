@@ -512,7 +512,7 @@ type CreateSnapshotInput struct {
 	IsPublic    bool
 	ClientIP    string
 	UserID      *uuid.UUID
-	Metadata    map[string]string
+	Metadata    []registry.MetadataItem
 	AuditActor  AuditActor
 }
 
@@ -984,7 +984,7 @@ func (s *SandboxService) ResolveSSHEntry(imageID uuid.UUID) *registry.SSHEntry {
 
 type SandboxEnrichment struct {
 	SSH      *registry.SSHEntry
-	Metadata *registry.MetadataSchema
+	Metadata []registry.MetadataItem
 }
 
 func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) map[uuid.UUID]SandboxEnrichment {
@@ -1001,7 +1001,7 @@ func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) map[uuid.UUI
 
 	type imageCache struct {
 		registryName string
-		values       map[string]string
+		metadata     []registry.MetadataItem
 		ssh          *registry.SSHEntry
 	}
 	cache := make(map[uuid.UUID]imageCache, len(imageIDs))
@@ -1015,7 +1015,7 @@ func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) map[uuid.UUI
 		img := &images[i]
 		c := imageCache{
 			registryName: img.RegistryName(),
-			values:       registry.ValuesFromJSONMap(img.Metadata),
+			metadata:     decodeMetadata(img.Metadata),
 		}
 		if entry := s.resolver.ResolveEntry(c.registryName); entry != nil {
 			c.ssh = entry.SSH
@@ -1029,7 +1029,7 @@ func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) map[uuid.UUI
 		if !ok {
 			continue
 		}
-		values := registry.MergeValues(c.values, registry.ValuesFromJSONMap(sb.Metadata))
+		values := registry.ValuesFromJSONMap(sb.Metadata)
 		tctx := registry.TemplateContext{
 			Hostname:      registry.HostnameFromURL(sb.GetURL()),
 			URL:           sb.GetURL(),
@@ -1039,7 +1039,7 @@ func (s *SandboxService) EnrichMetadata(sandboxes []models.Sandbox) map[uuid.UUI
 			Status:        string(sb.Status),
 			ClientIP:      sb.ClientIP,
 		}
-		schema, err := s.resolver.RenderMetadata(c.registryName, values, tctx)
+		schema, err := s.resolver.RenderMetadata(c.registryName, values, c.metadata, tctx)
 		if err != nil {
 			slog.Error("metadata render failed",
 				"component", "registry",

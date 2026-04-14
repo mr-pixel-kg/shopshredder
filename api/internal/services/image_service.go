@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -14,10 +15,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mr-pixel-kg/shopshredder/api/internal/apperror"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/docker"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/repositories"
+	"gorm.io/datatypes"
 )
 
 const (
@@ -165,7 +168,7 @@ func (s *ImageService) FindByIDs(ids []uuid.UUID) ([]models.Image, error) {
 	return s.repo.FindByIDs(ids)
 }
 
-func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, description *string, isPublic bool, metadata map[string]string, registryRef *string, status string) (*models.Image, error) {
+func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, description *string, isPublic bool, metadata []registry.MetadataItem, registryRef *string, status string) (*models.Image, error) {
 	img := &models.Image{
 		ID:          uuid.New(),
 		Name:        name,
@@ -175,9 +178,13 @@ func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, d
 		IsPublic:    isPublic,
 		Status:      status,
 		OwnerID:     userID,
-		Metadata:    registry.ValuesToJSONMap(metadata),
 		RegistryRef: registryRef,
 	}
+	encoded, err := s.encodeMetadata(img, metadata)
+	if err != nil {
+		return nil, err
+	}
+	img.Metadata = encoded
 
 	if err := s.repo.Create(img); err != nil {
 		return nil, err
@@ -186,13 +193,27 @@ func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, d
 	return s.attachThumbnailURL(img), nil
 }
 
+func (s *ImageService) encodeMetadata(img *models.Image, metadata []registry.MetadataItem) (datatypes.JSON, error) {
+	schema := s.resolver.SchemaFor(img.RegistryName())
+	if err := registry.ValidateMetadata(registry.MergeWithRegistry(schema, metadata), schema); err != nil {
+		return nil, apperror.BadRequest("INVALID_METADATA", err.Error())
+	}
+	return json.Marshal(registry.StripRegistryDuplicates(metadata, schema))
+}
+
+func decodeMetadata(raw datatypes.JSON) []registry.MetadataItem {
+	var metadata []registry.MetadataItem
+	_ = json.Unmarshal(raw, &metadata)
+	return metadata
+}
+
 func (s *ImageService) CreateForUser(
 	ctx context.Context,
 	userID *uuid.UUID,
 	name, tag string,
 	title, description *string,
 	isPublic bool,
-	metadata map[string]string,
+	metadata []registry.MetadataItem,
 	registryRef *string,
 ) (*models.Image, error) {
 	img, err := s.createImage(userID, name, tag, title, description, isPublic, metadata, registryRef, models.ImageStatusPulling)
@@ -276,7 +297,7 @@ func (s *ImageService) WatchPullProgress(imageID string) (<-chan docker.PullProg
 	return s.tracker.Watch(imageID)
 }
 
-func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic bool, metadata map[string]string) (*models.Image, error) {
+func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic bool, metadata []registry.MetadataItem) (*models.Image, error) {
 	image, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -286,7 +307,11 @@ func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic
 	image.Description = description
 	image.IsPublic = isPublic
 	if metadata != nil {
-		image.Metadata = registry.ValuesToJSONMap(metadata)
+		encoded, err := s.encodeMetadata(image, metadata)
+		if err != nil {
+			return nil, err
+		}
+		image.Metadata = encoded
 	}
 	if err := s.repo.Update(image); err != nil {
 		return nil, err
@@ -374,7 +399,7 @@ func (s *ImageService) CreateForCommit(
 	name, tag string,
 	title, description *string,
 	isPublic bool,
-	metadata map[string]string,
+	metadata []registry.MetadataItem,
 	registryRef *string,
 ) (*models.Image, error) {
 	return s.createImage(userID, name, tag, title, description, isPublic, metadata, registryRef, models.ImageStatusCommitting)
@@ -428,7 +453,15 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	for _, sb := range sandboxes {
-		if sb.Status == models.SandboxStatusStarting || sb.Status == models.SandboxStatusRunning {
+		wasActive := sb.Status == models.SandboxStatusStarting || sb.Status == models.SandboxStatusRunning
+		now := time.Now().UTC()
+		sb.Status = models.SandboxStatusDeleted
+		sb.StateReason = nil
+		sb.DeletedAt = &now
+		if err := s.sandboxRepo.Update(&sb); err != nil {
+			slog.Warn("mark sandbox deleted during image deletion failed", "component", "image", "sandbox_id", sb.ID.String(), "error", err.Error())
+		}
+		if wasActive {
 			if err := s.docker.DeleteContainer(ctx, sb.ContainerID); err != nil {
 				slog.Warn("failed to delete sandbox container during image deletion", "component", "image", "container_id", sb.ContainerID, "error", err.Error())
 			}
@@ -546,27 +579,11 @@ func extensionForContentType(contentType string) string {
 	}
 }
 
-func (s *ImageService) EnrichMetadata(images []models.Image) map[uuid.UUID]*registry.MetadataSchema {
-	out := make(map[uuid.UUID]*registry.MetadataSchema, len(images))
-	if s.resolver == nil {
-		return out
-	}
+func (s *ImageService) EnrichMetadata(images []models.Image) map[uuid.UUID][]registry.MetadataItem {
+	out := make(map[uuid.UUID][]registry.MetadataItem, len(images))
 	for i := range images {
 		img := &images[i]
-		schema, err := s.resolver.RenderMetadata(
-			img.RegistryName(),
-			registry.ValuesFromJSONMap(img.Metadata),
-			registry.TemplateContext{},
-		)
-		if err != nil {
-			slog.Error("metadata render failed",
-				"component", "registry",
-				"image_id", img.ID,
-				"registry_match", img.RegistryName(),
-				"error", err)
-			continue
-		}
-		out[img.ID] = schema
+		out[img.ID] = s.resolver.MergeMetadata(img.RegistryName(), decodeMetadata(img.Metadata))
 	}
 	return out
 }

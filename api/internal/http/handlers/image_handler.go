@@ -21,7 +21,7 @@ import (
 )
 
 type RegistryResolver interface {
-	ResolveEntry(imageName string) *registry.ImageEntry
+	SchemaFor(imageName string) *registry.MetadataSchema
 }
 
 type ImageHandler struct {
@@ -287,15 +287,10 @@ func (h ImageHandler) RegistryLookup(c fuego.ContextNoBody) (registry.MetadataSc
 		return registry.MetadataSchema{}, fuego.HTTPError{Status: http.StatusBadRequest, Detail: "name or id query parameter is required"}
 	}
 
-	entry := h.Resolver.ResolveEntry(name)
-	if entry == nil {
-		return registry.MetadataSchema{Items: []registry.MetadataItem{}}, nil
+	if schema := h.Resolver.SchemaFor(name); schema != nil {
+		return *schema, nil
 	}
-	out := registry.MetadataSchema{
-		Groups: append([]registry.MetadataGroup(nil), entry.Metadata.Groups...),
-		Items:  append([]registry.MetadataItem(nil), entry.Metadata.Items...),
-	}
-	return out, nil
+	return registry.MetadataSchema{Items: []registry.MetadataItem{}}, nil
 }
 
 func imageResponseFor(s *services.ImageService, img *models.Image) dto.ImageResponse {
@@ -303,10 +298,13 @@ func imageResponseFor(s *services.ImageService, img *models.Image) dto.ImageResp
 	return imageToResponse(img, meta[img.ID])
 }
 
-func imageToResponse(img *models.Image, metadata *registry.MetadataSchema) dto.ImageResponse {
+func imageToResponse(img *models.Image, metadata []registry.MetadataItem) dto.ImageResponse {
 	var owner *dto.UserSummary
 	if img.Owner != nil {
 		owner = &dto.UserSummary{ID: img.Owner.ID, Email: img.Owner.Email, AvatarURL: dto.GravatarURL(img.Owner.Email, 80)}
+	}
+	if metadata == nil {
+		metadata = []registry.MetadataItem{}
 	}
 	return dto.ImageResponse{
 		ID: img.ID, Name: img.Name, Tag: img.Tag,

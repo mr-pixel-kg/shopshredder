@@ -38,17 +38,6 @@ func ValuesToJSONMap(m map[string]string) map[string]any {
 	return out
 }
 
-func MergeValues(base, override map[string]string) map[string]string {
-	out := make(map[string]string, len(base)+len(override))
-	for k, v := range base {
-		out[k] = v
-	}
-	for k, v := range override {
-		out[k] = v
-	}
-	return out
-}
-
 func HostnameFromURL(u string) string {
 	if u == "" {
 		return ""
