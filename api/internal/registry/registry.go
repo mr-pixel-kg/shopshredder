@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"text/template"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -39,23 +40,76 @@ type ImageEntry struct {
 	HealthCheck  *HealthCheckConfig `yaml:"health_check,omitempty"`
 	Labels       map[string]string  `yaml:"labels,omitempty"`
 	SSH          *SSHEntry          `yaml:"ssh,omitempty"`
-	Metadata     []MetadataItem     `yaml:"metadata,omitempty"`
+	Metadata     MetadataSchema     `yaml:"metadata,omitempty"`
 	Logs         []LogSource        `yaml:"logs,omitempty"`
 }
 
+type MetadataSchema struct {
+	Groups []MetadataGroup `yaml:"groups,omitempty" json:"groups,omitempty"`
+	Items  []MetadataItem  `yaml:"items,omitempty"  json:"items"`
+}
+
+type MetadataGroup struct {
+	Key         string `yaml:"key"                   json:"key"`
+	Label       string `yaml:"label"                 json:"label"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
 type MetadataItem struct {
-	Key       string   `yaml:"key"                json:"key"`
-	Label     string   `yaml:"label"              json:"label"`
-	Type      string   `yaml:"type"               json:"type"`
-	Value     string   `yaml:"value,omitempty"    json:"value,omitempty"`
-	Input     string   `yaml:"input,omitempty"    json:"input,omitempty"`
-	Required  bool     `yaml:"required,omitempty" json:"required,omitempty"`
-	Options   []string `yaml:"options,omitempty"   json:"options,omitempty"`
-	Variant   string   `yaml:"variant,omitempty"   json:"variant,omitempty"`
-	Show      string   `yaml:"show,omitempty"      json:"show,omitempty"`
-	Condition string   `yaml:"condition,omitempty" json:"condition,omitempty"`
-	Icon      string   `yaml:"icon,omitempty"      json:"icon,omitempty"`
-	Size      string   `yaml:"size,omitempty"      json:"size,omitempty"`
+	Key        string          `yaml:"key"                  json:"key"`
+	Label      string          `yaml:"label"                json:"label"`
+	Type       string          `yaml:"type"                 json:"type"`
+	Icon       string          `yaml:"icon,omitempty"       json:"icon,omitempty"`
+	Group      string          `yaml:"group,omitempty"      json:"group,omitempty"`
+	Visibility *VisibilityRule `yaml:"visibility,omitempty" json:"visibility,omitempty"`
+
+	Field   *FieldSpec   `yaml:"field,omitempty"   json:"field,omitempty"`
+	Action  *ActionSpec  `yaml:"action,omitempty"  json:"action,omitempty"`
+	Display *DisplaySpec `yaml:"display,omitempty" json:"display,omitempty"`
+}
+
+type VisibilityRule struct {
+	Contexts  []string         `yaml:"contexts,omitempty"   json:"contexts,omitempty"`
+	Condition string           `yaml:"condition,omitempty"  json:"condition,omitempty"`
+	DependsOn *FieldDependency `yaml:"depends_on,omitempty" json:"dependsOn,omitempty"`
+}
+
+type FieldDependency struct {
+	Field string `yaml:"field" json:"field"`
+	Value string `yaml:"value" json:"value"`
+}
+
+type FieldSpec struct {
+	Input       string         `yaml:"input"                 json:"input"`
+	Default     string         `yaml:"default,omitempty"     json:"default,omitempty"`
+	Placeholder string         `yaml:"placeholder,omitempty" json:"placeholder,omitempty"`
+	HelpText    string         `yaml:"help_text,omitempty"   json:"helpText,omitempty"`
+	Required    bool           `yaml:"required,omitempty"    json:"required,omitempty"`
+	ReadOnly    bool           `yaml:"read_only,omitempty"   json:"readOnly,omitempty"`
+	Options     []SelectOption `yaml:"options,omitempty"     json:"options,omitempty"`
+	Value       string         `yaml:"-"                     json:"value"`
+}
+
+type SelectOption struct {
+	Value string `yaml:"value" json:"value"`
+	Label string `yaml:"label" json:"label"`
+}
+
+type ActionSpec struct {
+	URL     string             `yaml:"url"               json:"url"`
+	Variant string             `yaml:"variant,omitempty" json:"variant,omitempty"`
+	Size    string             `yaml:"size,omitempty"    json:"size,omitempty"`
+	Target  string             `yaml:"target,omitempty"  json:"target,omitempty"`
+	Confirm string             `yaml:"confirm,omitempty" json:"confirm,omitempty"`
+	urlTmpl *template.Template `yaml:"-" json:"-"`
+}
+
+type DisplaySpec struct {
+	Value    string `yaml:"value"              json:"value"`
+	Format   string `yaml:"format,omitempty"   json:"format,omitempty"`
+	Copyable bool   `yaml:"copyable,omitempty" json:"copyable,omitempty"`
+
+	valueTmpl *template.Template `yaml:"-" json:"-"`
 }
 
 type ExecCommand struct {
@@ -82,6 +136,7 @@ type TemplateContext struct {
 	SSHUsername    string
 	SSHPassword    string
 	ContainerName  string
+	ContainerID    string
 	TrustedProxies string
 	DockerMode     string
 	Network        string
@@ -94,6 +149,7 @@ type TemplateContext struct {
 	TTL            string
 	ExpiresAt      string
 	ClientIP       string
+	Status         string
 	Meta           map[string]string
 }
 
@@ -122,3 +178,24 @@ type ResolvedImage struct {
 	SSH          *SSHEntry
 	Logs         []LogSource
 }
+
+var ValidContexts = map[string]bool{
+	"image.create":    true,
+	"image.edit":      true,
+	"image.card":      true,
+	"sandbox.create":  true,
+	"sandbox.card":    true,
+	"sandbox.details": true,
+}
+
+var (
+	ValidFieldInputs = map[string]bool{
+		"text": true, "password": true, "number": true, "email": true, "url": true,
+		"select": true, "multiselect": true, "toggle": true, "textarea": true,
+	}
+	ValidActionVariants = map[string]bool{"default": true, "outline": true, "destructive": true}
+	ValidActionSizes    = map[string]bool{"default": true, "icon": true}
+	ValidActionTargets  = map[string]bool{"_blank": true, "_self": true}
+	ValidDisplayFormats = map[string]bool{"text": true, "code": true, "badge": true, "link": true, "password": true}
+	ValidItemTypes      = map[string]bool{"field": true, "action": true, "display": true}
+)

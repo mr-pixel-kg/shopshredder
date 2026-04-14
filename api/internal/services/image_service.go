@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -19,7 +18,6 @@ import (
 	"github.com/mr-pixel-kg/shopshredder/api/internal/models"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/registry"
 	"github.com/mr-pixel-kg/shopshredder/api/internal/repositories"
-	"gorm.io/datatypes"
 )
 
 const (
@@ -117,7 +115,6 @@ func (s *ImageService) ListAllPaginated(input ImageListInput) (*ImageListResult,
 		return nil, err
 	}
 	images = s.attachThumbnailURLs(images)
-	s.enrichMetadata(images)
 	return &ImageListResult{
 		Images: images,
 		Total:  total,
@@ -132,7 +129,6 @@ func (s *ImageService) ListPublicPaginated(input ImageListInput) (*ImageListResu
 		return nil, err
 	}
 	images = s.attachThumbnailURLs(images)
-	s.enrichMetadata(images)
 	return &ImageListResult{
 		Images: images,
 		Total:  total,
@@ -146,9 +142,7 @@ func (s *ImageService) ListPublic() ([]models.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	images = s.attachThumbnailURLs(images)
-	s.enrichMetadata(images)
-	return images, nil
+	return s.attachThumbnailURLs(images), nil
 }
 
 func (s *ImageService) ListAll() ([]models.Image, error) {
@@ -156,9 +150,7 @@ func (s *ImageService) ListAll() ([]models.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	images = s.attachThumbnailURLs(images)
-	s.enrichMetadata(images)
-	return images, nil
+	return s.attachThumbnailURLs(images), nil
 }
 
 func (s *ImageService) FindByID(id uuid.UUID) (*models.Image, error) {
@@ -166,18 +158,14 @@ func (s *ImageService) FindByID(id uuid.UUID) (*models.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	image = s.attachThumbnailURL(image)
-	images := []models.Image{*image}
-	s.enrichMetadata(images)
-	*image = images[0]
-	return image, nil
+	return s.attachThumbnailURL(image), nil
 }
 
 func (s *ImageService) FindByIDs(ids []uuid.UUID) ([]models.Image, error) {
 	return s.repo.FindByIDs(ids)
 }
 
-func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, description *string, isPublic bool, metadata json.RawMessage, registryRef *string, status string) (*models.Image, error) {
+func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, description *string, isPublic bool, metadata map[string]string, registryRef *string, status string) (*models.Image, error) {
 	img := &models.Image{
 		ID:          uuid.New(),
 		Name:        name,
@@ -187,7 +175,7 @@ func (s *ImageService) createImage(userID *uuid.UUID, name, tag string, title, d
 		IsPublic:    isPublic,
 		Status:      status,
 		OwnerID:     userID,
-		Metadata:    guardJSON(metadata, []byte("[]")),
+		Metadata:    registry.ValuesToJSONMap(metadata),
 		RegistryRef: registryRef,
 	}
 
@@ -204,7 +192,7 @@ func (s *ImageService) CreateForUser(
 	name, tag string,
 	title, description *string,
 	isPublic bool,
-	metadata json.RawMessage,
+	metadata map[string]string,
 	registryRef *string,
 ) (*models.Image, error) {
 	img, err := s.createImage(userID, name, tag, title, description, isPublic, metadata, registryRef, models.ImageStatusPulling)
@@ -218,12 +206,10 @@ func (s *ImageService) CreateForUser(
 		if err := s.repo.UpdateStatus(img.ID, models.ImageStatusReady, nil); err != nil {
 			slog.Error("failed to mark image as ready", "component", "image", "image_id", img.ID.String(), "error", err.Error())
 		}
-		s.enrichMetadata([]models.Image{*img})
 		return img, nil
 	}
 
 	s.startPull(img.ID, fullName)
-	s.enrichMetadata([]models.Image{*img})
 	return img, nil
 }
 
@@ -290,7 +276,7 @@ func (s *ImageService) WatchPullProgress(imageID string) (<-chan docker.PullProg
 	return s.tracker.Watch(imageID)
 }
 
-func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic bool, metadata json.RawMessage) (*models.Image, error) {
+func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic bool, metadata map[string]string) (*models.Image, error) {
 	image, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -300,17 +286,13 @@ func (s *ImageService) Update(id uuid.UUID, title, description *string, isPublic
 	image.Description = description
 	image.IsPublic = isPublic
 	if metadata != nil {
-		image.Metadata = datatypes.JSON(metadata)
+		image.Metadata = registry.ValuesToJSONMap(metadata)
 	}
 	if err := s.repo.Update(image); err != nil {
 		return nil, err
 	}
 
-	image = s.attachThumbnailURL(image)
-	images := []models.Image{*image}
-	s.enrichMetadata(images)
-	*image = images[0]
-	return image, nil
+	return s.attachThumbnailURL(image), nil
 }
 
 func (s *ImageService) SaveThumbnail(id uuid.UUID, file multipart.File, originalFilename, contentType string) (*models.Image, error) {
@@ -346,9 +328,7 @@ func (s *ImageService) SaveThumbnail(id uuid.UUID, file multipart.File, original
 		return nil, err
 	}
 
-	image = s.attachThumbnailURL(image)
-	s.enrichMetadata([]models.Image{*image})
-	return image, nil
+	return s.attachThumbnailURL(image), nil
 }
 
 func (s *ImageService) DeleteThumbnail(id uuid.UUID) (*models.Image, error) {
@@ -394,7 +374,7 @@ func (s *ImageService) CreateForCommit(
 	name, tag string,
 	title, description *string,
 	isPublic bool,
-	metadata json.RawMessage,
+	metadata map[string]string,
 	registryRef *string,
 ) (*models.Image, error) {
 	return s.createImage(userID, name, tag, title, description, isPublic, metadata, registryRef, models.ImageStatusCommitting)
@@ -470,13 +450,6 @@ func (s *ImageService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.repo.Delete(id)
-}
-
-func guardJSON(data []byte, fallback []byte) datatypes.JSON {
-	if data == nil || string(data) == "null" {
-		return datatypes.JSON(fallback)
-	}
-	return datatypes.JSON(data)
 }
 
 func (s *ImageService) attachThumbnailURLs(images []models.Image) []models.Image {
@@ -573,19 +546,27 @@ func extensionForContentType(contentType string) string {
 	}
 }
 
-func (s *ImageService) enrichMetadata(images []models.Image) {
+func (s *ImageService) EnrichMetadata(images []models.Image) map[uuid.UUID]*registry.MetadataSchema {
+	out := make(map[uuid.UUID]*registry.MetadataSchema, len(images))
 	if s.resolver == nil {
-		return
+		return out
 	}
 	for i := range images {
-		entry := s.resolver.ResolveEntry(images[i].RegistryName())
-		if entry == nil {
+		img := &images[i]
+		schema, err := s.resolver.RenderMetadata(
+			img.RegistryName(),
+			registry.ValuesFromJSONMap(img.Metadata),
+			registry.TemplateContext{},
+		)
+		if err != nil {
+			slog.Error("metadata render failed",
+				"component", "registry",
+				"image_id", img.ID,
+				"registry_match", img.RegistryName(),
+				"error", err)
 			continue
 		}
-		reg := make([]registry.MetadataItem, len(entry.Metadata))
-		copy(reg, entry.Metadata)
-		merged := mergeRegistryAndDB(reg, images[i].Metadata)
-		data, _ := json.Marshal(merged)
-		images[i].Metadata = datatypes.JSON(data)
+		out[img.ID] = schema
 	}
+	return out
 }

@@ -74,9 +74,12 @@ func renderEntry(entry ImageEntry, ctx TemplateContext) (*ResolvedImage, error) 
 	if ctx.Meta == nil {
 		ctx.Meta = make(map[string]string)
 	}
-	for _, m := range entry.Metadata {
-		if _, ok := ctx.Meta[m.Key]; !ok && m.Value != "" {
-			ctx.Meta[m.Key] = m.Value
+	for _, it := range entry.Metadata.Items {
+		if it.Type != "field" || it.Field == nil || it.Field.Default == "" {
+			continue
+		}
+		if _, ok := ctx.Meta[it.Key]; !ok {
+			ctx.Meta[it.Key] = it.Field.Default
 		}
 	}
 
@@ -172,6 +175,94 @@ func renderExecCommand(cmd ExecCommand, ctx TemplateContext) (ExecCommand, error
 		rendered.Command = append(rendered.Command, r)
 	}
 	return rendered, nil
+}
+
+func (r *Resolver) RenderMetadata(imageName string, values map[string]string, ctx TemplateContext) (*MetadataSchema, error) {
+	entry := r.ResolveEntry(imageName)
+	if entry == nil {
+		return &MetadataSchema{}, nil
+	}
+	return RenderMetadata(&entry.Metadata, values, ctx)
+}
+
+func RenderMetadata(schema *MetadataSchema, values map[string]string, ctx TemplateContext) (*MetadataSchema, error) {
+	if schema == nil {
+		return &MetadataSchema{}, nil
+	}
+	out := &MetadataSchema{
+		Groups: append([]MetadataGroup(nil), schema.Groups...),
+		Items:  make([]MetadataItem, len(schema.Items)),
+	}
+
+	meta := make(map[string]string)
+	for _, it := range schema.Items {
+		if it.Type == "field" && it.Field != nil && it.Field.Default != "" {
+			meta[it.Key] = it.Field.Default
+		}
+	}
+	defined := make(map[string]bool, len(schema.Items))
+	for _, it := range schema.Items {
+		if it.Type == "field" {
+			defined[it.Key] = true
+		}
+	}
+	for k, v := range values {
+		if defined[k] {
+			meta[k] = v
+		}
+	}
+	ctx.Meta = meta
+
+	for i, it := range schema.Items {
+		clone := it
+		switch it.Type {
+		case "field":
+			if it.Field != nil {
+				f := *it.Field
+				if v, ok := values[it.Key]; ok {
+					f.Value = v
+				} else {
+					f.Value = it.Field.Default
+				}
+				clone.Field = &f
+			}
+		case "action":
+			if it.Action != nil {
+				a := *it.Action
+				if it.Action.urlTmpl != nil {
+					rendered, err := execTemplate(it.Action.urlTmpl, ctx)
+					if err != nil {
+						return nil, fmt.Errorf("render action.url for %q: %w", it.Key, err)
+					}
+					a.URL = rendered
+				}
+				clone.Action = &a
+			}
+		case "display":
+			if it.Display != nil {
+				d := *it.Display
+				if it.Display.valueTmpl != nil {
+					rendered, err := execTemplate(it.Display.valueTmpl, ctx)
+					if err != nil {
+						return nil, fmt.Errorf("render display.value for %q: %w", it.Key, err)
+					}
+					d.Value = rendered
+				}
+				clone.Display = &d
+			}
+		}
+		out.Items[i] = clone
+	}
+
+	return out, nil
+}
+
+func execTemplate(t *template.Template, ctx TemplateContext) (string, error) {
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, ctx); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 func renderTemplate(text string, ctx TemplateContext) (string, error) {
