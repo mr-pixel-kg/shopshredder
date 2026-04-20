@@ -85,7 +85,7 @@ images:
       - label: "Wait for Shopware"
         command: ["curl", "-fsS", "http://127.0.0.1/api/_info/health-check"]
         timeout: 10s
-        retries: 20
+        retries: 120
         retry_delay: 2s
       - label: "Write config"
         command: ["sh", "-c", "cd /var/www/html && mkdir -p config/packages && echo 'framework: { trusted_proxies: \"127.0.0.1,REMOTE_ADDR\" }' > config/packages/framework.yaml && printf 'APP_ENV=%s\\nAPP_URL=%s\\n' '{{.Meta.app_env}}' '{{.URL}}' > .env.local"]
